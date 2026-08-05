@@ -32,7 +32,26 @@ s64 GetMaxPermissibleResidentMapCount() {
 
 HeapTracker::HeapTracker(Common::HostMemory& buffer)
     : m_buffer(buffer), m_max_resident_map_count(GetMaxPermissibleResidentMapCount()) {}
-HeapTracker::~HeapTracker() = default;
+HeapTracker::~HeapTracker() {
+    std::scoped_lock lk{m_lock};
+    while (!m_mappings.empty()) {
+        auto it = m_mappings.begin();
+        auto* const item = std::addressof(*it);
+
+        if (item->is_resident) {
+            ASSERT(--m_resident_map_count >= 0);
+            m_resident_mappings.erase(m_resident_mappings.iterator_to(*item));
+        }
+
+        ASSERT(--m_map_count >= 0);
+        m_mappings.erase(it);
+        delete item;
+    }
+
+    ASSERT(m_map_count == 0);
+    ASSERT(m_resident_map_count == 0);
+    ASSERT(m_resident_mappings.empty());
+}
 
 void HeapTracker::Map(size_t virtual_offset, size_t host_offset, size_t length,
                       MemoryPermission perm, bool is_separate_heap) {
