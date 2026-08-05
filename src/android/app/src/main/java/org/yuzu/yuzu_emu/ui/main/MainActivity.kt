@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
+import android.provider.DocumentsContract
 import android.view.View
 import android.view.ViewGroup.MarginLayoutParams
 import android.view.WindowManager
@@ -56,6 +57,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.documentfile.provider.DocumentFile
+import androidx.lifecycle.lifecycleScope
+import org.yuzu.yuzu_emu.BuildConfig
+import org.yuzu.yuzu_emu.features.migration.EdenImportCategory
+import org.yuzu.yuzu_emu.features.migration.EdenImportManager
 
 class MainActivity : AppCompatActivity(), ThemeProvider {
     private lateinit var binding: ActivityMainBinding
@@ -70,6 +75,60 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
 
     private val CHECKED_DECRYPTION = "CheckedDecryption"
     private var checkedDecryption = false
+    private var pendingEdenCategories = EdenImportCategory.entries.toSet()
+
+    private val edenImportTreeLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri == null) return@registerForActivityResult
+            if (uri.authority != "${BuildConfig.EDEN_PACKAGE}.user") {
+                MaterialAlertDialogBuilder(this)
+                    .setTitle(R.string.eden_import_failed)
+                    .setMessage(R.string.eden_import_wrong_source)
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show()
+                return@registerForActivityResult
+            }
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+            val progress = MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.eden_import_running)
+                .setMessage(R.string.eden_import_running_description)
+                .setCancelable(false)
+                .show()
+            lifecycleScope.launch {
+                val result = runCatching {
+                    withContext(Dispatchers.IO) {
+                        EdenImportManager(applicationContext).import(uri, pendingEdenCategories)
+                    }
+                }
+                progress.dismiss()
+                result.onSuccess { report ->
+                    PreferenceManager.getDefaultSharedPreferences(applicationContext)
+                        .edit { putBoolean(PREF_EDEN_IMPORT_COMPLETE, true) }
+                    MaterialAlertDialogBuilder(this@MainActivity)
+                        .setTitle(R.string.eden_import_complete)
+                        .setMessage(
+                            getString(
+                                R.string.eden_import_report,
+                                report.importedFiles,
+                                report.importedBytes,
+                                report.backups,
+                                report.skippedCategories.size
+                            )
+                        )
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                }.onFailure { error ->
+                    MaterialAlertDialogBuilder(this@MainActivity)
+                        .setTitle(R.string.eden_import_failed)
+                        .setMessage(error.message ?: getString(R.string.error))
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                }
+            }
+        }
 
     override fun attachBaseContext(base: Context) {
         super.attachBaseContext(YuzuApplication.applyLanguage(base))
@@ -168,7 +227,56 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
         }
         setInsets()
         applyFullscreenPreference()
+        maybeOfferEdenImport()
     }
+
+    private fun maybeOfferEdenImport() {
+        if (!BuildConfig.IS_OPENSW || !isEdenInstalled()) return
+        val preferences = PreferenceManager.getDefaultSharedPreferences(applicationContext)
+        if (preferences.getBoolean(PREF_EDEN_IMPORT_COMPLETE, false) ||
+            preferences.getBoolean(PREF_EDEN_IMPORT_NEVER, false)
+        ) return
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.eden_detected)
+            .setMessage(R.string.eden_detected_description)
+            .setPositiveButton(R.string.eden_import_action) { _, _ -> showEdenImportCategories() }
+            .setNeutralButton(R.string.later, null)
+            .setNegativeButton(R.string.never) { _, _ ->
+                preferences.edit { putBoolean(PREF_EDEN_IMPORT_NEVER, true) }
+            }
+            .show()
+    }
+
+    private fun showEdenImportCategories() {
+        val categories = EdenImportCategory.entries
+        val selected = BooleanArray(categories.size) { true }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.eden_import_categories)
+            .setMultiChoiceItems(
+                categories.map { getString(it.label) }.toTypedArray(),
+                selected
+            ) { _, index, checked -> selected[index] = checked }
+            .setPositiveButton(R.string.eden_choose_folder) { _, _ ->
+                pendingEdenCategories = categories.filterIndexed { index, _ -> selected[index] }.toSet()
+                val root = DocumentsContract.buildRootUri("${BuildConfig.EDEN_PACKAGE}.user", "root")
+                edenImportTreeLauncher.launch(root)
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun isEdenInstalled(): Boolean = runCatching {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getPackageInfo(
+                BuildConfig.EDEN_PACKAGE,
+                android.content.pm.PackageManager.PackageInfoFlags.of(0)
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getPackageInfo(BuildConfig.EDEN_PACKAGE, 0)
+        }
+    }.isSuccess
 
     private fun checkForUpdates() {
         Thread {
@@ -530,4 +638,9 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
                 result = result
             )
         }
+
+    private companion object {
+        const val PREF_EDEN_IMPORT_COMPLETE = "opensw_eden_import_complete"
+        const val PREF_EDEN_IMPORT_NEVER = "opensw_eden_import_never"
+    }
 }
