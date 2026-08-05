@@ -23,8 +23,14 @@ adb pull /data/misc/perfetto-traces/opensw.perfetto-trace "$output_dir/opensw.pe
 
 pid=$(adb shell pidof com.remipelloux.opensw | tr -d '\r')
 if [ -n "$pid" ]; then
-    adb shell simpleperf record -p "$pid" --duration 30 -o /data/local/tmp/opensw.simpleperf.data
-    adb pull /data/local/tmp/opensw.simpleperf.data "$output_dir/opensw.simpleperf.data"
+    if adb shell simpleperf record -p "$pid" --duration 30 \
+        -o /data/local/tmp/opensw.simpleperf.data \
+        >"$output_dir/simpleperf-command.txt" 2>&1; then
+        adb pull /data/local/tmp/opensw.simpleperf.data "$output_dir/opensw.simpleperf.data"
+    else
+        echo "Simpleperf is unavailable on this device; Perfetto data remains valid." \
+            >>"$output_dir/simpleperf-command.txt"
+    fi
 fi
 
 adb shell dumpsys thermalservice > "$output_dir/thermal-after.txt"
