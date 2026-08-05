@@ -803,6 +803,10 @@ void Memory::Reset() {
     impl = std::make_unique<Impl>(system);
 }
 
+void Memory::Finalize() {
+    impl.reset();
+}
+
 void Memory::SetCurrentPageTable(Kernel::KProcess& process) {
     impl->SetCurrentPageTable(process);
 }

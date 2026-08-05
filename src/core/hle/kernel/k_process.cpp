@@ -180,6 +180,7 @@ void KProcess::Finalize(KernelCore& kernel) {
         interface.reset();
     }
     m_exclusive_monitor.reset();
+    m_memory.Finalize();
 
     // Perform inherited finalization.
     KSynchronizationObject::Finalize(kernel);
