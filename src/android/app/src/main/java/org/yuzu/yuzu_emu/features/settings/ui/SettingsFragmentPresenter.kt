@@ -6,7 +6,6 @@ package org.yuzu.yuzu_emu.features.settings.ui
 import android.annotation.SuppressLint
 import android.os.Build
 import android.widget.Toast
-import androidx.preference.PreferenceManager
 import org.yuzu.yuzu_emu.BuildConfig
 import org.yuzu.yuzu_emu.NativeLibrary
 import org.yuzu.yuzu_emu.R
@@ -30,6 +29,7 @@ import org.yuzu.yuzu_emu.features.settings.model.StringSetting
 import org.yuzu.yuzu_emu.features.settings.model.view.*
 import org.yuzu.yuzu_emu.utils.InputHandler
 import org.yuzu.yuzu_emu.utils.NativeConfig
+import org.yuzu.yuzu_emu.utils.OpenSwPerformanceModeManager
 import org.yuzu.yuzu_emu.utils.DirectoryInitialization
 import org.yuzu.yuzu_emu.utils.FullscreenHelper
 import androidx.core.content.edit
@@ -1096,15 +1096,14 @@ class SettingsFragmentPresenter(
             add(HeaderSetting(R.string.app_settings))
             if (BuildConfig.IS_OPENSW) {
                 val performanceMode: AbstractIntSetting = object : AbstractIntSetting {
-                    private val preferences = PreferenceManager.getDefaultSharedPreferences(context)
                     override fun getInt(needsGlobal: Boolean): Int =
-                        preferences.getInt(KEY_OPENSW_PERFORMANCE_MODE, 0)
+                        OpenSwPerformanceModeManager.getMode(context)
 
                     override fun setInt(value: Int) {
-                        preferences.edit().putInt(KEY_OPENSW_PERFORMANCE_MODE, value).apply()
+                        OpenSwPerformanceModeManager.apply(context, value)
                     }
 
-                    override val key = KEY_OPENSW_PERFORMANCE_MODE
+                    override val key = OpenSwPerformanceModeManager.KEY_MODE
                     override val isRuntimeModifiable = false
                     override val defaultValue = 0
                     override fun getValueAsString(needsGlobal: Boolean): String =
@@ -1371,9 +1370,5 @@ class SettingsFragmentPresenter(
                 )
             )
         }
-    }
-
-    private companion object {
-        const val KEY_OPENSW_PERFORMANCE_MODE = "opensw_performance_mode"
     }
 }
