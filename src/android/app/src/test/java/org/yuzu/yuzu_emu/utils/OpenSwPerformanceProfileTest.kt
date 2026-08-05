@@ -12,14 +12,14 @@ import org.yuzu.yuzu_emu.features.settings.model.IntSetting
 
 class OpenSwPerformanceProfileTest {
     @Test
-    fun thorModeAppliesOnlyValidatedOverrides() {
+    fun balancedModeAppliesOnlyValidatedOverrides() {
         val store = FakeStore()
         val backend = FakeBackend()
         val profile = OpenSwPerformanceProfile(store, backend)
 
-        profile.apply(OpenSwPerformanceProfile.MODE_THOR)
+        profile.apply(OpenSwPerformanceProfile.MODE_THOR_BALANCED)
 
-        assertEquals(OpenSwPerformanceProfile.MODE_THOR, profile.mode())
+        assertEquals(OpenSwPerformanceProfile.MODE_THOR_BALANCED, profile.mode())
         assertTrue(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNC_PRESENTATION.key))
         assertTrue(backend.booleans.getValue(BooleanSetting.USE_OPTIMIZED_VERTEX_BUFFERS.key))
         assertFalse(
@@ -29,7 +29,24 @@ class OpenSwPerformanceProfileTest {
     }
 
     @Test
-    fun standardRestoresValuesCapturedBeforeExperimentalMode() {
+    fun stableAndMaxModesUseDistinctWorkerCounts() {
+        val store = FakeStore()
+        val backend = FakeBackend()
+        val profile = OpenSwPerformanceProfile(store, backend)
+
+        profile.apply(OpenSwPerformanceProfile.MODE_THOR_60_STABLE)
+        assertTrue(
+            backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_GPU_EMULATION.key)
+        )
+        assertTrue(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS.key))
+        assertEquals(6, backend.ints.getValue(IntSetting.ANDROID_PIPELINE_WORKERS.key))
+
+        profile.apply(OpenSwPerformanceProfile.MODE_THOR_MAX)
+        assertEquals(8, backend.ints.getValue(IntSetting.ANDROID_PIPELINE_WORKERS.key))
+    }
+
+    @Test
+    fun standardRestoresValuesCapturedBeforeThorMode() {
         val store = FakeStore()
         val backend = FakeBackend().apply {
             booleans[BooleanSetting.RENDERER_ASYNC_PRESENTATION.key] = false
@@ -39,31 +56,34 @@ class OpenSwPerformanceProfileTest {
             ints[IntSetting.ANDROID_PIPELINE_WORKERS.key] = 3
         }
         val profile = OpenSwPerformanceProfile(store, backend)
+        backend.setGlobal(BooleanSetting.RENDERER_ASYNC_PRESENTATION.key, false)
 
-        profile.apply(OpenSwPerformanceProfile.MODE_EXPERIMENTAL)
-        assertTrue(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_GPU_EMULATION.key))
-        assertEquals(6, backend.ints.getValue(IntSetting.ANDROID_PIPELINE_WORKERS.key))
-
+        profile.apply(OpenSwPerformanceProfile.MODE_THOR_MAX)
         profile.apply(OpenSwPerformanceProfile.MODE_STANDARD)
 
         assertFalse(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNC_PRESENTATION.key))
         assertFalse(backend.booleans.getValue(BooleanSetting.USE_OPTIMIZED_VERTEX_BUFFERS.key))
-        assertFalse(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_GPU_EMULATION.key))
+        assertFalse(
+            backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_GPU_EMULATION.key)
+        )
         assertTrue(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS.key))
         assertEquals(3, backend.ints.getValue(IntSetting.ANDROID_PIPELINE_WORKERS.key))
+        assertFalse(backend.usingGlobal(BooleanSetting.RENDERER_ASYNC_PRESENTATION.key))
         assertEquals(OpenSwPerformanceProfile.MODE_STANDARD, profile.mode())
     }
 
     @Test
-    fun switchingFromExperimentalToThorDropsExperimentalOverrides() {
+    fun switchingFromStableToBalancedDropsAggressiveOverrides() {
         val store = FakeStore()
         val backend = FakeBackend()
         val profile = OpenSwPerformanceProfile(store, backend)
 
-        profile.apply(OpenSwPerformanceProfile.MODE_EXPERIMENTAL)
-        profile.apply(OpenSwPerformanceProfile.MODE_THOR)
+        profile.apply(OpenSwPerformanceProfile.MODE_THOR_60_STABLE)
+        profile.apply(OpenSwPerformanceProfile.MODE_THOR_BALANCED)
 
-        assertFalse(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_GPU_EMULATION.key))
+        assertFalse(
+            backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_GPU_EMULATION.key)
+        )
         assertFalse(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS.key))
         assertEquals(4, backend.ints.getValue(IntSetting.ANDROID_PIPELINE_WORKERS.key))
     }
@@ -92,9 +112,14 @@ class OpenSwPerformanceProfileTest {
             BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS.key to false
         )
         val ints = mutableMapOf(IntSetting.ANDROID_PIPELINE_WORKERS.key to 4)
+        private val global = mutableMapOf<String, Boolean>().withDefault { true }
 
-        override fun getBoolean(key: String) = booleans.getValue(key)
-        override fun getInt(key: String) = ints.getValue(key)
+        override fun getBoolean(key: String, needsGlobal: Boolean) = booleans.getValue(key)
+        override fun getInt(key: String, needsGlobal: Boolean) = ints.getValue(key)
+        override fun usingGlobal(key: String) = global.getValue(key)
+        override fun setGlobal(key: String, global: Boolean) {
+            this.global[key] = global
+        }
         override fun setBoolean(key: String, value: Boolean) {
             booleans[key] = value
         }

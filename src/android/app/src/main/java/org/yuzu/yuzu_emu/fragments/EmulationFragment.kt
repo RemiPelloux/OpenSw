@@ -7,18 +7,14 @@
 package org.yuzu.yuzu_emu.fragments
 
 import android.annotation.SuppressLint
-import android.app.ActivityManager
 import android.app.AlertDialog
 import android.content.Context
 import android.content.DialogInterface
 import android.content.Intent
-import android.content.IntentFilter
 import android.content.pm.ActivityInfo
 import android.content.res.Configuration
 import android.graphics.Bitmap
 import android.net.Uri
-import android.os.BatteryManager
-import android.os.BatteryManager.*
 import android.os.Build
 import android.os.Bundle
 import android.os.Handler
@@ -65,6 +61,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.yuzu.yuzu_emu.BuildConfig
 import org.yuzu.yuzu_emu.HomeNavigationDirections
 import org.yuzu.yuzu_emu.NativeLibrary
 import org.yuzu.yuzu_emu.R
@@ -73,6 +70,10 @@ import org.yuzu.yuzu_emu.databinding.DialogOverlayAdjustBinding
 import org.yuzu.yuzu_emu.databinding.FragmentEmulationBinding
 import org.yuzu.yuzu_emu.dialogs.QuickSettings
 import org.yuzu.yuzu_emu.features.cheats.CheatPanelController
+import org.yuzu.yuzu_emu.features.cockpit.OpenSwCockpitController
+import org.yuzu.yuzu_emu.features.performance.PerformanceMetricRequirements
+import org.yuzu.yuzu_emu.features.performance.PerformanceSampler
+import org.yuzu.yuzu_emu.features.performance.PerformancePanelController
 import org.yuzu.yuzu_emu.features.input.NativeInput
 import org.yuzu.yuzu_emu.features.settings.model.BooleanSetting
 import org.yuzu.yuzu_emu.features.settings.model.IntSetting
@@ -95,12 +96,12 @@ import org.yuzu.yuzu_emu.utils.InputHandler
 import org.yuzu.yuzu_emu.utils.Log
 import org.yuzu.yuzu_emu.utils.NativeConfig
 import org.yuzu.yuzu_emu.utils.NativeFreedrenoConfig
+import org.yuzu.yuzu_emu.utils.OpenSwPerformanceModeManager
 import org.yuzu.yuzu_emu.utils.ViewUtils
 import org.yuzu.yuzu_emu.utils.ViewUtils.setVisible
 import org.yuzu.yuzu_emu.utils.collect
 import org.yuzu.yuzu_emu.utils.CustomSettingsHandler
 import java.io.ByteArrayOutputStream
-import java.io.File
 import java.nio.ByteBuffer
 import kotlin.coroutines.resume
 import kotlin.coroutines.suspendCoroutine
@@ -156,6 +157,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
     private var isQuickSettingsMenuOpen = false
     private val quickSettings = QuickSettings(this)
     private lateinit var cheatPanel: CheatPanelController
+    private lateinit var performancePanel: PerformancePanelController
+    private lateinit var cockpitController: OpenSwCockpitController
+    private val hudSamplerConsumer = Any()
 
     private val loadAmiiboLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -360,10 +364,28 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
             Log.warning("[EmulationFragment] Failed to load Freedreno config: ${e.message}")
         }
 
-        emulationState = EmulationState(game!!.path) {
-            return@EmulationState driverViewModel.isInteractionAllowed.value &&
-                !isStoppingForRomSwap
-        }
+        val titleId = game!!.programIdHex
+        val applicationContext = requireContext().applicationContext
+        emulationState = EmulationState(
+            gamePath = game!!.path,
+            emulationCanStart = {
+                driverViewModel.isInteractionAllowed.value && !isStoppingForRomSwap
+            },
+            onSessionStarting = {
+                if (BuildConfig.IS_OPENSW) {
+                    val mode = OpenSwPerformanceModeManager.applyForSession(
+                        applicationContext,
+                        titleId
+                    )
+                    Log.info("[OpenSw] Session performance mode: ${mode.name} for $titleId")
+                }
+            },
+            onSessionStopped = {
+                if (BuildConfig.IS_OPENSW) {
+                    OpenSwPerformanceModeManager.restoreAfterSession(titleId)
+                }
+            }
+        )
     }
 
     /**
@@ -680,6 +702,35 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
             cheatsPanel = binding.quickSettingsSheet.findViewById(R.id.cheats_content),
             gameTitle = game?.title.orEmpty()
         )
+        performancePanel = PerformancePanelController(
+            fragment = this,
+            panel = binding.quickSettingsSheet.findViewById(R.id.performance_content),
+            gameTitle = game?.title.orEmpty(),
+            titleId = game?.programIdHex.orEmpty()
+        )
+        if (BuildConfig.IS_OPENSW) {
+            cockpitController = OpenSwCockpitController(
+                fragment = this,
+                gameTitle = game?.title.orEmpty(),
+                titleId = game?.programIdHex.orEmpty(),
+                isPaused = { this::emulationState.isInitialized && emulationState.isPaused },
+                onPauseToggle = {
+                    if (this::emulationState.isInitialized && emulationState.isPaused) {
+                        resumeEmulationFromUi()
+                    } else if (this::emulationState.isInitialized) {
+                        pauseEmulationAndCaptureFrame()
+                    }
+                },
+                onOverlayToggle = {
+                    val visible = !BooleanSetting.SHOW_INPUT_OVERLAY.getBoolean()
+                    toggleOverlay(visible)
+                    updateQuickOverlayMenuEntry(visible)
+                    NativeConfig.saveGlobalConfig()
+                },
+                onQuickSettings = ::openQuickSettingsMenu
+            )
+            cockpitController.start()
+        }
 
         gpuModel = GpuDriverHelper.hookLibPath?.let { GpuDriverHelper.getGpuModel(hookLibPath = it).toString() } ?: "Unknown"
         fwVersion = NativeLibrary.firmwareVersion()
@@ -805,6 +856,11 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                     true
                 }
 
+                R.id.menu_performance -> {
+                    openPerformanceMenu()
+                    true
+                }
+
                 R.id.menu_settings_per_game -> {
                     val action = HomeNavigationDirections.actionGlobalSettingsActivity(
                         args.game,
@@ -897,6 +953,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
             override fun onDrawerClosed(drawerView: View) {
                 if (drawerView == binding.quickSettingsSheet) {
+                    if (this@EmulationFragment::performancePanel.isInitialized) {
+                        performancePanel.hide()
+                    }
                     isQuickSettingsMenuOpen = false
                     if (shouldUseCustom) {
                         NativeConfig.unloadPerGameConfig()
@@ -963,6 +1022,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
             if (it) {
                 if (this::cheatPanel.isInitialized) {
                     cheatPanel.onEmulationStarted()
+                }
+                if (this::cockpitController.isInitialized) {
+                    cockpitController.onEmulationStarted()
                 }
                 binding.drawerLayout.setDrawerLockMode(IntSetting.LOCK_DRAWER.getInt())
                 ViewUtils.showView(binding.surfaceInputOverlay)
@@ -1230,13 +1292,22 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
     }
 
     private fun openQuickSettingsMenu() {
+        performancePanel.hide()
         cheatPanel.showQuickSettings()
         binding.drawerLayout.closeDrawer(binding.inGameMenu)
         binding.drawerLayout.openDrawer(binding.quickSettingsSheet)
     }
 
     private fun openCheatMenu() {
+        performancePanel.hide()
         cheatPanel.showCheats()
+        binding.drawerLayout.closeDrawer(binding.inGameMenu)
+        binding.drawerLayout.openDrawer(binding.quickSettingsSheet)
+    }
+
+    private fun openPerformanceMenu() {
+        cheatPanel.hide()
+        performancePanel.show()
         binding.drawerLayout.closeDrawer(binding.inGameMenu)
         binding.drawerLayout.openDrawer(binding.quickSettingsSheet)
     }
@@ -1449,6 +1520,8 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
     }
 
     override fun onDestroyView() {
+        if (this::cockpitController.isInitialized) cockpitController.stop()
+        PerformanceSampler.stopAll()
         super.onDestroyView()
         amiiboLoadJob?.cancel()
         amiiboLoadJob = null
@@ -1498,7 +1571,6 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
         }
     }
 
-    @SuppressLint("DefaultLocale")
     private fun updateShowStatsOverlay() {
         val showPerfOverlay = BooleanSetting.SHOW_PERFORMANCE_OVERLAY.getBoolean()
         binding.showStatsOverlayText.apply {
@@ -1510,106 +1582,106 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
             )
         }
         binding.showStatsOverlayText.setVisible(showPerfOverlay)
+        perfStatsRunnable?.let { perfStatsUpdateHandler.removeCallbacks(it) }
         if (showPerfOverlay) {
-            //val SYSTEM_FPS = 0
-            val FPS = 1
-            val FRAMETIME = 2
-            //val SPEED = 3
+            val needsGlobal = NativeConfig.isPerGameConfigLoaded()
+            val showFps = BooleanSetting.SHOW_FPS.getBoolean(needsGlobal)
+            val showFrameTime = BooleanSetting.SHOW_FRAMETIME.getBoolean(needsGlobal)
+            val showAppRam = BooleanSetting.SHOW_APP_RAM_USAGE.getBoolean(needsGlobal)
+            val showSystemRam = BooleanSetting.SHOW_SYSTEM_RAM_USAGE.getBoolean(needsGlobal)
+            val showBatteryTemperature =
+                BooleanSetting.SHOW_BAT_TEMPERATURE.getBoolean(needsGlobal)
+            val showPower = BooleanSetting.SHOW_POWER_INFO.getBoolean(needsGlobal)
+            val showShaders = BooleanSetting.SHOW_SHADERS_BUILDING.getBoolean(needsGlobal)
+            val temperatureUnit = IntSetting.BAT_TEMPERATURE_UNIT.getInt(needsGlobal)
+            val showBackground = BooleanSetting.PERF_OVERLAY_BACKGROUND.getBoolean(needsGlobal)
+            PerformanceSampler.acquire(
+                requireContext(),
+                hudSamplerConsumer,
+                PerformanceMetricRequirements(
+                    frameStats = showFps || showFrameTime,
+                    appRss = showAppRam,
+                    systemRam = showSystemRam,
+                    shaders = showShaders,
+                    battery = showBatteryTemperature || showPower
+                )
+            )
             val sb = StringBuilder()
             perfStatsUpdater = {
                 if (emulationViewModel.emulationStarted.value &&
                     !emulationViewModel.isEmulationStopping.value
                 ) {
-                    val needsGlobal = NativeConfig.isPerGameConfigLoaded()
                     sb.setLength(0)
+                    val snapshot = PerformanceSampler.snapshots.value
 
-                    val perfStats = NativeLibrary.getPerfStats()
-                    val actualFps = perfStats[FPS]
-
-                    if (BooleanSetting.SHOW_FPS.getBoolean(needsGlobal)) {
-                        var fpsText = String.format("FPS: %.1f", actualFps)
-                        sb.append(fpsText)
+                    if (showFps) {
+                        sb.append(String.format(java.util.Locale.ROOT, "FPS: %.1f", snapshot.fps))
                     }
 
-                    if (BooleanSetting.SHOW_FRAMETIME.getBoolean(needsGlobal)) {
+                    if (showFrameTime) {
                         if (sb.isNotEmpty()) sb.append(" | ")
                         sb.append(
                             String.format(
+                                java.util.Locale.ROOT,
                                 "FT: %.1fms",
-                                (perfStats[FRAMETIME] * 1000.0f).toFloat()
+                                snapshot.frameTimeMs
                             )
                         )
                     }
 
-                    if (BooleanSetting.SHOW_APP_RAM_USAGE.getBoolean(needsGlobal)) {
+                    if (showAppRam) {
                         if (sb.isNotEmpty()) sb.append(" | ")
-                        val appRamUsage =
-                            File("/proc/self/statm").readLines()[0].split(' ')[1].toLong() * 4096 / 1000000
-                        sb.append(getString(R.string.process_ram, appRamUsage))
+                        sb.append(getString(R.string.process_ram, snapshot.appRssMb))
                     }
 
-                    if (BooleanSetting.SHOW_SYSTEM_RAM_USAGE.getBoolean(needsGlobal)) {
+                    if (showSystemRam) {
                         if (sb.isNotEmpty()) sb.append(" | ")
-                        context?.let { ctx ->
-                            val activityManager =
-                                ctx.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-                            val memInfo = ActivityManager.MemoryInfo()
-                            activityManager.getMemoryInfo(memInfo)
-                            val usedRamMB = (memInfo.totalMem - memInfo.availMem) / 1048576L
-                            sb.append("RAM: $usedRamMB MB")
-                        }
+                        sb.append("RAM: ${snapshot.systemRamMb} MB")
                     }
 
-                    if (BooleanSetting.SHOW_BAT_TEMPERATURE.getBoolean(needsGlobal)) {
+                    if (showBatteryTemperature) {
                         if (sb.isNotEmpty()) sb.append(" | ")
-
-                        val batteryTemp = getBatteryTemperature()
-                        when (IntSetting.BAT_TEMPERATURE_UNIT.getInt(needsGlobal)) {
-                            0 -> sb.append(String.format("%.1f°C", batteryTemp))
+                        when (temperatureUnit) {
+                            0 -> sb.append(
+                                String.format(
+                                    java.util.Locale.ROOT,
+                                    "%.1f°C",
+                                    snapshot.batteryTemperatureC
+                                )
+                            )
                             1 -> sb.append(
                                 String.format(
+                                    java.util.Locale.ROOT,
                                     "%.1f°F",
-                                    celsiusToFahrenheit(batteryTemp)
+                                    (snapshot.batteryTemperatureC * 9 / 5) + 32
                                 )
                             )
                         }
                     }
 
-                    if (BooleanSetting.SHOW_POWER_INFO.getBoolean(needsGlobal)) {
+                    if (showPower) {
                         if (sb.isNotEmpty()) sb.append(" | ")
-
-                        val battery: BatteryManager =
-                            requireContext().getSystemService(Context.BATTERY_SERVICE) as BatteryManager
-                        val batteryIntent = requireContext().registerReceiver(
-                            null,
-                            IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+                        sb.append(
+                            String.format(
+                                java.util.Locale.ROOT,
+                                "%.1fA (%d%%)",
+                                snapshot.batteryCurrentA,
+                                snapshot.batteryCapacity
+                            )
                         )
-
-                        val capacity = battery.getIntProperty(BATTERY_PROPERTY_CAPACITY)
-                        val nowUAmps = battery.getIntProperty(BATTERY_PROPERTY_CURRENT_NOW)
-
-                        sb.append(String.format("%.1fA (%d%%)", nowUAmps / 1000000.0, capacity))
-
-                        val status = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
-                        val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                                status == BatteryManager.BATTERY_STATUS_FULL
-
-                        if (isCharging) {
+                        if (snapshot.charging) {
                             sb.append(" ${getString(R.string.charging)}")
                         }
                     }
 
-                    val shadersBuilding = NativeLibrary.getShadersBuilding()
-
-                    if (BooleanSetting.SHOW_SHADERS_BUILDING.getBoolean(needsGlobal) && shadersBuilding != 0) {
+                    if (showShaders && snapshot.shadersBuilding != 0) {
                         if (sb.isNotEmpty()) sb.append(" | ")
-
                         val prefix = getString(R.string.shaders_prefix)
                         val suffix = getString(R.string.shaders_suffix)
-                        sb.append(String.format("$prefix %d $suffix", shadersBuilding))
+                        sb.append("$prefix ${snapshot.shadersBuilding} $suffix")
                     }
 
-                    if (BooleanSetting.PERF_OVERLAY_BACKGROUND.getBoolean(needsGlobal)) {
+                    if (showBackground) {
                         binding.showStatsOverlayText.setBackgroundResource(
                             R.color.yuzu_transparent_black
                         )
@@ -1624,7 +1696,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
             perfStatsRunnable = Runnable { perfStatsUpdater?.invoke() }
             perfStatsUpdateHandler.post(perfStatsRunnable!!)
         } else {
-            perfStatsRunnable?.let { perfStatsUpdateHandler.removeCallbacks(it) }
+            PerformanceSampler.release(hudSamplerConsumer)
         }
     }
 
@@ -1667,23 +1739,6 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 params.setMargins(0, 0, resources.getDimensionPixelSize(R.dimen.spacing_large), 0)
             }
         }
-    }
-
-    private fun getBatteryTemperature(): Float {
-        try {
-            val batteryIntent =
-                requireContext().registerReceiver(null, IntentFilter(Intent.ACTION_BATTERY_CHANGED))
-            // Temperature in tenths of a degree Celsius
-            val temperature = batteryIntent?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, 0) ?: 0
-            // Convert to degrees Celsius
-            return temperature / 10.0f
-        } catch (e: Exception) {
-            return 0.0f
-        }
-    }
-
-    private fun celsiusToFahrenheit(celsius: Float): Float {
-        return (celsius * 9 / 5) + 32
     }
 
     private fun updateSocOverlay() {
@@ -2250,7 +2305,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
     private class EmulationState(
         private val gamePath: String,
-        private val emulationCanStart: () -> Boolean
+        private val emulationCanStart: () -> Boolean,
+        private val onSessionStarting: () -> Unit,
+        private val onSessionStopped: () -> Unit
     ) {
         private var state: State
         private var surface: Surface? = null
@@ -2342,7 +2399,12 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
             emulationThread.join()
             emulationThread = Thread({
                 Log.debug("[EmulationFragment] Starting emulation thread.")
-                NativeLibrary.run(gamePath, programIndex, false)
+                onSessionStarting()
+                try {
+                    NativeLibrary.run(gamePath, programIndex, false)
+                } finally {
+                    onSessionStopped()
+                }
             }, "NativeEmulation")
             emulationThread.start()
         }
@@ -2409,7 +2471,12 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                     NativeLibrary.surfaceChanged(currentSurface)
                     emulationThread = Thread({
                         Log.debug("[EmulationFragment] Starting emulation thread.")
-                        NativeLibrary.run(gamePath, programIndex, true)
+                        onSessionStarting()
+                        try {
+                            NativeLibrary.run(gamePath, programIndex, true)
+                        } finally {
+                            onSessionStopped()
+                        }
                     }, "NativeEmulation")
                     emulationThread.start()
                     state = State.RUNNING

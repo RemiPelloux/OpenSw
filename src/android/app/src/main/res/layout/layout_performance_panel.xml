@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="28dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="4dp"
+            android:orientation="horizontal">
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="#36C5F0" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginHorizontal="4dp"
+                android:layout_weight="1"
+                android:background="#3DDC84" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:background="#F4C542" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:text="@string/performance_lab"
+            android:textAppearance="?attr/textAppearanceHeadlineSmall"
+            android:textColor="?attr/colorOnSurface" />
+
+        <TextView
+            android:id="@+id/performance_game_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:ellipsize="end"
+            android:maxLines="2"
+            android:textAppearance="?attr/textAppearanceTitleMedium"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            tools:text="Pokemon Legends: Arceus" />
+
+        <TextView
+            android:id="@+id/performance_context"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:fontFamily="monospace"
+            android:textAppearance="?attr/textAppearanceLabelMedium"
+            android:textColor="?attr/colorPrimary"
+            tools:text="01001F5010DFA000 · Thor 60 stable" />
+
+        <TextView
+            android:id="@+id/performance_warning"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="16dp"
+            android:background="@color/eden_card_background_elevated"
+            android:padding="12dp"
+            android:textColor="#F4C542"
+            android:visibility="gone"
+            tools:text="Thermal pressure is high. Thor Balanced is recommended."
+            tools:visibility="visible" />
+
+        <TextView
+            android:id="@+id/performance_fps"
+            style="@style/OpenSwPerformanceMetric"
+            android:layout_marginTop="20dp"
+            tools:text="59.9 FPS" />
+
+        <TextView
+            android:id="@+id/performance_frametime"
+            style="@style/OpenSwPerformanceMetric"
+            tools:text="16.7 ms · p95 19.0 ms" />
+
+        <TextView
+            android:id="@+id/performance_speed"
+            style="@style/OpenSwPerformanceMetric"
+            tools:text="100.0% emulation speed" />
+
+        <TextView
+            android:id="@+id/performance_memory"
+            style="@style/OpenSwPerformanceMetric"
+            tools:text="4,821 MB OpenSw · 7,104 MB system" />
+
+        <TextView
+            android:id="@+id/performance_power"
+            style="@style/OpenSwPerformanceMetric"
+            tools:text="54.0°C · 2.8 A · 78%" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/performance_capture"
+            style="@style/Widget.Material3.Button"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="20dp"
+            android:text="@string/performance_capture_start"
+            app:icon="@drawable/ic_frames" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/performance_share"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="8dp"
+            android:text="@string/performance_share_report"
+            app:icon="@drawable/ic_share" />
+
+    </LinearLayout>
+</ScrollView>

@@ -62,7 +62,8 @@ class CheatTextValidatorTest {
             """{
                 "AEE8F150DDA1B5A8": {"[60 FPS]": "[60 FPS]\\n04000000 00000000 00000001"},
                 "attribution": {"Pokemon.txt": "By tester"}
-            }""".trimIndent()
+            }
+            """.trimIndent()
 
         val exact = CheatCatalogClient.parseHamlet(json, "AEE8F150DDA1B5A8")
         assertTrue(exact?.text?.contains("[60 FPS]") == true)

@@ -220,6 +220,11 @@
                 layout="@layout/layout_cheat_panel"
                 android:visibility="gone" />
 
+            <include
+                android:id="@+id/performance_content"
+                layout="@layout/layout_performance_panel"
+                android:visibility="gone" />
+
         </FrameLayout>
 
     </com.google.android.material.navigation.NavigationView>

@@ -13,6 +13,10 @@
             android:icon="@drawable/ic_code"
             android:title="@string/cheats" />
         <item
+            android:id="@+id/menu_performance"
+            android:icon="@drawable/ic_frames"
+            android:title="@string/performance_lab" />
+        <item
             android:id="@+id/menu_quick_settings"
             android:icon="@drawable/ic_tune"
             android:title="@string/quick_settings" />

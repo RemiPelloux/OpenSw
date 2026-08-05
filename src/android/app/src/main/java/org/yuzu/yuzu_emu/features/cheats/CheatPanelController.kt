@@ -5,6 +5,8 @@ package org.yuzu.yuzu_emu.features.cheats
 
 import android.content.Context
 import android.view.View
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.TextView
 import android.widget.Toast
 import androidx.core.widget.doAfterTextChanged
@@ -23,7 +25,8 @@ class CheatPanelController(
     private val drawer: View,
     private val quickSettings: View,
     private val cheatsPanel: View,
-    private val gameTitle: String
+    private val gameTitle: String,
+    private val resizeToDrawer: Boolean = true
 ) {
     private val preferences = fragment.requireContext().getSharedPreferences(
         "opensw_cheat_states",
@@ -45,11 +48,19 @@ class CheatPanelController(
         title.text = gameTitle
         list.adapter = adapter
         search.doAfterTextChanged { applyFilter() }
+        search.setOnEditorActionListener { view, actionId, _ ->
+            if (actionId != EditorInfo.IME_ACTION_DONE) return@setOnEditorActionListener false
+            val inputMethod = fragment.requireContext()
+                .getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+            inputMethod.hideSoftInputFromWindow(view.windowToken, 0)
+            list.requestFocus()
+            true
+        }
         filter.setOnCheckedStateChangeListener { _, checkedIds ->
             activeOnly = checkedIds.firstOrNull() == R.id.cheat_filter_active
             applyFilter()
         }
-        resizeDrawer()
+        if (resizeToDrawer) resizeDrawer()
     }
 
     fun showQuickSettings() {
@@ -61,6 +72,11 @@ class CheatPanelController(
         quickSettings.visibility = View.GONE
         cheatsPanel.visibility = View.VISIBLE
         refresh(applySavedState = true)
+    }
+
+    fun hide() {
+        quickSettings.visibility = View.GONE
+        cheatsPanel.visibility = View.GONE
     }
 
     fun onEmulationStarted() {
@@ -89,8 +105,10 @@ class CheatPanelController(
             loaded = NativeLibrary.getLoadedCheats().toList()
         }
 
-        cheats = loaded.sortedWith(compareByDescending<NativeLibrary.CheatEntry> { it.isMaster }
-            .thenBy { it.name.lowercase(Locale.ROOT) })
+        cheats = loaded.sortedWith(
+            compareByDescending<NativeLibrary.CheatEntry> { it.isMaster }
+                .thenBy { it.name.lowercase(Locale.ROOT) }
+        )
         val activeCount = cheats.count { it.enabled }
         contextLabel.text = fragment.getString(
             R.string.cheat_context_format,
@@ -114,7 +132,11 @@ class CheatPanelController(
     private fun toggle(cheat: NativeLibrary.CheatEntry, enabled: Boolean): Boolean {
         val currentContext = context ?: return false
         if (!NativeLibrary.setCheatEnabled(cheat.sessionId, enabled)) {
-            Toast.makeText(fragment.requireContext(), R.string.cheat_toggle_error, Toast.LENGTH_LONG)
+            Toast.makeText(
+                fragment.requireContext(),
+                R.string.cheat_toggle_error,
+                Toast.LENGTH_LONG
+            )
                 .show()
             return false
         }
@@ -133,10 +155,12 @@ class CheatPanelController(
 
     private fun applyFilter() {
         val query = search.text?.toString()?.trim()?.lowercase(Locale.ROOT).orEmpty()
-        adapter.submitList(cheats.filter { cheat ->
-            (!activeOnly || cheat.enabled) &&
-                (query.isEmpty() || cheat.name.lowercase(Locale.ROOT).contains(query))
-        })
+        adapter.submitList(
+            cheats.filter { cheat ->
+                (!activeOnly || cheat.enabled) &&
+                    (query.isEmpty() || cheat.name.lowercase(Locale.ROOT).contains(query))
+            }
+        )
     }
 
     private fun showState(message: Int) {
