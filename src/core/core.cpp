@@ -418,6 +418,7 @@ struct System::Impl {
         cpu_manager.Shutdown();
         debugger.reset();
         kernel.Shutdown();
+        device_memory->buffer.ResetBackingMemory();
         stop_event = {};
         Network::RestartSocketOperations();
 

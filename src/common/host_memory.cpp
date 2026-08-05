@@ -24,6 +24,7 @@
 #include "common/scope_exit.h"
 
 #if defined(__linux__)
+#include <linux/falloc.h>
 #include <sys/random.h>
 #elif defined(__APPLE__)
 #include <sys/types.h>
@@ -628,6 +629,26 @@ public:
         ASSERT_MSG(ret == 0, "mprotect failed: {}", strerror(errno));
     }
 
+#if defined(__linux__)
+    void ResetBackingMemory() {
+        if (fd >= 0) {
+            const int ret = fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0,
+                                      static_cast<off_t>(backing_size));
+            if (ret != 0) {
+                LOG_WARNING(HW_Memory, "Failed to release HostMemory memfd pages: {}",
+                            strerror(errno));
+            }
+            return;
+        }
+
+        const int ret = madvise(backing_base, backing_size, MADV_DONTNEED);
+        if (ret != 0) {
+            LOG_WARNING(HW_Memory, "Failed to release anonymous HostMemory pages: {}",
+                        strerror(errno));
+        }
+    }
+#endif
+
     void EnableDirectMappedAddress() {
         virtual_base = nullptr;
     }
@@ -777,6 +798,14 @@ void HostMemory::Protect(size_t virtual_offset, size_t length, MemoryPermission 
 
 void HostMemory::ClearBackingRegion(size_t physical_offset, size_t length, u32 fill_value) {
     std::memset(backing_base + physical_offset, fill_value, length);
+}
+
+void HostMemory::ResetBackingMemory() {
+#if defined(__linux__) && !(defined(__OPENORBIS__) || defined(__managarm__))
+    if (impl) {
+        impl->ResetBackingMemory();
+    }
+#endif
 }
 
 void HostMemory::EnableDirectMappedAddress() {
