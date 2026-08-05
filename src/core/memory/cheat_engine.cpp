@@ -352,6 +352,10 @@ bool CheatEngine::SetCheatEnabled(u32 session_id, bool enabled) {
 }
 
 void CheatEngine::FrameCallback(std::chrono::nanoseconds ns_late) {
+    if (system.IsShuttingDown()) {
+        return;
+    }
+
     if (is_pending_reload.load(std::memory_order_acquire)) {
         std::vector<CheatEntry> next;
         bool should_reload{};

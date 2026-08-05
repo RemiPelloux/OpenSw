@@ -397,6 +397,11 @@ struct System::Impl {
 
         stop_event.request_stop();
         core_timing.SyncPause(false);
+
+        // Cheat callbacks run on HostTiming and may access HID services. Destroy the engine first;
+        // its destructor unschedules the event and waits for any in-flight callback to finish.
+        cheat_engine.reset();
+
         Network::CancelPendingSocketOperations();
         kernel.SuspendEmulation(true);
         kernel.CloseServices();
@@ -404,7 +409,6 @@ struct System::Impl {
         services.reset();
         service_manager.reset();
         fs_controller.Reset();
-        cheat_engine.reset();
         core_timing.ClearPendingEvents();
         app_loader.reset();
         audio_core.reset();
