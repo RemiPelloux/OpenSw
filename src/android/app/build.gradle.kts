@@ -37,6 +37,14 @@ android {
 
     val isNightly =
         providers.gradleProperty("nightly").orNull?.toBooleanStrictOrNull() ?: false
+    val openSwCpuPreset = providers.gradleProperty("openswCpuPreset").orElse("generic").get()
+    val openSwLtoMode = providers.gradleProperty("openswLtoMode").orElse("off").get()
+    require(openSwCpuPreset in setOf("generic", "armv9")) {
+        "openswCpuPreset must be generic or armv9"
+    }
+    require(openSwLtoMode in setOf("off", "thin")) {
+        "openswLtoMode must be off or thin"
+    }
 
     buildFeatures {
         viewBinding = true
@@ -69,6 +77,8 @@ android {
         manifestPlaceholders += mapOf("profileableShell" to false)
         buildConfigField("boolean", "IS_OPENSW", "false")
         buildConfigField("String", "EDEN_PACKAGE", "\"dev.eden.eden_emulator.nightly\"")
+        buildConfigField("String", "OPENSW_CPU_PRESET", "\"generic\"")
+        buildConfigField("String", "OPENSW_LTO_MODE", "\"off\"")
 
         externalNativeBuild {
             cmake {
@@ -223,13 +233,21 @@ android {
             versionName =
                 "opensw-${runGitCommand(listOf("git", "rev-parse", "--short=12", "HEAD"))}"
             buildConfigField("boolean", "IS_OPENSW", "true")
+            buildConfigField("String", "OPENSW_CPU_PRESET", "\"$openSwCpuPreset\"")
+            buildConfigField("String", "OPENSW_LTO_MODE", "\"$openSwLtoMode\"")
+            if (openSwCpuPreset != "generic" || openSwLtoMode != "off") {
+                versionNameSuffix = "-$openSwCpuPreset-$openSwLtoMode"
+            }
 
             externalNativeBuild {
                 cmake {
                     arguments.addAll(
                         listOf(
                             "-DENABLE_UPDATE_CHECKER=OFF",
-                            "-DNIGHTLY_BUILD=OFF"
+                            "-DNIGHTLY_BUILD=OFF",
+                            "-DYUZU_BUILD_PRESET=$openSwCpuPreset",
+                            "-DENABLE_LTO=${if (openSwLtoMode == "off") "OFF" else "ON"}",
+                            "-DLTO_MODE=${if (openSwLtoMode == "off") "auto" else openSwLtoMode}"
                         )
                     )
                 }

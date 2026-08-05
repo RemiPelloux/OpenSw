@@ -1,4 +1,4 @@
-# Tools
+# OpenSw and upstream tools
 
 Tools for Eden and other subprojects. When adding new scripts please use `#!/bin/sh -e` or `#!/usr/bin/env <interpreter>` (for `.py`, `.rb`, or `.perl`). Keep scripts POSIX compliant (i.e not require hard `bash` to run, just plain old `sh`).
 
@@ -36,6 +36,8 @@ It's recommended to run these scritps after almost any Android change, as they a
 
 - `unused-strings.sh`: Finds unused strings in `strings.xml` files.
 - `stale-translations.sh`: Finds translated strings that aren't present in the source `strings.xml` file.
+- `performance/capture-ayn-thor.sh`: Captures a Thor device record, Perfetto trace and available Simpleperf data.
+- `performance/build-opensw-matrix.sh`: Builds and archives generic, ARMv9, ThinLTO and combined profile APKs.
 
 ## Translations
 
