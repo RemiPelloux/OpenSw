@@ -74,7 +74,13 @@ struct Memory::Impl {
         MapPages(page_table, base / YUZU_PAGESIZE, size / YUZU_PAGESIZE, target,
                  Common::PageType::Memory);
 
-        if (current_page_table->fastmem_arena) {
+        if (page_table.fastmem_arena) {
+            ASSERT_MSG(system.DeviceMemory().buffer.IsVirtualRangeValid(GetInteger(base), size),
+                       "Fastmem map outside arena: page_table={}, current_page_table={}, "
+                       "address_bits={}, base={:#x}, size={:#x}, separate_heap={}",
+                       static_cast<const void*>(std::addressof(page_table)),
+                       static_cast<const void*>(current_page_table),
+                       page_table.GetAddressSpaceBits(), GetInteger(base), size, separate_heap);
             host_buffer->Map(GetInteger(base), GetInteger(target) - DramMemoryMap::Base, size, perms, separate_heap);
         }
     }
@@ -86,7 +92,13 @@ struct Memory::Impl {
         MapPages(page_table, base / YUZU_PAGESIZE, size / YUZU_PAGESIZE, 0,
                  Common::PageType::Unmapped);
 
-        if (current_page_table->fastmem_arena) {
+        if (page_table.fastmem_arena) {
+            ASSERT_MSG(system.DeviceMemory().buffer.IsVirtualRangeValid(GetInteger(base), size),
+                       "Fastmem unmap outside arena: page_table={}, current_page_table={}, "
+                       "address_bits={}, base={:#x}, size={:#x}, separate_heap={}",
+                       static_cast<const void*>(std::addressof(page_table)),
+                       static_cast<const void*>(current_page_table),
+                       page_table.GetAddressSpaceBits(), GetInteger(base), size, separate_heap);
             host_buffer->Unmap(GetInteger(base), size, separate_heap);
         }
     }
@@ -96,13 +108,19 @@ struct Memory::Impl {
         ASSERT_MSG((size & YUZU_PAGEMASK) == 0, "non-page aligned size: {:016X}", size);
         ASSERT_MSG((vaddr & YUZU_PAGEMASK) == 0, "non-page aligned base: {:016X}", vaddr);
 
-        if (!current_page_table->fastmem_arena) {
+        if (!page_table.fastmem_arena) {
             return;
         }
+        ASSERT_MSG(system.DeviceMemory().buffer.IsVirtualRangeValid(vaddr, size),
+                   "Fastmem protect outside arena: page_table={}, current_page_table={}, "
+                   "address_bits={}, base={:#x}, size={:#x}",
+                   static_cast<const void*>(std::addressof(page_table)),
+                   static_cast<const void*>(current_page_table),
+                   page_table.GetAddressSpaceBits(), vaddr, size);
 
         u64 protect_bytes = 0, protect_begin = 0;
         for (u64 addr = vaddr; addr < vaddr + size; addr += YUZU_PAGESIZE) {
-            const Common::PageType page_type = current_page_table->entries[addr >> YUZU_PAGEBITS].ptr.Type();
+            const Common::PageType page_type = page_table.entries[addr >> YUZU_PAGEBITS].ptr.Type();
             switch (page_type) {
             case Common::PageType::RasterizerCachedMemory:
                 if (protect_bytes > 0) {

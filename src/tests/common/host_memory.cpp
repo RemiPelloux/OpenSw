@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <catch2/catch_test_macros.hpp>
+#include <limits>
 
 #include "common/host_memory.h"
 #include "common/literals.h"
@@ -25,6 +26,36 @@ TEST_CASE("HostMemory: Initialize and deinitialize", "[common]") {
     {
         HostMemory mem(BACKING_SIZE, VIRTUAL_SIZE);
         REQUIRE(mem.BackingBasePointer() != nullptr);
+    }
+}
+
+TEST_CASE("HostMemory: Virtual range validation", "[common]") {
+    HostMemory mem(BACKING_SIZE, VIRTUAL_SIZE);
+
+    REQUIRE(mem.VirtualSize() == VIRTUAL_SIZE);
+    REQUIRE(mem.IsVirtualRangeValid(0, VIRTUAL_SIZE));
+    REQUIRE(mem.IsVirtualRangeValid(VIRTUAL_SIZE, 0));
+    REQUIRE_FALSE(mem.IsVirtualRangeValid(VIRTUAL_SIZE, 0x1000));
+    REQUIRE_FALSE(mem.IsVirtualRangeValid(VIRTUAL_SIZE - 0x1000, 0x2000));
+    REQUIRE_FALSE(mem.IsVirtualRangeValid(std::numeric_limits<size_t>::max(), 0x1000));
+}
+
+TEST_CASE("HostMemory: 38-bit and 39-bit arena boundaries", "[common]") {
+    for (const size_t address_bits : {38ULL, 39ULL}) {
+        const size_t virtual_size = 1ULL << address_bits;
+        HostMemory mem(BACKING_SIZE, virtual_size);
+
+        REQUIRE(mem.VirtualSize() == virtual_size);
+        REQUIRE(mem.IsVirtualRangeValid(virtual_size - 0x1000, 0x1000));
+        REQUIRE_FALSE(mem.IsVirtualRangeValid(virtual_size - 0x1000, 0x2000));
+    }
+}
+
+TEST_CASE("HostMemory: Repeated map and unmap", "[common]") {
+    HostMemory mem(BACKING_SIZE, VIRTUAL_SIZE);
+    for (size_t iteration = 0; iteration < 30; ++iteration) {
+        mem.Map(0x5000, 0x8000, 0x1000, PERMS, HEAP);
+        mem.Unmap(0x5000, 0x1000, HEAP);
     }
 }
 

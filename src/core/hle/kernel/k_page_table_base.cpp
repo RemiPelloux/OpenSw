@@ -465,6 +465,12 @@ void KPageTableBase::Finalize() {
 
     auto BlockCallback = [&](KProcessAddress addr, u64 size) {
         if (m_impl.fastmem_arena) {
+            ASSERT_MSG(m_system.DeviceMemory().buffer.IsVirtualRangeValid(GetInteger(addr), size),
+                       "Page-table finalization outside fastmem arena: page_table={}, "
+                       "address_bits={}, base={:#x}, size={:#x}",
+                       static_cast<const void*>(std::addressof(m_impl)),
+                       m_impl.GetAddressSpaceBits(),
+                       GetInteger(addr), size);
             m_system.DeviceMemory().buffer.Unmap(GetInteger(addr), size, false);
         }
 

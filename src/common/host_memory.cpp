@@ -727,8 +727,14 @@ void HostMemory::Map(size_t virtual_offset, size_t host_offset, size_t length, M
     ASSERT(virtual_offset % PageAlignment == 0);
     ASSERT(host_offset % PageAlignment == 0);
     ASSERT(length % PageAlignment == 0);
-    ASSERT(virtual_offset + length <= virtual_size);
-    ASSERT(host_offset + length <= backing_size);
+    ASSERT_MSG(IsVirtualRangeValid(virtual_offset, length),
+               "HostMemory::Map outside virtual arena: offset={:#x}, length={:#x}, "
+               "virtual_size={:#x}, separate_heap={}",
+               virtual_offset, length, virtual_size, separate_heap);
+    ASSERT_MSG(host_offset <= backing_size && length <= backing_size - host_offset,
+               "HostMemory::Map outside backing store: offset={:#x}, length={:#x}, "
+               "backing_size={:#x}, separate_heap={}",
+               host_offset, length, backing_size, separate_heap);
     if (length == 0 || !virtual_base || !impl) {
         return;
     }
@@ -740,7 +746,10 @@ void HostMemory::Unmap(size_t virtual_offset, size_t length, bool separate_heap)
 #if !(defined(__OPENORBIS__) || defined(__managarm__))
     ASSERT(virtual_offset % PageAlignment == 0);
     ASSERT(length % PageAlignment == 0);
-    ASSERT(virtual_offset + length <= virtual_size);
+    ASSERT_MSG(IsVirtualRangeValid(virtual_offset, length),
+               "HostMemory::Unmap outside virtual arena: offset={:#x}, length={:#x}, "
+               "virtual_size={:#x}, separate_heap={}",
+               virtual_offset, length, virtual_size, separate_heap);
     if (length == 0 || !virtual_base || !impl) {
         return;
     }
@@ -752,7 +761,10 @@ void HostMemory::Protect(size_t virtual_offset, size_t length, MemoryPermission 
 #if !(defined(__OPENORBIS__) || defined(__managarm__))
     ASSERT(virtual_offset % PageAlignment == 0);
     ASSERT(length % PageAlignment == 0);
-    ASSERT(virtual_offset + length <= virtual_size);
+    ASSERT_MSG(IsVirtualRangeValid(virtual_offset, length),
+               "HostMemory::Protect outside virtual arena: offset={:#x}, length={:#x}, "
+               "virtual_size={:#x}",
+               virtual_offset, length, virtual_size);
     if (length == 0 || !virtual_base || !impl) {
         return;
     }

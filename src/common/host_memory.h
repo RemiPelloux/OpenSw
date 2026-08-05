@@ -73,6 +73,14 @@ public:
         return address >= virtual_base && address < virtual_base + virtual_size;
     }
 
+    [[nodiscard]] bool IsVirtualRangeValid(size_t virtual_offset, size_t length) const noexcept {
+        return virtual_offset <= virtual_size && length <= virtual_size - virtual_offset;
+    }
+
+    [[nodiscard]] size_t VirtualSize() const noexcept {
+        return virtual_size;
+    }
+
 private:
     size_t backing_size{};
     size_t virtual_size{};
