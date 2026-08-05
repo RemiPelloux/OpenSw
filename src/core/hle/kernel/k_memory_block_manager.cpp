@@ -34,7 +34,7 @@ void KMemoryBlockManager::Finalize(KMemoryBlockSlabManager* slab_manager,
     while (it != m_memory_block_tree.end()) {
         KMemoryBlock* block = std::addressof(*it);
         it = m_memory_block_tree.erase(it);
-        block_callback(block->GetAddress(), block->GetSize());
+        block_callback(block->GetAddress(), block->GetSize(), block->GetState());
         slab_manager->Free(block);
     }
 

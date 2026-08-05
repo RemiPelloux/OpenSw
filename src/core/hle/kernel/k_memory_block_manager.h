@@ -13,6 +13,10 @@
 
 namespace Kernel {
 
+constexpr bool ShouldUnmapFastmemOnFinalize(KMemoryState state) {
+    return state != KMemoryState::Free;
+}
+
 class KMemoryBlockManagerUpdateAllocator {
 public:
     static constexpr size_t MaxBlocks = 2;
@@ -85,7 +89,7 @@ public:
 public:
     KMemoryBlockManager();
 
-    using BlockCallback = std::function<void(Common::ProcessAddress, u64)>;
+    using BlockCallback = std::function<void(Common::ProcessAddress, u64, KMemoryState)>;
 
     Result Initialize(KProcessAddress st, KProcessAddress nd,
                       KMemoryBlockSlabManager* slab_manager);
