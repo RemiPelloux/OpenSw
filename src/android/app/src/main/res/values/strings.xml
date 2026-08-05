@@ -230,6 +230,7 @@
     <string name="view_grid">Grid</string>
     <string name="view_grid_compact">Compact Grid</string>
     <string name="view_carousel">Carousel</string>
+    <string name="library_filter">Sort and filter games</string>
     <string name="game_image_desc">Screenshot for %1$s</string>
     <string name="folder">Folder</string>
     <string name="dont_show_again">Don\'t Show Again</string>
@@ -1861,7 +1862,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="replace">Replace</string>
     <string name="cheat_install_success">Cheats installed. They will load on the next game launch.</string>
     <string name="opensw_performance_mode">OpenSw mode</string>
-    <string name="opensw_performance_mode_description">Standard is the baseline. AYN Thor only receives device-validated settings. Experimental changes stay reversible.</string>
+    <string name="opensw_performance_mode_description">AYN Thor enables asynchronous presentation and optimized vertex buffers. Experimental also enables asynchronous GPU/shaders and six pipeline workers. Standard restores your previous values.</string>
     <string name="opensw_mode_standard">Standard</string>
     <string name="opensw_mode_thor">AYN Thor</string>
     <string name="opensw_mode_experimental">Experimental</string>

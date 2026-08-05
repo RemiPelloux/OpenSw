@@ -220,7 +220,8 @@
     <string name="view_list">Liste</string>
     <string name="view_grid">Grille</string>
     <string name="view_grid_compact">Grille compacte</string>
-    <string name="view_carousel">Carrousel</string>
+<string name="view_carousel">Carrousel</string>
+<string name="library_filter">Trier et filtrer les jeux</string>
     <string name="game_image_desc">Captures d\'écran pour %1$s</string>
     <string name="folder">Dossier</string>
     <string name="dont_show_again">Ne plus afficher</string>
@@ -1159,7 +1160,7 @@
     <string name="replace">Remplacer</string>
     <string name="cheat_install_success">Cheats installés. Ils seront chargés au prochain lancement du jeu.</string>
     <string name="opensw_performance_mode">Mode OpenSw</string>
-    <string name="opensw_performance_mode_description">Standard sert de baseline. AYN Thor ne reçoit que des réglages validés sur l’appareil. Expérimental reste réversible.</string>
+    <string name="opensw_performance_mode_description">AYN Thor active la présentation asynchrone et les vertex buffers optimisés. Expérimental ajoute GPU/shaders asynchrones et six workers. Standard restaure les valeurs précédentes.</string>
     <string name="opensw_mode_standard">Standard</string>
     <string name="opensw_mode_thor">AYN Thor</string>
     <string name="opensw_mode_experimental">Expérimental</string>
