@@ -7,6 +7,11 @@
 -->
 <!-- lang: en-GB -->
 
+> [!NOTE]
+> This checkout is the Eden Thor Lab fork, an unofficial Android test build for AYN Thor devices.
+> It uses a separate Android package and data directory and is not affiliated with or supported by
+> the upstream Eden Emulator Project.
+
 <h1 align="center">
   <br>
   <a href="https://git.eden-emu.dev/eden-emu/eden"><img src="./dist/qt_themes/default/icons/256x256/eden.png" alt="Eden" width="200"></a>

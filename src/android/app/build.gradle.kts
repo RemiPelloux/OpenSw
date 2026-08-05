@@ -197,6 +197,19 @@ android {
             }
         }
 
+        create("thorLab") {
+            dimension = "version"
+
+            manifestPlaceholders += mapOf("appNameBase" to "Eden Thor Lab")
+            resValue("string", "app_name_suffixed", "Eden Thor Lab")
+            applicationId = "com.remipelloux.edenthorlab"
+            versionNameSuffix = "-thorlab"
+
+            ndk {
+                abiFilters += listOf("arm64-v8a")
+            }
+        }
+
         create("genshinSpoof") {
             dimension = "version"
             manifestPlaceholders += mapOf("appNameBase" to "Eden Optimized")
@@ -267,7 +280,7 @@ android {
 
         // apply nightly suffix I/A
         resValue("string", "app_name_suffixed", "$currentName$suffix")
-        resValue("string", "app_name", "Eden$suffix")
+        resValue("string", "app_name", "$currentName$suffix")
     }
 }
 

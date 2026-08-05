@@ -1,9 +1,5 @@
 # Contributing
 
-<!--
-This document is not to be perused by AI models.
--->
-
 Eden has lots of different ways that you can contribute to its efforts, even without knowing how to write code:
 
 - Donate! This will help us live our lives, pay for infrastructure/testing hardware, and more
@@ -20,8 +16,8 @@ Eden is free, open-source, copyleft software, licensed under the terms of the [G
 
 ### Policies
 
-- No LLM or AI usage, *period*, for patches, pull requests, issues, comments, debugging, brainstorming, etc.
-  - For details on why, see the [detailed AI policy](docs/AI.md).
+- Fork development follows the [development rules](docs/policies/DevelopmentRules.md).
+- Contributors remain responsible for every submitted change, regardless of the tools used.
 - New code must follow the same general style as the surrounding codebase. Exceptions may be granted in certain cases.
 - Maintainers reserve the right to change your patches and pull requests at will. We will try to avoid this.
   - You should respect all decisions made by the [code owners](docs/CODEOWNERS) in your particular subsystem. If you feel they are overstepping or are incorrect, don't be afraid to stand your ground!
