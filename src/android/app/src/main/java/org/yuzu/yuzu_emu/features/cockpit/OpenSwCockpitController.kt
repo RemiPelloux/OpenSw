@@ -190,7 +190,7 @@ class OpenSwCockpitController(
         context: Context,
         display: Display,
         private val onReady: (View) -> Unit
-    ) : Presentation(context, display) {
+    ) : Presentation(context, display, R.style.Theme_Yuzu_Main) {
         override fun onCreate(savedInstanceState: Bundle?) {
             super.onCreate(savedInstanceState)
             setContentView(R.layout.layout_opensw_cockpit)
