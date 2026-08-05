@@ -21,12 +21,41 @@ reversible performance experiments, safe Eden data import and in-game cheat cont
 </h4>
 
 <p align="center">
+  <a href="#features">Features</a> |
+  <a href="#live-cheats">Live cheats</a> |
   <a href="#isolation">Isolation</a> |
   <a href="#building">Building</a> |
   <a href="#testing">Testing</a> |
   <a href="#based-on-eden">Based on Eden</a> |
   <a href="#license">License</a>
 </p>
+
+## Features
+
+- A separate `OpenSw` Android package that can coexist with the official Eden nightly build.
+- `Standard`, `AYN Thor` and `Experimental` modes for reversible device-specific work.
+- A release-like, locally signed and profileable APK for repeatable AYN Thor measurements.
+- A read-only Eden import assistant for keys, firmware, profiles, saves, settings, mods and cheats.
+- An in-game cheat overlay with controller and touch navigation.
+- Build-ID-aware cheat import from text files, Atmosphere/Eden trees and ZIP archives.
+- Optional cheat catalogues backed by `switch-cheats-db` and `NX-60FPS-RES-GFX-Cheats`.
+- Perfetto capture tooling and a documented AYN Thor performance baseline.
+- Eden's updater and publication configuration disabled in OpenSw builds.
+
+## Live cheats
+
+Open the in-game menu and select **Cheats** to enable or disable compatible codes without restarting
+the emulator. The panel shows the current Title ID and Build ID, supports search and active-only
+filtering, and keeps the game running behind it.
+
+OpenSw loads cheats only when their 16-character Build ID exactly matches the game's main NSO. The
+Mastercode is enabled and locked automatically; ordinary cheats default to off. State is stored by
+Title ID, Build ID and opcode fingerprint, so changed remote codes do not inherit an old enabled
+state. Disabling a cheat stops future executions but cannot undo memory writes that already occurred;
+some codes can therefore still require a game restart.
+
+Catalogue installation is explicit and never silently replaces a locally modified file. Imports are
+validated, size-limited, protected against ZIP path traversal and installed atomically with backups.
 
 ## Isolation
 
@@ -35,6 +64,10 @@ package replaces or shares private app data with `dev.eden.eden_emulator.nightly
 
 The `Standard`, `AYN Thor` and `Experimental` modes only affect OpenSw. No mode changes Android,
 device frequencies or the official Eden installation.
+
+The Eden migration flow uses Android's document picker and a user-granted read-only source. It stages
+and verifies copied files before installing them into OpenSw; game files, caches, logs and temporary
+data are not copied.
 
 ## Building
 
@@ -52,6 +85,10 @@ The APK is produced at
 See [OPENSW.md](./OPENSW.md) for package and device-testing rules. Performance acceptance and the
 fixed AYN Thor scenarios are documented in
 [docs/performance/ayn-thor-baseline.md](./docs/performance/ayn-thor-baseline.md).
+
+The current device baseline covers an AYN Thor with Snapdragon 8 Gen 2 and Adreno 740. Performance
+changes are promoted only after repeatable A/B measurements; risky compiler flags and Android clock
+changes are intentionally excluded.
 
 ## Based on Eden
 
