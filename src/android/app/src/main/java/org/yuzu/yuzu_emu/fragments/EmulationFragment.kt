@@ -72,6 +72,7 @@ import org.yuzu.yuzu_emu.activities.EmulationActivity
 import org.yuzu.yuzu_emu.databinding.DialogOverlayAdjustBinding
 import org.yuzu.yuzu_emu.databinding.FragmentEmulationBinding
 import org.yuzu.yuzu_emu.dialogs.QuickSettings
+import org.yuzu.yuzu_emu.features.cheats.CheatPanelController
 import org.yuzu.yuzu_emu.features.input.NativeInput
 import org.yuzu.yuzu_emu.features.settings.model.BooleanSetting
 import org.yuzu.yuzu_emu.features.settings.model.IntSetting
@@ -154,6 +155,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
     var shouldUseCustom = false
     private var isQuickSettingsMenuOpen = false
     private val quickSettings = QuickSettings(this)
+    private lateinit var cheatPanel: CheatPanelController
 
     private val loadAmiiboLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
@@ -671,6 +673,14 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
         }
         Log.info("[EmulationFragment] Starting view setup for game: ${game?.title}")
 
+        cheatPanel = CheatPanelController(
+            fragment = this,
+            drawer = binding.quickSettingsSheet,
+            quickSettings = binding.quickSettingsSheet.findViewById(R.id.quick_settings_content),
+            cheatsPanel = binding.quickSettingsSheet.findViewById(R.id.cheats_content),
+            gameTitle = game?.title.orEmpty()
+        )
+
         gpuModel = GpuDriverHelper.hookLibPath?.let { GpuDriverHelper.getGpuModel(hookLibPath = it).toString() } ?: "Unknown"
         fwVersion = NativeLibrary.firmwareVersion()
 
@@ -720,13 +730,6 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
             }
         })
         binding.drawerLayout.setDrawerLockMode(DrawerLayout.LOCK_MODE_LOCKED_CLOSED)
-
-        if (!BooleanSetting.ENABLE_QUICK_SETTINGS.getBoolean()) {
-            binding.drawerLayout.setDrawerLockMode(
-                DrawerLayout.LOCK_MODE_LOCKED_CLOSED,
-                binding.quickSettingsSheet
-            )
-        }
 
         updateGameTitle()
 
@@ -796,6 +799,11 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 openQuickSettingsMenu()
                 true
             }
+
+                R.id.menu_cheats -> {
+                    openCheatMenu()
+                    true
+                }
 
                 R.id.menu_settings_per_game -> {
                     val action = HomeNavigationDirections.actionGlobalSettingsActivity(
@@ -879,8 +887,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
             override fun onDrawerOpened(drawerView: View) {
                 if (drawerView == binding.quickSettingsSheet) {
-                    isQuickSettingsMenuOpen = true
-                    if (shouldUseCustom) {
+                    isQuickSettingsMenuOpen = binding.quickSettingsSheet
+                        .findViewById<View>(R.id.quick_settings_content).visibility == View.VISIBLE
+                    if (isQuickSettingsMenuOpen && shouldUseCustom) {
                         SettingsFile.loadCustomConfig(game!!)
                     }
                 }
@@ -952,6 +961,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
         emulationViewModel.emulationStarted.collect(viewLifecycleOwner) {
             if (it) {
+                if (this::cheatPanel.isInitialized) {
+                    cheatPanel.onEmulationStarted()
+                }
                 binding.drawerLayout.setDrawerLockMode(IntSetting.LOCK_DRAWER.getInt())
                 ViewUtils.showView(binding.surfaceInputOverlay)
                 ViewUtils.hideView(binding.loadingIndicator)
@@ -1218,6 +1230,13 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
     }
 
     private fun openQuickSettingsMenu() {
+        cheatPanel.showQuickSettings()
+        binding.drawerLayout.closeDrawer(binding.inGameMenu)
+        binding.drawerLayout.openDrawer(binding.quickSettingsSheet)
+    }
+
+    private fun openCheatMenu() {
+        cheatPanel.showCheats()
         binding.drawerLayout.closeDrawer(binding.inGameMenu)
         binding.drawerLayout.openDrawer(binding.quickSettingsSheet)
     }

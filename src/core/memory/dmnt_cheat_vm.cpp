@@ -18,6 +18,7 @@ void DmntCheatVm::DebugLog(u32 log_id, u64 value) {
 }
 
 void DmntCheatVm::LogOpcode(const CheatVmOpcode& opcode) {
+#ifdef ENABLE_CHEAT_VM_TRACE
     if (auto store_static = std::get_if<StoreStaticOpcode>(&opcode.opcode)) {
         callbacks->CommandLog("Opcode: Store Static");
         callbacks->CommandLog(fmt::format("Bit Width: {:X}", store_static->bit_width));
@@ -216,6 +217,9 @@ void DmntCheatVm::LogOpcode(const CheatVmOpcode& opcode) {
     } else if (auto instr = std::get_if<UnrecognizedInstruction>(&opcode.opcode)) {
         callbacks->CommandLog(fmt::format("Unknown opcode: {:X}", static_cast<u32>(instr->opcode)));
     }
+#else
+    static_cast<void>(opcode);
+#endif
 }
 
 DmntCheatVm::Callbacks::~Callbacks() = default;
@@ -735,16 +739,19 @@ void DmntCheatVm::Execute(const CheatProcessMetadata& metadata) {
     // Get Keys down.
     u64 kDown = callbacks->HidKeysDown();
 
+#ifdef ENABLE_CHEAT_VM_TRACE
     callbacks->CommandLog("Started VM execution.");
     callbacks->CommandLog(fmt::format("Main NSO:  {:012X}", metadata.main_nso_extents.base));
-    callbacks->CommandLog(fmt::format("Heap:      {:012X}", metadata.main_nso_extents.base));
+    callbacks->CommandLog(fmt::format("Heap:      {:012X}", metadata.heap_extents.base));
     callbacks->CommandLog(fmt::format("Keys Down: {:08X}", static_cast<u32>(kDown & 0x0FFFFFFF)));
+#endif
 
     // Clear VM state.
     ResetState();
 
     // Loop until program finishes.
     while (DecodeNextOpcode(cur_opcode)) {
+#ifdef ENABLE_CHEAT_VM_TRACE
         callbacks->CommandLog(
             fmt::format("Instruction Ptr: {:04X}", static_cast<u32>(instruction_ptr)));
 
@@ -756,6 +763,7 @@ void DmntCheatVm::Execute(const CheatProcessMetadata& metadata) {
             callbacks->CommandLog(fmt::format("SavedRegs[{:02X}]: {:016X}", i, saved_values[i]));
         }
         LogOpcode(cur_opcode);
+#endif
 
         // Increment conditional depth, if relevant.
         if (cur_opcode.begin_conditional_block) {

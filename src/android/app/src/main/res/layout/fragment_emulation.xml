@@ -207,7 +207,20 @@
         android:background="?attr/colorSurface"
         tools:visibility="gone">
 
-        <include layout="@layout/layout_quick_settings" />
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <include
+                android:id="@+id/quick_settings_content"
+                layout="@layout/layout_quick_settings" />
+
+            <include
+                android:id="@+id/cheats_content"
+                layout="@layout/layout_cheat_panel"
+                android:visibility="gone" />
+
+        </FrameLayout>
 
     </com.google.android.material.navigation.NavigationView>
 

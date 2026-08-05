@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <locale>
+#include <openssl/evp.h>
 #include "common/hex_util.h"
 #include "common/swap.h"
 #include "core/arm/debug.h"
@@ -24,15 +25,29 @@
 namespace Core::Memory {
 namespace {
 constexpr auto CHEAT_ENGINE_NS = std::chrono::nanoseconds{1000000000 / 12};
+constexpr std::size_t MAXIMUM_PROGRAM_OPCODE_COUNT = 0x400;
+
+bool IsMaster(const CheatEntry& entry) {
+    return entry.cheat_id == 0 && entry.definition.num_opcodes > 0;
+}
+
+std::string OpcodeFingerprint(const CheatEntry& entry) {
+    std::array<u8, 32> hash{};
+    unsigned int hash_size{};
+    EVP_Digest(entry.definition.opcodes.data(),
+               entry.definition.num_opcodes * sizeof(entry.definition.opcodes[0]), hash.data(),
+               &hash_size, EVP_sha256(), nullptr);
+    return Common::HexToString(hash);
+}
 
 std::string_view ExtractName(std::size_t& out_name_size, std::string_view data,
                              std::size_t start_index, char match) {
-    auto end_index = start_index;
-    while (data[end_index] != match) {
-        ++end_index;
-        if (end_index > data.size()) {
-            return {};
-        }
+    if (start_index >= data.size()) {
+        return {};
+    }
+    auto end_index = data.find(match, start_index);
+    if (end_index == std::string_view::npos) {
+        return {};
     }
 
     out_name_size = end_index - start_index;
@@ -141,7 +156,7 @@ std::vector<CheatEntry> TextCheatParser::Parse(std::string_view data) const {
     std::optional<u64> current_entry;
 
     for (std::size_t i = 0; i < data.size(); ++i) {
-        if (::isspace(data[i])) {
+        if (::isspace(static_cast<unsigned char>(data[i]))) {
             continue;
         }
 
@@ -184,14 +199,17 @@ std::vector<CheatEntry> TextCheatParser::Parse(std::string_view data) const {
                 '\0';
 
             i += name_size + 1;
-        } else if (::isxdigit(data[i])) {
+        } else if (::isxdigit(static_cast<unsigned char>(data[i]))) {
             if (!current_entry || out[*current_entry].definition.num_opcodes >=
                                       out[*current_entry].definition.opcodes.size()) {
                 return {};
             }
 
             const auto hex = std::string(data.substr(i, 8));
-            if (!std::all_of(hex.begin(), hex.end(), ::isxdigit)) {
+            if (hex.size() != 8 ||
+                !std::all_of(hex.begin(), hex.end(), [](char value) {
+                    return ::isxdigit(static_cast<unsigned char>(value));
+                })) {
                 return {};
             }
 
@@ -209,7 +227,7 @@ std::vector<CheatEntry> TextCheatParser::Parse(std::string_view data) const {
     out[0].cheat_id = 0;
 
     for (u32 i = 1; i < out.size(); ++i) {
-        out[i].enabled = out[i].definition.num_opcodes > 0;
+        out[i].enabled = false;
         out[i].cheat_id = i;
     }
 
@@ -256,7 +274,7 @@ void CheatEngine::Initialize() {
         .size = page_table.GetAliasRegionSize(),
     };
 
-    is_pending_reload.exchange(true);
+    Reload(cheats);
 }
 
 void CheatEngine::SetMainMemoryParameters(VAddr main_region_begin, u64 main_region_size) {
@@ -267,13 +285,87 @@ void CheatEngine::SetMainMemoryParameters(VAddr main_region_begin, u64 main_regi
 }
 
 void CheatEngine::Reload(std::vector<CheatEntry> reload_cheats) {
-    cheats = std::move(reload_cheats);
-    is_pending_reload.exchange(true);
+    for (auto& entry : reload_cheats) {
+        if (IsMaster(entry)) {
+            entry.enabled = true;
+        }
+    }
+    {
+        std::scoped_lock lock(cheats_mutex);
+        pending_cheats = std::move(reload_cheats);
+        is_pending_reload.store(true, std::memory_order_release);
+    }
+}
+
+CheatContext CheatEngine::GetContext() const {
+    std::scoped_lock lock(cheats_mutex);
+    return {
+        .title_id = metadata.title_id,
+        .build_id = Common::HexToString(metadata.main_nso_build_id).substr(0, sizeof(u64) * 2),
+    };
+}
+
+std::vector<CheatSnapshot> CheatEngine::GetLoadedCheats() const {
+    std::scoped_lock lock(cheats_mutex);
+    const auto& current = is_pending_reload.load(std::memory_order_acquire) ? pending_cheats : cheats;
+    std::vector<CheatSnapshot> snapshots;
+    snapshots.reserve(current.size());
+    for (u32 index = 0; index < current.size(); ++index) {
+        const auto& entry = current[index];
+        if (entry.definition.num_opcodes == 0) {
+            continue;
+        }
+        snapshots.push_back({
+            .session_id = index,
+            .name = entry.definition.readable_name.data(),
+            .enabled = entry.enabled,
+            .is_master = IsMaster(entry),
+            .fingerprint = OpcodeFingerprint(entry),
+            .source = entry.source.empty() ? "local" : entry.source,
+        });
+    }
+    return snapshots;
+}
+
+bool CheatEngine::SetCheatEnabled(u32 session_id, bool enabled) {
+    std::scoped_lock lock(cheats_mutex);
+    auto next = is_pending_reload.load(std::memory_order_acquire) ? pending_cheats : cheats;
+    if (session_id >= next.size() || next[session_id].definition.num_opcodes == 0 ||
+        (IsMaster(next[session_id]) && !enabled)) {
+        return false;
+    }
+
+    next[session_id].enabled = enabled;
+    std::size_t active_opcodes{};
+    for (const auto& entry : next) {
+        if (entry.enabled) {
+            active_opcodes += entry.definition.num_opcodes;
+        }
+    }
+    if (active_opcodes > MAXIMUM_PROGRAM_OPCODE_COUNT) {
+        return false;
+    }
+
+    pending_cheats = std::move(next);
+    is_pending_reload.store(true, std::memory_order_release);
+    return true;
 }
 
 void CheatEngine::FrameCallback(std::chrono::nanoseconds ns_late) {
-    if (is_pending_reload.exchange(false)) {
-        vm.LoadProgram(cheats);
+    if (is_pending_reload.load(std::memory_order_acquire)) {
+        std::vector<CheatEntry> next;
+        bool should_reload{};
+        {
+            std::scoped_lock lock(cheats_mutex);
+            should_reload = is_pending_reload.exchange(false, std::memory_order_acq_rel);
+            if (should_reload) {
+                cheats = std::move(pending_cheats);
+                next = cheats;
+            }
+        }
+        if (should_reload && !vm.LoadProgram(next)) {
+            LOG_ERROR(CheatEngine, "Refused cheat program larger than 0x400 opcodes");
+        }
     }
 
     if (vm.GetProgramSize() == 0) {

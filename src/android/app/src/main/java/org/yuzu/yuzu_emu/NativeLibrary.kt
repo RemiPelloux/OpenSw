@@ -46,6 +46,22 @@ object NativeLibrary {
         }
     }
 
+    @Keep
+    data class CheatContext(
+        val titleId: String,
+        val buildId: String
+    )
+
+    @Keep
+    data class CheatEntry(
+        val sessionId: Int,
+        val name: String,
+        val enabled: Boolean,
+        val isMaster: Boolean,
+        val fingerprint: String,
+        val source: String
+    )
+
     @JvmField
     var sEmulationActivity = WeakReference<EmulationActivity?>(null)
 
@@ -664,4 +680,8 @@ object NativeLibrary {
     external fun getFirmwareAvatarCount(): Int
     external fun getFirmwareAvatarImage(index: Int): ByteArray?
     external fun getDefaultAccountBackupJpeg(): ByteArray
+
+    external fun getCheatContext(): CheatContext?
+    external fun getLoadedCheats(): Array<CheatEntry>
+    external fun setCheatEnabled(sessionId: Int, enabled: Boolean): Boolean
 }
