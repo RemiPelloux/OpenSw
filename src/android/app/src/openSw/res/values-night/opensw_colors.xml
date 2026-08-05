@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- OpenSw graphite palette. These flavor overrides leave Eden's theme untouched. -->
+    <!-- Night-qualified override prevents Eden's synthwave palette from leaking into OpenSw. -->
     <color name="ic_launcher_background">#111418</color>
     <color name="eden_primary">#36C5F0</color>
     <color name="eden_primary_variant">#2383A1</color>
