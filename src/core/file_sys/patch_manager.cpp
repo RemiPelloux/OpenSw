@@ -484,13 +484,11 @@ std::vector<Core::Memory::CheatEntry> PatchManager::CreateCheatList(const BuildI
     for (const auto& subdir : patch_dirs) {
         if (std::find(disabled.cbegin(), disabled.cend(), subdir->GetName()) == disabled.cend()) {
             if (auto cheats_dir = FindSubdirectoryCaseless(subdir, "cheats"); cheats_dir != nullptr) {
-                if (auto res = ReadCheatFileFromFolder(title_id, build_id_, cheats_dir, true)) {
-                    for (auto& entry : *res) {
-                        entry.source = subdir->GetName();
-                    }
-                    std::move(res->begin(), res->end(), std::back_inserter(out));
+                auto res = ReadCheatFileFromFolder(title_id, build_id_, cheats_dir, true);
+                if (!res) {
+                    res = ReadCheatFileFromFolder(title_id, build_id_, cheats_dir, false);
                 }
-                if (auto res = ReadCheatFileFromFolder(title_id, build_id_, cheats_dir, false)) {
+                if (res) {
                     for (auto& entry : *res) {
                         entry.source = subdir->GetName();
                     }
