@@ -8,9 +8,8 @@ package and data.
 
 | Field | Value |
 |---|---|
-| OpenSw source | `thor-lab`, based on `a22468c383bd` plus the measured working-tree changes |
-| APK version/package | `opensw-a22468c383bd` / `com.remipelloux.opensw` |
-| APK SHA-256 | `dd2d01aa11167c1d46e4a37c703ecd4517a077a3ae912ccee83aaa84df08690a` |
+| OpenSw source | `thor-lab`; the APK version is generated as `opensw-<git-sha>` |
+| APK package | `com.remipelloux.opensw` |
 | Exact AYN Thor model | `AYN Thor`, firmware `Thor_V1.0.0.377_20260206_165408_user` |
 | SoC / Android | Qualcomm `QCS8550` (Snapdragon 8 Gen 2), Android 13 / API 33 |
 | RAM / displays | 11,535,400 KiB; 1080x1920 main at 120 Hz; 1080x1240 secondary |
