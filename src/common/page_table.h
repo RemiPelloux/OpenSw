@@ -117,6 +117,14 @@ struct PageTable {
      */
     void Resize(std::size_t address_space_width_in_bits, std::size_t page_size_in_bits);
 
+    /**
+     * Releases the page-entry mapping and clears all session-specific state.
+     *
+     * Kernel slab objects are finalized without running their C++ destructors, so process page
+     * tables must call this explicitly before their slab storage can be reused.
+     */
+    void Reset() noexcept;
+
     std::size_t GetAddressSpaceBits() const {
         return current_address_space_width_in_bits;
     }

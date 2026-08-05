@@ -27,7 +27,9 @@ public:
     explicit VirtualBuffer(std::size_t count) noexcept
         : alloc_size{count * sizeof(T)}
     {
-        base_ptr = reinterpret_cast<T*>(AllocateMemoryPages(alloc_size));
+        if (alloc_size != 0) {
+            base_ptr = reinterpret_cast<T*>(AllocateMemoryPages(alloc_size));
+        }
     }
 
     ~VirtualBuffer() noexcept {
@@ -52,7 +54,8 @@ public:
         if (auto const new_size = count * sizeof(T); new_size != alloc_size) {
             FreeMemoryPages(base_ptr, alloc_size);
             alloc_size = new_size;
-            base_ptr = reinterpret_cast<T*>(AllocateMemoryPages(alloc_size));
+            base_ptr = alloc_size != 0 ? reinterpret_cast<T*>(AllocateMemoryPages(alloc_size))
+                                       : nullptr;
         }
     }
 

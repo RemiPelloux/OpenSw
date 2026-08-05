@@ -508,6 +508,10 @@ void KPageTableBase::Finalize() {
         m_resource_limit->Release(m_system.Kernel(), Svc::LimitableResource::PhysicalMemoryMax,
                                   m_mapped_ipc_server_memory);
     }
+
+    // KProcess instances are slab allocated and finalized without running their destructors.
+    // Release the host page-entry mapping before the slab storage is reused by another session.
+    m_impl.Reset();
 }
 
 KProcessAddress KPageTableBase::GetRegionAddress(Svc::MemoryState state) const {

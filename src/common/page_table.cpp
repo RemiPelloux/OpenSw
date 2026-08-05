@@ -48,4 +48,11 @@ void PageTable::Resize(std::size_t address_space_width_in_bits, std::size_t page
     page_size = 1ULL << page_size_in_bits;
 }
 
+void PageTable::Reset() noexcept {
+    entries.resize(0);
+    fastmem_arena = nullptr;
+    current_address_space_width_in_bits = 0;
+    page_size = 0;
+}
+
 } // namespace Common
