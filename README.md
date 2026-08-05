@@ -27,6 +27,7 @@ and reproducible performance diagnostics.
   <a href="#isolation">Isolation</a> |
   <a href="#building">Building</a> |
   <a href="#testing">Testing</a> |
+  <a href="#roadmap">Roadmap</a> |
   <a href="#based-on-eden">Based on Eden</a> |
   <a href="#license">License</a>
 </p>
@@ -46,6 +47,20 @@ and reproducible performance diagnostics.
 - Optional cheat catalogues backed by `switch-cheats-db` and `NX-60FPS-RES-GFX-Cheats`.
 - Perfetto capture tooling and a documented AYN Thor performance baseline.
 - Eden's updater and publication configuration disabled in OpenSw builds.
+
+## Current status
+
+The maintained Android target builds as `openSwProfile` and runs independently from Eden on the AYN
+Thor. Pokemon Legends: Arceus 1.1.1 has been verified with Build ID `AEE8F150DDA1B5A8`; the live
+cheat engine applied Mastercode plus the 60 FPS section and a stable presentation sample measured
+59.96 FPS.
+
+Repeated-session shutdown has received focused fixes for cheat callbacks, audio streams, emulated
+backing memory, page tables, process trackers and guest service-thread references. The current work
+also releases the main and idle kernel threads owned by each emulated core and asks Bionic to return
+unused allocator pages after shutdown. These last two changes build successfully but remain pending
+the deterministic 30-cycle device acceptance run, so they are not presented as a completed release
+certification.
 
 ## Live cheats
 
@@ -98,9 +113,18 @@ See the [OpenSw handbook](./docs/opensw/README.md) and [OPENSW.md](./OPENSW.md) 
 package and device-testing rules. Performance acceptance and the fixed AYN Thor scenarios are in
 [docs/performance/ayn-thor-baseline.md](./docs/performance/ayn-thor-baseline.md).
 
+Session lifetime findings, valid measurements and rejected measurements are recorded in
+[docs/opensw/SessionStability.md](./docs/opensw/SessionStability.md).
+
 The current device baseline covers an AYN Thor with Snapdragon 8 Gen 2 and Adreno 740. Performance
 changes are promoted only after repeatable A/B measurements; risky compiler flags and Android clock
 changes are intentionally excluded.
+
+## Roadmap
+
+The ordered engineering roadmap and its acceptance gates are maintained in
+[docs/opensw/Roadmap.md](./docs/opensw/Roadmap.md). Stability and deterministic device automation
+come before new performance flags or additional UI features.
 
 ## Based on Eden
 

@@ -50,6 +50,28 @@ A 60-second Perfetto trace was captured successfully. The production firmware de
 Simpleperf CPU cycle counters without elevated privileges; the capture script now records that
 limitation and continues instead of discarding the remaining report.
 
+## Session teardown observations
+
+All values below were read ten seconds after returning to the OpenSw library unless stated
+otherwise. They describe allocator residency after a short Arceus launch and do not replace the
+controlled gameplay matrix.
+
+Before the Bionic purge experiment, residual PSS was approximately 675-790 MiB after one cycle,
+743-863 MiB after two and 790-910 MiB after three. With `mallopt(M_PURGE, 0)` after native shutdown,
+six consecutive cycles measured 278, 342, 408, 476, 546 and 613 MiB PSS. No crash, abort or native
+assert was present in the captured logs. The lower immediate residency is reproducible, but the
+roughly 65-70 MiB per-cycle slope remains a release blocker.
+
+Code inspection found that the four main and four idle `KThread` objects created for the emulated
+cores kept their initial references across shutdown. The current fix stores those pointers and
+closes them after their schedulers stop. The Android profile APK builds with this fix. Its device
+A/B result is still pending: the first coordinate-driven attempt failed to leave the game and its
+4.8 GiB running-game PSS was rejected rather than recorded as a shutdown measurement.
+
+Heapprofd was also rejected for this scenario. Android 13 disconnected the client with
+`CLIENT_ERROR_INVALID_STACK_BOUNDS` when it encountered OpenSw's custom fibers, so the resulting
+heap trace represented a running partial interval and not post-shutdown retention.
+
 ## Experiments
 
 1. Cheat VM command tracing is compiled out unless `ENABLE_CHEAT_VM_TRACE` is explicitly defined.
