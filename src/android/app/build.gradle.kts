@@ -5,10 +5,8 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 // import android.annotation.SuppressLint
-import com.android.build.gradle.api.ApplicationVariant
 import kotlin.collections.setOf
 import org.jlleitschuh.gradle.ktlint.reporter.ReporterType
-import com.github.triplet.gradle.androidpublisher.ReleaseStatus
 import org.gradle.api.tasks.Copy
 
 plugins {
@@ -18,7 +16,6 @@ plugins {
     kotlin("plugin.serialization") version "1.9.20"
     id("androidx.navigation.safeargs.kotlin")
     id("org.jlleitschuh.gradle.ktlint") version "11.4.0"
-    id("com.github.triplet.play") version "3.8.6"
     id("idea")
 }
 
@@ -69,6 +66,9 @@ android {
         targetSdk = 36
         versionName = getGitVersion()
         versionCode = autoVersion
+        manifestPlaceholders += mapOf("profileableShell" to false)
+        buildConfigField("boolean", "IS_OPENSW", "false")
+        buildConfigField("String", "EDEN_PACKAGE", "\"dev.eden.eden_emulator.nightly\"")
 
         externalNativeBuild {
             cmake {
@@ -93,10 +93,12 @@ android {
                 )
 
                 if (isNightly) {
-                    arguments.addAll(listOf(
-                        "-DENABLE_UPDATE_CHECKER=ON",
-                        "-DNIGHTLY_BUILD=ON",
-                    ))
+                    arguments.addAll(
+                        listOf(
+                            "-DENABLE_UPDATE_CHECKER=ON",
+                            "-DNIGHTLY_BUILD=ON"
+                        )
+                    )
                 }
 
                 abiFilters("arm64-v8a")
@@ -168,6 +170,21 @@ android {
             isJniDebuggable = true
         }
 
+        register("profile") {
+            signingConfig = signingConfigs.getByName("default")
+            isDebuggable = false
+            isJniDebuggable = false
+            isMinifyEnabled = true
+            manifestPlaceholders += mapOf(
+                "appNameSuffix" to "",
+                "profileableShell" to true
+            )
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+
         // Signed by debug key disallowing distribution on Play Store.
         // Attaches 'debug' suffix to version and package name, allowing installation alongside the release build.
         debug {
@@ -197,13 +214,15 @@ android {
             }
         }
 
-        create("thorLab") {
+        create("openSw") {
             dimension = "version"
 
-            manifestPlaceholders += mapOf("appNameBase" to "Eden Thor Lab")
-            resValue("string", "app_name_suffixed", "Eden Thor Lab")
-            applicationId = "com.remipelloux.edenthorlab"
-            versionNameSuffix = "-thorlab"
+            manifestPlaceholders += mapOf("appNameBase" to "OpenSw")
+            resValue("string", "app_name_suffixed", "OpenSw")
+            applicationId = "com.remipelloux.opensw"
+            versionName =
+                "opensw-${runGitCommand(listOf("git", "rev-parse", "--short=12", "HEAD"))}"
+            buildConfigField("boolean", "IS_OPENSW", "true")
 
             ndk {
                 abiFilters += listOf("arm64-v8a")
@@ -270,7 +289,7 @@ android {
     externalNativeBuild {
         cmake {
             version = "3.31.6"
-            path = file("${edenDir}/CMakeLists.txt")
+            path = file("$edenDir/CMakeLists.txt")
         }
     }
 
@@ -287,10 +306,10 @@ android {
 idea {
     module {
         // Inclusion to exclude build/ dir from non-Android
-        excludeDirs.add(file("${edenDir}/build"))
+        excludeDirs.add(file("$edenDir/build"))
 
         // also exclude CPM cache from automatic indexing
-        excludeDirs.add(file("${edenDir}/.cache"))
+        excludeDirs.add(file("$edenDir/.cache"))
     }
 }
 
@@ -301,7 +320,7 @@ tasks.register<Delete>("ktlintReset", fun Delete.() {
 val showFormatHelp = {
     logger.lifecycle(
         "If this check fails, please try running \"gradlew ktlintFormat\" for automatic " +
-                "codestyle fixes"
+            "codestyle fixes"
     )
 }
 tasks.getByPath("ktlintKotlinScriptCheck").doFirst { showFormatHelp.invoke() }
@@ -324,16 +343,8 @@ ktlint {
     }
 }
 
-play {
-    val keyPath = System.getenv("SERVICE_ACCOUNT_KEY_PATH")
-    if (keyPath != null) {
-        serviceAccountCredentials.set(File(keyPath))
-    }
-    track.set(System.getenv("STORE_TRACK") ?: "internal")
-    releaseStatus.set(ReleaseStatus.COMPLETED)
-}
-
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.recyclerview:recyclerview:1.4.0")
@@ -393,7 +404,7 @@ fun getGitVersion(): String {
 }
 
 afterEvaluate {
-    val artifactsDir = layout.projectDirectory.dir("${edenDir}/artifacts")
+    val artifactsDir = layout.projectDirectory.dir("$edenDir/artifacts")
     val outputsDir = layout.buildDirectory.dir("outputs").get()
 
     android.applicationVariants.forEach { variant ->
@@ -418,8 +429,8 @@ afterEvaluate {
             from(aabFile)
             into(artifactsDir)
 
-            dependsOn("assemble${variantTask}")
-            dependsOn("bundle${variantTask}")
+            dependsOn("assemble$variantTask")
+            dependsOn("bundle$variantTask")
         }
     }
 }

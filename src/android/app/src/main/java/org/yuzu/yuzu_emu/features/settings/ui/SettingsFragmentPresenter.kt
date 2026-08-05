@@ -6,6 +6,8 @@ package org.yuzu.yuzu_emu.features.settings.ui
 import android.annotation.SuppressLint
 import android.os.Build
 import android.widget.Toast
+import androidx.preference.PreferenceManager
+import org.yuzu.yuzu_emu.BuildConfig
 import org.yuzu.yuzu_emu.NativeLibrary
 import org.yuzu.yuzu_emu.R
 import org.yuzu.yuzu_emu.YuzuApplication
@@ -1092,6 +1094,36 @@ class SettingsFragmentPresenter(
             }
 
             add(HeaderSetting(R.string.app_settings))
+            if (BuildConfig.IS_OPENSW) {
+                val performanceMode: AbstractIntSetting = object : AbstractIntSetting {
+                    private val preferences = PreferenceManager.getDefaultSharedPreferences(context)
+                    override fun getInt(needsGlobal: Boolean): Int =
+                        preferences.getInt(KEY_OPENSW_PERFORMANCE_MODE, 0)
+
+                    override fun setInt(value: Int) {
+                        preferences.edit().putInt(KEY_OPENSW_PERFORMANCE_MODE, value).apply()
+                    }
+
+                    override val key = KEY_OPENSW_PERFORMANCE_MODE
+                    override val isRuntimeModifiable = false
+                    override val defaultValue = 0
+                    override fun getValueAsString(needsGlobal: Boolean): String =
+                        getInt(needsGlobal).toString()
+
+                    override fun reset() = setInt(defaultValue)
+                }
+                add(
+                    SingleChoiceSetting(
+                        performanceMode,
+                        titleId = R.string.opensw_performance_mode,
+                        descriptionId = R.string.opensw_performance_mode_description,
+                        choicesId = R.array.openswPerformanceModeEntries,
+                        valuesId = R.array.openswPerformanceModeValues,
+                        warnChoices = listOf(2),
+                        warningMessage = R.string.opensw_experimental_warning
+                    )
+                )
+            }
             add(IntSetting.APP_LANGUAGE.key)
 
             if (NativeLibrary.isUpdateCheckerEnabled()) {
@@ -1339,5 +1371,9 @@ class SettingsFragmentPresenter(
                 )
             )
         }
+    }
+
+    private companion object {
+        const val KEY_OPENSW_PERFORMANCE_MODE = "opensw_performance_mode"
     }
 }

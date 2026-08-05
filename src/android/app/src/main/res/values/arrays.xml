@@ -654,4 +654,16 @@
         <item>3</item>
         <item>4</item>
     </integer-array>
+
+    <string-array name="openswPerformanceModeEntries">
+        <item>@string/opensw_mode_standard</item>
+        <item>@string/opensw_mode_thor</item>
+        <item>@string/opensw_mode_experimental</item>
+    </string-array>
+
+    <integer-array name="openswPerformanceModeValues">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+    </integer-array>
 </resources>

@@ -7,74 +7,62 @@
 -->
 <!-- lang: en-GB -->
 
-> [!NOTE]
-> This checkout is the Eden Thor Lab fork, an unofficial Android test build for AYN Thor devices.
-> It uses a separate Android package and data directory and is not affiliated with or supported by
-> the upstream Eden Emulator Project.
-
 <h1 align="center">
   <br>
-  <a href="https://git.eden-emu.dev/eden-emu/eden"><img src="./dist/qt_themes/default/icons/256x256/eden.png" alt="Eden" width="200"></a>
+  <img src="./branding/opensw-monogram.svg" alt="OpenSw" width="200">
   <br>
-  <b>Eden</b>
+  <b>OpenSw</b>
   <br>
 </h1>
 
-<h4 align="center"><b>Eden</b> is a free and opensource (FOSS) Switch 1 emulator, derived from Yuzu and Sudachi - started by developer Camille LaVey.
-It's written in C++ with portability in mind, with builds for Windows, Linux, macOS, Android, FreeBSD and more.
+<h4 align="center">
+OpenSw is an unofficial Android emulator test fork for AYN Thor devices. It is designed for
+reversible performance experiments, safe Eden data import and in-game cheat controls.
 </h4>
 
 <p align="center">
-    </a>
-    <a href="https://discord.gg/HstXbPch7X">
-        <img src="https://img.shields.io/discord/1367654015269339267?color=5865F2&label=Eden&logo=discord&logoColor=white"
-            alt="Discord">
-    </a>
-    <a href="https://stt.gg/qKgFEAbH">
-        <img src="https://img.shields.io/revolt/invite/qKgFEAbH?color=d61f3a&label=Stoat"
-            alt="Stoat">
-    </a>
-</p>
-
-<p align="center">
-  <a href="#compatibility">Compatibility</a> |
-  <a href="#development">Development</a> |
+  <a href="#isolation">Isolation</a> |
   <a href="#building">Building</a> |
-  <a href="#download">Download</a> |
-  <a href="#support">Support</a> |
+  <a href="#testing">Testing</a> |
+  <a href="#based-on-eden">Based on Eden</a> |
   <a href="#license">License</a>
 </p>
 
-## Compatibility
+## Isolation
 
-The emulator is capable of running most commercial games at full speed, provided you meet the necessary hardware requirements.
+OpenSw uses `com.remipelloux.opensw`; debug builds use `com.remipelloux.opensw.debug`. Neither
+package replaces or shares private app data with `dev.eden.eden_emulator.nightly`.
 
-A list of supported games will be available in future. Please be patient.
-
-Check out our [website](https://eden-emu.dev) for the latest news on exciting features, monthly progress reports, and more!
-
-[![Packaging status](https://repology.org/badge/vertical-allrepos/eden-emulator.svg)](https://repology.org/project/eden-emulator/versions)
-
-## Contribute
-
-To contribute to Eden; be it financially, code, bug reports, or otherwise, see our [Contributing guidelines](./CONTRIBUTING.md).
-
-## Documentation
-
-We have a user manual! See our [User Handbook](./docs/user/README.md).
+The `Standard`, `AYN Thor` and `Experimental` modes only affect OpenSw. No mode changes Android,
+device frequencies or the official Eden installation.
 
 ## Building
 
-See the [General Build Guide](docs/Build.md)
+Build the locally signed, release-like profiling APK from `src/android`:
 
-For information on provided development tooling, see the [Tools directory](./tools)
+```sh
+./gradlew :app:assembleOpenSwProfile
+```
 
-## Download
+The APK is produced at
+`src/android/app/build/outputs/apk/openSw/profile/app-openSw-profile.apk`.
 
-You can download the latest releases from [our release page](https://git.eden-emu.dev/eden-emu/eden/releases).
+## Testing
 
-Save us some bandwidth! We have [mirrors available](./docs/user/ThirdParty.md#mirrors) as well.
+See [OPENSW.md](./OPENSW.md) for package and device-testing rules. Performance acceptance and the
+fixed AYN Thor scenarios are documented in
+[docs/performance/ayn-thor-baseline.md](./docs/performance/ayn-thor-baseline.md).
+
+## Based on Eden
+
+OpenSw is [based on Eden](https://git.eden-emu.dev/eden-emu/eden) and retains the Eden/yuzu source
+history, copyrights and GPL notices. It is not affiliated with or supported by the upstream Eden
+Emulator Project.
+
+The upstream documentation remains available under [docs](./docs) and
+[CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
-Eden is licensed under the GPLv3 (or any later version). Refer to the [LICENSE.txt](https://git.eden-emu.dev/eden-emu/eden/src/branch/master/LICENSE.txt) file.
+OpenSw remains licensed under GPLv3 (or any later version). Refer to
+[LICENSE.txt](./LICENSE.txt).

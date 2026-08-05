@@ -1,6 +1,6 @@
 # Development rules
 
-These rules apply to Eden Thor Lab. They supplement the existing coding and licensing guidelines.
+These rules apply to OpenSw. They supplement the existing coding and licensing guidelines.
 
 ## Responsibility
 

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="about_app_description">Experimental Switch emulation for AYN Thor</string>
+    <string name="github_link" translatable="false">https://git.eden-emu.dev/eden-emu/eden</string>
+    <string name="opensw_based_on_eden">Based on Eden</string>
+    <string name="opensw_based_on_eden_description">OpenSw retains the GPL licence and Eden/yuzu copyrights.</string>
+</resources>
