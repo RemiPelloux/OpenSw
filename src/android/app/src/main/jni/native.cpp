@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstring>
 #include <locale>
+#include <malloc.h>
 #include <map>
 #include <set>
 #include <sstream>
@@ -358,6 +359,14 @@ void EmulationSession::ShutdownEmulation() {
         m_system.ShutdownMainProcess();
         m_load_result = Core::SystemResultStatus::ErrorNotInitialized;
         m_window.reset();
+        if (android_get_device_api_level() >= 28) {
+            using MalloptFunction = int (*)(int, int);
+            static const auto mallopt_function =
+                reinterpret_cast<MalloptFunction>(dlsym(RTLD_DEFAULT, "mallopt"));
+            if (mallopt_function != nullptr) {
+                (void)mallopt_function(M_PURGE, 0);
+            }
+        }
         OnEmulationStopped(Core::SystemResultStatus::Success);
         return;
     }
