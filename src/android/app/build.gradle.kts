@@ -224,6 +224,17 @@ android {
                 "opensw-${runGitCommand(listOf("git", "rev-parse", "--short=12", "HEAD"))}"
             buildConfigField("boolean", "IS_OPENSW", "true")
 
+            externalNativeBuild {
+                cmake {
+                    arguments.addAll(
+                        listOf(
+                            "-DENABLE_UPDATE_CHECKER=OFF",
+                            "-DNIGHTLY_BUILD=OFF"
+                        )
+                    )
+                }
+            }
+
             ndk {
                 abiFilters += listOf("arm64-v8a")
             }

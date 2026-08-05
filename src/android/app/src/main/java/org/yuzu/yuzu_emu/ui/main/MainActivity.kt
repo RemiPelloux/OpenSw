@@ -220,10 +220,12 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
         EmulationActivity.stopForegroundService(this)
 
         val firstTimeSetup = PreferenceManager.getDefaultSharedPreferences(applicationContext)
-                .getBoolean(Settings.PREF_FIRST_APP_LAUNCH, true)
+            .getBoolean(Settings.PREF_FIRST_APP_LAUNCH, true)
 
-        if (!firstTimeSetup && NativeLibrary.isUpdateCheckerEnabled() && BooleanSetting.ENABLE_UPDATE_CHECKS.getBoolean()) {
-             checkForUpdates()
+        if (!BuildConfig.IS_OPENSW && !firstTimeSetup && NativeLibrary.isUpdateCheckerEnabled() &&
+            BooleanSetting.ENABLE_UPDATE_CHECKS.getBoolean()
+        ) {
+            checkForUpdates()
         }
         setInsets()
         applyFullscreenPreference()
