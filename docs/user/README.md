@@ -1,4 +1,7 @@
-# User Handbook
+# Inherited Eden user handbook
+
+> These upstream guides are retained for historical and compatibility context. OpenSw's maintained
+> Android documentation is in the [OpenSw handbook](../opensw/README.md).
 
 The "FAQ".
 

@@ -16,8 +16,9 @@
 </h1>
 
 <h4 align="center">
-OpenSw is an unofficial Android emulator test fork for AYN Thor devices. It is designed for
-reversible performance experiments, safe Eden data import and in-game cheat controls.
+OpenSw is an Android Switch emulator fork with a general ARM64 build and a performance path
+measured on AYN Thor. It combines reversible per-game profiles, live cheats, a dual-screen cockpit
+and reproducible performance diagnostics.
 </h4>
 
 <p align="center">
@@ -33,10 +34,14 @@ reversible performance experiments, safe Eden data import and in-game cheat cont
 ## Features
 
 - A separate `OpenSw` Android package that can coexist with the official Eden nightly build.
-- `Standard`, `AYN Thor` and `Experimental` modes for reversible device-specific work.
+- `Standard`, `Thor Balanced`, `Thor 60 stable` and experimental `Thor Max` modes.
+- A global default with optional per-Title-ID overrides that never rewrite game configuration files.
 - A release-like, locally signed and profileable APK for repeatable AYN Thor measurements.
 - A read-only Eden import assistant for keys, firmware, profiles, saves, settings, mods and cheats.
 - An in-game cheat overlay with controller and touch navigation.
+- A shared Performance Lab with p95 frametime, memory, power, thermal warnings and A/B reports.
+- An automatic cockpit on the Thor secondary display with an in-game drawer fallback.
+- Sanitised diagnostic bundles without keys, saves, firmware, game paths or game content.
 - Build-ID-aware cheat import from text files, Atmosphere/Eden trees and ZIP archives.
 - Optional cheat catalogues backed by `switch-cheats-db` and `NX-60FPS-RES-GFX-Cheats`.
 - Perfetto capture tooling and a documented AYN Thor performance baseline.
@@ -62,8 +67,9 @@ validated, size-limited, protected against ZIP path traversal and installed atom
 OpenSw uses `com.remipelloux.opensw`; debug builds use `com.remipelloux.opensw.debug`. Neither
 package replaces or shares private app data with `dev.eden.eden_emulator.nightly`.
 
-The `Standard`, `AYN Thor` and `Experimental` modes only affect OpenSw. No mode changes Android,
-device frequencies or the official Eden installation.
+The OpenSw modes only affect OpenSw. No mode changes Android, CPU/GPU frequencies, unsafe memory
+settings or the official Eden installation. `Standard` restores the exact values captured before a
+Thor mode was enabled.
 
 The Eden migration flow uses Android's document picker and a user-granted read-only source. It stages
 and verifies copied files before installing them into OpenSw; game files, caches, logs and temporary
@@ -80,10 +86,16 @@ Build the locally signed, release-like profiling APK from `src/android`:
 The APK is produced at
 `src/android/app/build/outputs/apk/openSw/profile/app-openSw-profile.apk`.
 
+Build and archive the generic, ARMv9, ThinLTO and ARMv9 + ThinLTO measurement APKs with:
+
+```sh
+tools/performance/build-opensw-matrix.sh
+```
+
 ## Testing
 
-See [OPENSW.md](./OPENSW.md) for package and device-testing rules. Performance acceptance and the
-fixed AYN Thor scenarios are documented in
+See the [OpenSw handbook](./docs/opensw/README.md) and [OPENSW.md](./OPENSW.md) for product,
+package and device-testing rules. Performance acceptance and the fixed AYN Thor scenarios are in
 [docs/performance/ayn-thor-baseline.md](./docs/performance/ayn-thor-baseline.md).
 
 The current device baseline covers an AYN Thor with Snapdragon 8 Gen 2 and Adreno 740. Performance
@@ -96,8 +108,8 @@ OpenSw is [based on Eden](https://git.eden-emu.dev/eden-emu/eden) and retains th
 history, copyrights and GPL notices. It is not affiliated with or supported by the upstream Eden
 Emulator Project.
 
-The upstream documentation remains available under [docs](./docs) and
-[CONTRIBUTING.md](./CONTRIBUTING.md).
+Unverified desktop guides are retained as clearly labelled upstream documentation under
+[docs](./docs). OpenSw-specific documentation lives under [docs/opensw](./docs/opensw).
 
 ## License
 

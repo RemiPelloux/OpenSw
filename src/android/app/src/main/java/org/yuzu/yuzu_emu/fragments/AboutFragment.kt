@@ -77,6 +77,12 @@ class AboutFragment : Fragment() {
         binding.buttonOpenswUpstream?.setOnClickListener {
             openLink("https://git.eden-emu.dev/eden-emu/eden")
         }
+        if (BuildConfig.IS_OPENSW) {
+            binding.buttonDiscord.visibility = View.GONE
+            binding.buttonStoat.visibility = View.GONE
+            binding.buttonX.visibility = View.GONE
+            binding.buttonWebsite.visibility = View.GONE
+        }
         binding.buttonLicenses.setOnClickListener {
             val action = HomeNavigationDirections.actionGlobalSettingsSubscreenActivity(
                 SettingsSubscreen.LICENSES,

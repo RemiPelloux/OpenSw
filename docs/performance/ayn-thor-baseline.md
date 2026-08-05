@@ -33,17 +33,16 @@ fan mode, save position, camera path and test duration identical.
 | Monster Train 2 | cold | 0 | pending | pending | pending | pending | pending | pending | |
 | Monster Train 2 | warm | 0 | pending | pending | pending | pending | pending | pending | |
 
-## Initial device observation
+## Verified device observation
 
-The connected installation currently loads Pokemon Legends: Arceus 1.0.0: the main NSO Build ID
-is `7FCAD279539DE183`. The 1.1.1 acceptance rows above remain pending until the 1.1.1 update is
-actually selected by the emulator. Build-specific cheat files for 1.0.0, 1.0.1, 1.0.2, 1.1.0 and
-1.1.1 are installed in OpenSw; the engine selects only the exact Build ID.
+Pokemon Legends: Arceus 1.1.1 is installed and selected. OpenSw reports Title ID
+`01001F5010DFA000`, main NSO Build ID `AEE8F150DDA1B5A8`, and 43 compatible cheat sections. With
+Mastercode and `60 FPS` enabled, the native engine reported `Applied 2 cheat sections (57 opcodes)`.
 
-One 128-frame SurfaceFlinger sample on the animated introduction, after warm-up, produced 29.98
-median FPS, 33.361 ms median frame interval, 36.435 ms p95 and 37.481 ms p99. This is an
-instrumentation check, not an acceptance run: it is not gameplay and ordinary cheat state was not
-controlled. Memory at the same stage was 4,820,600 KiB PSS, 5,718,232 KiB RSS and 116 KiB swap PSS.
+A stable SurfaceFlinger sample produced 59.96 FPS, 16.677 ms median frame interval, 18.991 ms p95
+and 20.297 ms p99. This confirms correct update, cheat selection and presentation, but does not
+replace the controlled 0/5/20-cheat matrix above. Memory in the earlier instrumentation pass was
+4,820,600 KiB PSS, 5,718,232 KiB RSS and 116 KiB swap PSS.
 The dominant 3.38 GiB `Other mmap` category is consistent with the emulator's 4 GiB guest-memory
 layout and must not be treated as a Java leak without a native mapping breakdown.
 
@@ -62,6 +61,10 @@ limitation and continues instead of discarding the remaining report.
 3. Generic ARM64 versus ARMv9 remains an A/B experiment. It must not become the Thor default before
    the full scenario matrix passes.
 4. ThinLTO remains an A/B experiment. `fast-math` is prohibited.
+
+The generic ARMv8-A, ARMv9, ThinLTO and ARMv9 + ThinLTO `openSwProfile` APKs all completed the local
+Android build matrix on 2026-08-05 with the same local signing identity. This validates the build
+presets only; no ARMv9 or ThinLTO performance gain is claimed from compilation alone.
 
 Promote an experiment only with a reproducible improvement of at least 3 percent or a clear p95/p99
 reduction, and no regression above 2 percent in another scenario. Otherwise keep it Experimental or

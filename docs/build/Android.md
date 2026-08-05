@@ -1,4 +1,7 @@
-# Android
+# Inherited Eden Android build guide
+
+> This is an upstream desktop/build reference retained from Eden. For the maintained OpenSw flavor,
+> package and profiling commands, use [Build OpenSw for Android](../opensw/Android.md).
 
 ## Dependencies
 
