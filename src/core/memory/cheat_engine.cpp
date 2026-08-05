@@ -363,8 +363,25 @@ void CheatEngine::FrameCallback(std::chrono::nanoseconds ns_late) {
                 next = cheats;
             }
         }
-        if (should_reload && !vm.LoadProgram(next)) {
-            LOG_ERROR(CheatEngine, "Refused cheat program larger than 0x400 opcodes");
+        if (should_reload) {
+            if (!vm.LoadProgram(next)) {
+                LOG_ERROR(CheatEngine, "Refused cheat program larger than 0x400 opcodes");
+            } else {
+                std::size_t active_entries{};
+                std::string active_names;
+                for (const auto& entry : next) {
+                    if (!entry.enabled || entry.definition.num_opcodes == 0) {
+                        continue;
+                    }
+                    ++active_entries;
+                    if (!active_names.empty()) {
+                        active_names += ", ";
+                    }
+                    active_names += entry.definition.readable_name.data();
+                }
+                LOG_INFO(CheatEngine, "Applied {} cheat sections ({} opcodes): {}", active_entries,
+                         vm.GetProgramSize(), active_names);
+            }
         }
     }
 

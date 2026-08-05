@@ -102,7 +102,18 @@ std::optional<std::vector<Core::Memory::CheatEntry>> ReadCheatFileFromFolder(
     }
 
     const Core::Memory::TextCheatParser parser;
-    return parser.Parse(std::string_view(reinterpret_cast<const char*>(data.data()), data.size()));
+    auto cheats = parser.Parse(
+        std::string_view(reinterpret_cast<const char*>(data.data()), data.size()));
+    if (cheats.empty()) {
+        LOG_WARNING(Common_Filesystem,
+                    "Rejected invalid cheats file for title_id={:016X}, build_id={}", title_id,
+                    build_id);
+    } else {
+        LOG_INFO(Common_Filesystem,
+                 "Loaded {} cheat sections for title_id={:016X}, build_id={}", cheats.size(),
+                 title_id, build_id);
+    }
+    return cheats;
 }
 
 void AppendCommaIfNotEmpty(std::string& to, std::string_view with) {
