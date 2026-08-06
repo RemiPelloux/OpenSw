@@ -11,6 +11,7 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
 import org.yuzu.yuzu_emu.features.input.NativeInput
+import org.yuzu.yuzu_emu.features.cheats.BundledCheats
 import java.io.File
 import java.io.FileOutputStream
 import java.security.KeyStore
@@ -62,6 +63,9 @@ class YuzuApplication : Application() {
         application = this
         documentsTree = DocumentsTree()
         DirectoryInitialization.start()
+        if (BuildConfig.IS_OPENSW && !BuildConfig.DEBUG) {
+            BundledCheats.installDefaults()
+        }
 
         // Initialize Freedreno config BEFORE loading native library
         // This ensures GPU driver environment variables are set before adrenotools initializes

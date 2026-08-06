@@ -55,20 +55,36 @@ object GameHelper {
         mountExternalContentDirectories(mountedContainerUris)
 
         val badDirs = mutableListOf<Int>()
+        val gameFiles = mutableListOf<MinimalDocumentFile>()
         gameDirs.forEachIndexed { index: Int, gameDir: GameDir ->
             val gameDirUri = gameDir.uriString.toUri()
             val isValid = FileUtil.isTreeUriValid(gameDirUri)
             if (isValid) {
                 val scanDepth = if (gameDir.deepScan) 3 else 1
-
-                addGamesRecursive(
-                    games,
+                collectFilesRecursive(
+                    gameFiles,
                     FileUtil.listFiles(gameDirUri),
-                    scanDepth,
-                    mountedContainerUris
+                    scanDepth
                 )
             } else {
                 badDirs.add(index)
+            }
+        }
+
+        // Register every container before reading metadata so updates are visible regardless of
+        // the directory iteration order. The collected list also avoids a second SAF traversal.
+        gameFiles.forEach { file ->
+            val extension = FileUtil.getExtension(file.uri).lowercase()
+            val filePath = file.uri.toString()
+            if (externalContentExtensions.contains(extension) &&
+                mountedContainerUris.add(filePath)) {
+                NativeLibrary.addGameFolderFileToFilesystemProvider(filePath)
+            }
+        }
+        gameFiles.forEach { file ->
+            val extension = FileUtil.getExtension(file.uri).lowercase()
+            if (Game.extensions.contains(extension)) {
+                getGame(file.uri, true, false)?.let(games::add)
             }
         }
 
@@ -134,39 +150,20 @@ object GameHelper {
         }
     }
 
-    private fun addGamesRecursive(
-        games: MutableList<Game>,
+    private fun collectFilesRecursive(
+        output: MutableList<MinimalDocumentFile>,
         files: Array<MinimalDocumentFile>,
-        depth: Int,
-        mountedContainerUris: MutableSet<String>
+        depth: Int
     ) {
         if (depth <= 0) {
             return
         }
 
-        files.forEach {
-            if (it.isDirectory) {
-                addGamesRecursive(
-                    games,
-                    FileUtil.listFiles(it.uri),
-                    depth - 1,
-                    mountedContainerUris
-                )
+        files.forEach { file ->
+            if (file.isDirectory) {
+                collectFilesRecursive(output, FileUtil.listFiles(file.uri), depth - 1)
             } else {
-                val extension = FileUtil.getExtension(it.uri).lowercase()
-                val filePath = it.uri.toString()
-
-                if (externalContentExtensions.contains(extension) &&
-                    mountedContainerUris.add(filePath)) {
-                    NativeLibrary.addGameFolderFileToFilesystemProvider(filePath)
-                }
-
-                if (Game.extensions.contains(extension)) {
-                    val game = getGame(it.uri, true, false)
-                    if (game != null) {
-                        games.add(game)
-                    }
-                }
+                output.add(file)
             }
         }
     }
@@ -272,6 +269,7 @@ object GameHelper {
             GameMetadata.getVersion(filePath, false),
             GameMetadata.getIsHomebrew(filePath)
         )
+        Log.info("[GameHelper] Metadata ${newGame.programIdHex} version=${newGame.version}")
 
         if (addedToLibrary) {
             val addedTime = preferences.getLong(newGame.keyAddedToLibraryTime, 0L)

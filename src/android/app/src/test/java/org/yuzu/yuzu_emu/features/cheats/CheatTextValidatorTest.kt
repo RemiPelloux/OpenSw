@@ -3,15 +3,28 @@
 
 package org.yuzu.yuzu_emu.features.cheats
 
-import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertNull
+import java.security.MessageDigest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.yuzu.yuzu_emu.NativeLibrary
 
 class CheatTextValidatorTest {
+    @Test
+    fun bundledForetalesCheatMatchesCurrentBuild() {
+        val cheat = BundledCheats.foretales60Fps
+
+        assertEquals("010026801939E000", CheatTextValidator.requireBuildId(cheat.titleId))
+        assertEquals("F95A034961AF4385", CheatTextValidator.requireBuildId(cheat.buildId))
+        assertTrue(CheatTextValidator.validate(cheat.text).hasMastercode)
+        val digest = MessageDigest.getInstance("SHA-256").digest(cheat.text.toByteArray())
+            .joinToString("") { "%02x".format(it) }
+        assertEquals(cheat.sha256, digest)
+    }
+
     @Test
     fun validatesMastercodeAndRegularSections() {
         val result = CheatTextValidator.validate(

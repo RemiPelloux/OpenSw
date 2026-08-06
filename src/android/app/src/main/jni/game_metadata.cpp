@@ -48,6 +48,30 @@ static RomMetadata CacheRomMetadata(const std::string& path) {
                 : "";
             entry.version = "1.0.0";
         }
+
+        FileSys::VirtualFile packed_update;
+        loader->ReadUpdateRaw(packed_update);
+        const auto patches = pm.GetPatches(packed_update);
+        const FileSys::Patch* selected_update = nullptr;
+        for (const auto& patch : patches) {
+            if (!patch.enabled || patch.type != FileSys::PatchType::Update ||
+                patch.version.empty()) {
+                continue;
+            }
+
+            const bool installed = patch.source == FileSys::PatchSource::NAND ||
+                                   patch.source == FileSys::PatchSource::SDMC;
+            if (selected_update == nullptr || installed) {
+                selected_update = &patch;
+            }
+            if (installed) {
+                break;
+            }
+        }
+        if (selected_update != nullptr && selected_update->version != "PACKED") {
+            entry.version = selected_update->version;
+        }
+
         if (loader->GetFileType() == Loader::FileType::NRO) {
             auto loader_nro = reinterpret_cast<Loader::AppLoader_NRO*>(loader.get());
             entry.isHomebrew = loader_nro->IsHomebrew();
