@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <array>
 #ifdef OPENSW_PROFILE
 #include <chrono>
 #endif
@@ -20,6 +21,8 @@ enum class PipelineProfilePhase {
     VulkanPipeline,
 };
 
+using PipelineProfileSnapshot = std::array<u64, 12>;
+
 #ifdef OPENSW_PROFILE
 void ProfilePipelineCacheHit();
 void ProfilePipelineCacheMiss();
@@ -30,6 +33,7 @@ void ProfilePipelineWait(u64 nanoseconds);
 void ProfilePipelinePhase(PipelineProfilePhase phase, u64 nanoseconds);
 void ResetPipelineProfile(u64 title_id);
 void ReportPipelineProfile();
+PipelineProfileSnapshot GetPipelineProfileSnapshot();
 #else
 inline void ProfilePipelineCacheHit() {}
 inline void ProfilePipelineCacheMiss() {}
@@ -40,6 +44,9 @@ inline void ProfilePipelineWait(u64) {}
 inline void ProfilePipelinePhase(PipelineProfilePhase, u64) {}
 inline void ResetPipelineProfile(u64) {}
 inline void ReportPipelineProfile() {}
+inline PipelineProfileSnapshot GetPipelineProfileSnapshot() {
+    return {};
+}
 #endif
 
 template <typename Func>

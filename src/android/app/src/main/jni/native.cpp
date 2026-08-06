@@ -7,6 +7,8 @@
 #define VMA_IMPLEMENTATION
 #include "video_core/vulkan_common/vma.h"
 
+#include <algorithm>
+#include <array>
 #include <codecvt>
 #include <cstdio>
 #include <cstring>
@@ -78,6 +80,7 @@ extern "C" {
 #include "common/android/applets/web_browser.h"
 #include "core/hle/service/am/applet_manager.h"
 #include "core/hle/service/am/frontend/applets.h"
+#include "video_core/renderer_vulkan/vk_pipeline_profile.h"
 #include "core/hle/service/filesystem/filesystem.h"
 #include "core/hle/service/set/system_settings_server.h"
 #include "core/loader/loader.h"
@@ -989,6 +992,21 @@ jint Java_org_yuzu_yuzu_1emu_NativeLibrary_getShadersBuilding(JNIEnv* env, jclas
     }
 
     return j_shaders;
+}
+
+jlongArray Java_org_yuzu_yuzu_1emu_NativeLibrary_getPipelineProfileStats(JNIEnv* env,
+                                                                          jclass clazz) {
+    const auto snapshot = Vulkan::GetPipelineProfileSnapshot();
+    std::array<jlong, 12> java_snapshot{};
+    std::transform(snapshot.begin(), snapshot.end(), java_snapshot.begin(),
+                   [](u64 value) { return static_cast<jlong>(value); });
+    auto result = env->NewLongArray(static_cast<jsize>(snapshot.size()));
+    if (!result) {
+        return nullptr;
+    }
+    env->SetLongArrayRegion(result, 0, static_cast<jsize>(snapshot.size()),
+                            java_snapshot.data());
+    return result;
 }
 
 jstring Java_org_yuzu_yuzu_1emu_NativeLibrary_getCpuBackend(JNIEnv* env, jclass clazz) {

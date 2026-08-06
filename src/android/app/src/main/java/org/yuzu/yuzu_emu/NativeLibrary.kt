@@ -261,6 +261,9 @@ object NativeLibrary {
     external fun getVulkanApiVersion(): String
     external fun getGpuModel(): String
 
+    /** Returns Profile-only Vulkan pipeline counters, or an empty array in other builds. */
+    external fun getPipelineProfileStats(): LongArray
+
     /**
      * Returns a summary of detailed information about the CPU.
      */

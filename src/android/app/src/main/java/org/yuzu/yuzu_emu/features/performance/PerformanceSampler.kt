@@ -32,6 +32,9 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import org.yuzu.yuzu_emu.NativeLibrary
+import org.yuzu.yuzu_emu.BuildConfig
+import org.yuzu.yuzu_emu.features.settings.model.BooleanSetting
+import org.yuzu.yuzu_emu.features.settings.model.IntSetting
 import org.yuzu.yuzu_emu.utils.Log
 import org.json.JSONArray
 import org.json.JSONObject
@@ -52,7 +55,8 @@ data class PerformanceSnapshot(
     val charging: Boolean = false,
     val thermalStatus: Int = PowerManager.THERMAL_STATUS_NONE,
     val thermalWarning: Boolean = false,
-    val performanceWarning: Boolean = false
+    val performanceWarning: Boolean = false,
+    val pipelineProfile: PipelineProfileSnapshot? = null
 ) {
     fun compactLabel(): String = String.format(
         Locale.ROOT,
@@ -63,6 +67,49 @@ data class PerformanceSnapshot(
     )
 }
 
+data class PipelineProfileSnapshot(
+    val titleId: Long,
+    val cacheHits: Long,
+    val cacheMisses: Long,
+    val compilations: Long,
+    val maxQueueDepth: Long,
+    val smallDrawWaits: Long,
+    val pipelineWaits: Long,
+    val pipelineWaitNs: Long,
+    val translationNs: Long,
+    val spirvNs: Long,
+    val shaderModuleNs: Long,
+    val vulkanPipelineNs: Long
+) {
+    fun matches(titleId: String): Boolean {
+        val normalized = titleId.uppercase(Locale.ROOT).filter(Char::isLetterOrDigit)
+        return titleIdString == normalized
+    }
+
+    private val titleIdString: String
+        get() = java.lang.Long.toUnsignedString(titleId, 16).uppercase(Locale.ROOT).padStart(16, '0')
+
+    companion object {
+        fun from(values: LongArray): PipelineProfileSnapshot? {
+            if (values.size < 12 || values[0] == 0L) return null
+            return PipelineProfileSnapshot(
+                titleId = values[0],
+                cacheHits = values[1],
+                cacheMisses = values[2],
+                compilations = values[3],
+                maxQueueDepth = values[4],
+                smallDrawWaits = values[5],
+                pipelineWaits = values[6],
+                pipelineWaitNs = values[7],
+                translationNs = values[8],
+                spirvNs = values[9],
+                shaderModuleNs = values[10],
+                vulkanPipelineNs = values[11]
+            )
+        }
+    }
+}
+
 data class PerformanceMetricRequirements(
     val frameStats: Boolean = false,
     val emulationSpeed: Boolean = false,
@@ -70,7 +117,8 @@ data class PerformanceMetricRequirements(
     val systemRam: Boolean = false,
     val shaders: Boolean = false,
     val battery: Boolean = false,
-    val thermal: Boolean = false
+    val thermal: Boolean = false,
+    val pipelineProfile: Boolean = false
 ) {
     operator fun plus(other: PerformanceMetricRequirements) = PerformanceMetricRequirements(
         frameStats = frameStats || other.frameStats,
@@ -79,7 +127,8 @@ data class PerformanceMetricRequirements(
         systemRam = systemRam || other.systemRam,
         shaders = shaders || other.shaders,
         battery = battery || other.battery,
-        thermal = thermal || other.thermal
+        thermal = thermal || other.thermal,
+        pipelineProfile = pipelineProfile || other.pipelineProfile
     )
 
     val needsSlowSample: Boolean
@@ -97,7 +146,8 @@ data class PerformanceMetricRequirements(
             systemRam = true,
             shaders = true,
             battery = true,
-            thermal = true
+            thermal = true,
+            pipelineProfile = true
         )
     }
 }
@@ -244,7 +294,12 @@ object PerformanceSampler {
                 charging = slow.charging,
                 thermalStatus = slow.thermalStatus,
                 thermalWarning = thermalWarning,
-                performanceWarning = performanceWarning
+                performanceWarning = performanceWarning,
+                pipelineProfile = if (isRunning && requirements.pipelineProfile) {
+                    PipelineProfileSnapshot.from(NativeLibrary.getPipelineProfileStats())
+                } else {
+                    null
+                }
             )
             synchronized(this@PerformanceSampler) {
                 capture?.samples?.add(state.value)
@@ -261,9 +316,12 @@ object PerformanceSampler {
         if (capture != null) return
         acquire(context, captureConsumer)
         capture = PerformanceCapture(
-            titleId = titleId.uppercase().filter(Char::isLetterOrDigit),
+            titleId = titleId.uppercase(Locale.ROOT).filter(Char::isLetterOrDigit),
             mode = mode,
-            startedAtMs = System.currentTimeMillis()
+            startedAtMs = System.currentTimeMillis(),
+            pipelineWorkers = IntSetting.ANDROID_PIPELINE_WORKERS.getInt(false),
+            presentationRate = IntSetting.ANDROID_PRESENTATION_FRAME_RATE.getInt(false),
+            asyncPresentation = BooleanSetting.RENDERER_ASYNC_PRESENTATION.getBoolean(false)
         )
     }
 
@@ -273,6 +331,8 @@ object PerformanceSampler {
         capture = null
         release(captureConsumer)
         if (finished.samples.isEmpty()) return null
+
+        val summary = summarizeCapture(finished.samples)
 
         val directory = File(context.filesDir, "reports")
         if (!directory.isDirectory && !directory.mkdirs()) return null
@@ -289,14 +349,45 @@ object PerformanceSampler {
                     .put("rss_mb", sample.appRssMb)
                     .put("thermal_status", sample.thermalStatus)
                     .put("battery_temperature_c", sample.batteryTemperatureC)
+                    .apply {
+                        sample.pipelineProfile?.takeIf { it.matches(finished.titleId) }?.let { profile ->
+                            put("pipeline_cache_hits", profile.cacheHits)
+                            put("pipeline_cache_misses", profile.cacheMisses)
+                            put("pipeline_compilations", profile.compilations)
+                            put("pipeline_max_queue", profile.maxQueueDepth)
+                            put("pipeline_waits", profile.pipelineWaits)
+                            put("pipeline_wait_ns", profile.pipelineWaitNs)
+                            put("pipeline_small_draw_waits", profile.smallDrawWaits)
+                            put("maxwell_translate_ns", profile.translationNs)
+                            put("spirv_emit_ns", profile.spirvNs)
+                            put("shader_module_ns", profile.shaderModuleNs)
+                            put("vulkan_pipeline_ns", profile.vulkanPipelineNs)
+                        }
+                    }
             )
         }
         val report = JSONObject()
-            .put("format", "opensw-performance-v1")
+            .put("format", "opensw-performance-v2")
             .put("title_id", finished.titleId)
-            .put("mode", finished.mode)
             .put("started_at_ms", finished.startedAtMs)
             .put("finished_at_ms", System.currentTimeMillis())
+            .put("frametime_p50_ms", summary.frameTimeP50Ms)
+            .put("frametime_p95_ms", summary.frameTimeP95Ms)
+            .put("frametime_p99_ms", summary.frameTimeP99Ms)
+            .put("median_fps", summary.medianFps)
+            .put("frametime_sample_count", summary.sampleCount)
+            .put("max_rss_mb", summary.maxRssMb)
+            .put("max_temperature_c", summary.maxTemperatureC)
+            .put(
+                "scenario",
+                JSONObject()
+                    .put("mode", finished.mode)
+                    .put("pipeline_workers", finished.pipelineWorkers)
+                    .put("presentation_rate_hz", finished.presentationRate)
+                    .put("async_presentation", finished.asyncPresentation)
+                    .put("device", "${Build.MANUFACTURER} ${Build.MODEL}")
+                    .put("build", BuildConfig.VERSION_NAME)
+            )
             .put("samples", samples)
         file.writeText(report.toString(2))
         return file
@@ -424,6 +515,9 @@ object PerformanceSampler {
         val titleId: String,
         val mode: String,
         val startedAtMs: Long,
+        val pipelineWorkers: Int,
+        val presentationRate: Int,
+        val asyncPresentation: Boolean,
         val samples: MutableList<PerformanceSnapshot> = mutableListOf()
     )
 }

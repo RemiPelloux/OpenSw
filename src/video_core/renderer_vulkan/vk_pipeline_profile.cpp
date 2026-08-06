@@ -81,7 +81,7 @@ void ProfilePipelinePhase(PipelineProfilePhase phase, u64 nanoseconds) {
 }
 
 void ResetPipelineProfile(u64 title_id) {
-    counters.title_id.store(title_id, std::memory_order_relaxed);
+    counters.title_id.store(0, std::memory_order_release);
     counters.cache_hits.store(0, std::memory_order_relaxed);
     counters.cache_misses.store(0, std::memory_order_relaxed);
     counters.compilations.store(0, std::memory_order_relaxed);
@@ -93,6 +93,32 @@ void ResetPipelineProfile(u64 title_id) {
     counters.spirv_ns.store(0, std::memory_order_relaxed);
     counters.shader_module_ns.store(0, std::memory_order_relaxed);
     counters.vulkan_pipeline_ns.store(0, std::memory_order_relaxed);
+    counters.title_id.store(title_id, std::memory_order_release);
+}
+
+PipelineProfileSnapshot GetPipelineProfileSnapshot() {
+    const u64 title_id = counters.title_id.load(std::memory_order_acquire);
+    if (title_id == 0) {
+        return {};
+    }
+    const PipelineProfileSnapshot snapshot{
+        title_id,
+        counters.cache_hits.load(std::memory_order_relaxed),
+        counters.cache_misses.load(std::memory_order_relaxed),
+        counters.compilations.load(std::memory_order_relaxed),
+        counters.max_queue_depth.load(std::memory_order_relaxed),
+        counters.small_draw_waits.load(std::memory_order_relaxed),
+        counters.pipeline_waits.load(std::memory_order_relaxed),
+        counters.pipeline_wait_ns.load(std::memory_order_relaxed),
+        counters.translation_ns.load(std::memory_order_relaxed),
+        counters.spirv_ns.load(std::memory_order_relaxed),
+        counters.shader_module_ns.load(std::memory_order_relaxed),
+        counters.vulkan_pipeline_ns.load(std::memory_order_relaxed),
+    };
+    if (counters.title_id.load(std::memory_order_acquire) != title_id) {
+        return {};
+    }
+    return snapshot;
 }
 
 void ReportPipelineProfile() {

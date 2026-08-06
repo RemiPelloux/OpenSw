@@ -590,13 +590,21 @@ abstract class SettingsItem(
                 )
             )
             put(
-                SliderSetting(
+                SingleChoiceSetting(
                     IntSetting.ANDROID_PIPELINE_WORKERS,
                     titleId = R.string.pipeline_worker_cores,
                     descriptionId = R.string.pipeline_worker_cores_description,
-                    min = 4,
-                    max = 8,
-                    units = "cores"
+                    choicesId = R.array.openswPipelineWorkerEntries,
+                    valuesId = R.array.openswPipelineWorkerValues
+                )
+            )
+            put(
+                SingleChoiceSetting(
+                    IntSetting.ANDROID_PRESENTATION_FRAME_RATE,
+                    titleId = R.string.presentation_frame_rate,
+                    descriptionId = R.string.presentation_frame_rate_description,
+                    choicesId = R.array.openswPresentationRateEntries,
+                    valuesId = R.array.openswPresentationRateValues
                 )
             )
             put(

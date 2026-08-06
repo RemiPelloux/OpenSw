@@ -15,6 +15,7 @@
 #include "common/android/id_cache.h"
 #include "common/logging.h"
 #include "common/settings.h"
+#include "jni/android_settings.h"
 #include "input_common/drivers/android.h"
 #include "input_common/drivers/touch_screen.h"
 #include "input_common/drivers/virtual_amiibo.h"
@@ -125,6 +126,11 @@ float EmuWindow_Android::GetFrameTimeVerifiedHint() const {
 }
 
 float EmuWindow_Android::GetFrameRateHint() const {
+    const int configured_rate = AndroidSettings::values.presentation_frame_rate.GetValue();
+    if (configured_rate == 30 || configured_rate == 40 || configured_rate == 60) {
+        return static_cast<float>(configured_rate);
+    }
+
     const float observed_rate = std::clamp(m_smoothed_present_rate, 0.0f, 240.0f);
     const float frame_time_verified_hint = GetFrameTimeVerifiedHint();
 
