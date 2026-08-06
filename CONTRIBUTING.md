@@ -74,4 +74,8 @@ Once your request is processed, you will receive a confirmation email with your 
 
 Alongside the other contribution methods listed up top, you can also choose to contribute through documentation, organization, or community guides. These can be done either through the code contribution methods described above, or created externally and shared via our Discord community.
 
-If you have an external tool/page that you believe would be handy to integrate/link into Eden, please additionally email our developers at [`developers@eden-emu.dev`](mailto:developers@eden-emu.dev). **Do not submit vibe-coded or AI generated tools or applications**.
+If you have an external tool or page that would be useful to integrate with OpenSw,
+open a proposal describing its purpose, ownership, license, data handling, and
+maintenance plan. AI-assisted and tool-generated contributions are permitted, but
+they must have a human owner, be reviewable, pass the same tests and quality checks
+as hand-written work, and disclose substantial generated content during review.
