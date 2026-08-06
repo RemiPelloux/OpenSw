@@ -6,8 +6,11 @@
 #include <atomic>
 #include <chrono>
 #include <memory>
+#include <mutex>
+#include <string>
 #include <vector>
 #include "common/common_types.h"
+#include "core/memory/cheat_api.h"
 #include "core/memory/dmnt_cheat_types.h"
 #include "core/memory/dmnt_cheat_vm.h"
 
@@ -70,6 +73,9 @@ public:
     void SetMainMemoryParameters(VAddr main_region_begin, u64 main_region_size);
 
     void Reload(std::vector<CheatEntry> reload_cheats);
+    [[nodiscard]] CheatContext GetContext() const;
+    [[nodiscard]] std::vector<CheatSnapshot> GetLoadedCheats() const;
+    [[nodiscard]] bool SetCheatEnabled(u32 session_id, bool enabled);
 
 private:
     void FrameCallback(std::chrono::nanoseconds ns_late);
@@ -77,7 +83,9 @@ private:
     DmntCheatVm vm;
     CheatProcessMetadata metadata;
 
+    mutable std::mutex cheats_mutex;
     std::vector<CheatEntry> cheats;
+    std::vector<CheatEntry> pending_cheats;
     std::atomic_bool is_pending_reload{false};
 
     std::shared_ptr<Core::Timing::EventType> event;

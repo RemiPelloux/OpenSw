@@ -24,6 +24,7 @@ import com.google.android.material.transition.MaterialSharedAxis
 import org.yuzu.yuzu_emu.HomeNavigationDirections
 import org.yuzu.yuzu_emu.R
 import org.yuzu.yuzu_emu.databinding.FragmentAboutBinding
+import org.yuzu.yuzu_emu.BuildConfig
 import org.yuzu.yuzu_emu.features.settings.ui.SettingsSubscreen
 import org.yuzu.yuzu_emu.model.HomeViewModel
 import org.yuzu.yuzu_emu.utils.ViewUtils.updateMargins
@@ -71,6 +72,16 @@ class AboutFragment : Fragment() {
             openLink(
                 getString(R.string.contributors_link)
             )
+        }
+        binding.buttonOpenswUpstream?.visibility = if (BuildConfig.IS_OPENSW) View.VISIBLE else View.GONE
+        binding.buttonOpenswUpstream?.setOnClickListener {
+            openLink("https://git.eden-emu.dev/eden-emu/eden")
+        }
+        if (BuildConfig.IS_OPENSW) {
+            binding.buttonDiscord.visibility = View.GONE
+            binding.buttonStoat.visibility = View.GONE
+            binding.buttonX.visibility = View.GONE
+            binding.buttonWebsite.visibility = View.GONE
         }
         binding.buttonLicenses.setOnClickListener {
             val action = HomeNavigationDirections.actionGlobalSettingsSubscreenActivity(

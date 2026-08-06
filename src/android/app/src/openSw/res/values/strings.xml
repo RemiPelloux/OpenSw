@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="opensw_brand_name" translatable="false">OpenSw</string>
+    <string name="about_app_description">Switch emulation for Android, certified and measured on AYN Thor</string>
+    <string name="app_notification_channel_name" translatable="false">OpenSw</string>
+    <string name="app_notification_channel_id" translatable="false">OpenSw</string>
+    <string name="app_notification_channel_description">OpenSw emulation notifications</string>
+    <string name="app_notification_running">OpenSw is running</string>
+    <string name="welcome_description">Set up &lt;b>OpenSw&lt;/b> and start playing.</string>
+    <string name="select_games_folder_description">Allow OpenSw to populate the game library</string>
+    <string name="open_user_folder">Open OpenSw folder</string>
+    <string name="open_user_folder_description">Manage OpenSw internal files</string>
+    <string name="notification_no_directory_link">Could not open OpenSw directory</string>
+    <string name="share_log_description">Share the OpenSw log file to diagnose issues</string>
+    <string name="share_gpu_log_description">Share the OpenSw GPU log to diagnose graphics issues</string>
+    <string name="manage_yuzu_data">Manage OpenSw data</string>
+    <string name="contributors_description">People who made OpenSw and its upstream foundations possible</string>
+    <string name="licenses_description">Open-source projects used by OpenSw</string>
+    <string name="invalid_yuzu_backup">Invalid OpenSw backup</string>
+    <string name="driver_shader_wipe_dialog_message">OpenSw cleared the shader caches to preserve Vulkan pipeline validity after the driver change. Stutter may occur while shaders rebuild.</string>
+    <string name="eden_theme">OpenSw Graphite</string>
+    <string name="github_link" translatable="false">https://github.com/RemiPelloux/OpenSw</string>
+    <string name="opensw_based_on_eden">Based on Eden</string>
+    <string name="opensw_based_on_eden_description">OpenSw retains the GPL licence and Eden/yuzu copyrights.</string>
+</resources>

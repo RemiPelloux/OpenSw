@@ -4,6 +4,7 @@
 package org.yuzu.yuzu_emu.utils
 
 import androidx.preference.PreferenceManager
+import java.io.File
 import java.io.IOException
 import org.yuzu.yuzu_emu.NativeLibrary
 import org.yuzu.yuzu_emu.YuzuApplication
@@ -40,6 +41,10 @@ object DirectoryInitialization {
     private fun initializeInternalStorage() {
         try {
             userPath = YuzuApplication.appContext.getExternalFilesDir(null)!!.canonicalPath
+            val tasDirectory = File(userPath, "tas")
+            check(tasDirectory.isDirectory || tasDirectory.mkdirs()) {
+                "Failed to create TAS directory: ${tasDirectory.path}"
+            }
             NativeLibrary.setAppDirectory(userPath!!)
         } catch (e: IOException) {
             e.printStackTrace()

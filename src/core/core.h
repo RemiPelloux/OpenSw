@@ -11,6 +11,7 @@
 #include <functional>
 #include <memory>
 #include <mutex>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -19,6 +20,7 @@
 #include "core/file_sys/vfs/vfs_types.h"
 #include "core/hle/service/os/event.h"
 #include "core/hle/service/kernel_helpers.h"
+#include "core/memory/cheat_api.h"
 
 namespace Core::Frontend {
 class EmuWindow;
@@ -338,6 +340,9 @@ public:
     void RegisterCheatList(const std::vector<Memory::CheatEntry>& list,
                            const std::array<u8, 0x20>& build_id, u64 main_region_begin,
                            u64 main_region_size);
+    [[nodiscard]] std::optional<Memory::CheatContext> GetCheatContext() const;
+    [[nodiscard]] std::vector<Memory::CheatSnapshot> GetLoadedCheats() const;
+    [[nodiscard]] bool SetCheatEnabled(u32 session_id, bool enabled);
 
     void SetFrontendAppletSet(Service::AM::Frontend::FrontendAppletSet&& set);
 

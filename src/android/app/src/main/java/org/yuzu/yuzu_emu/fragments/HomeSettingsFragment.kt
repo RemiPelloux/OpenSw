@@ -17,16 +17,22 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.documentfile.provider.DocumentFile
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.findNavController
 import androidx.navigation.fragment.findNavController
 import androidx.recyclerview.widget.GridLayoutManager
 import com.google.android.material.transition.MaterialSharedAxis
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.yuzu.yuzu_emu.BuildConfig
 import org.yuzu.yuzu_emu.HomeNavigationDirections
 import org.yuzu.yuzu_emu.NativeLibrary
 import org.yuzu.yuzu_emu.R
@@ -35,6 +41,7 @@ import org.yuzu.yuzu_emu.adapters.HomeSettingAdapter
 import org.yuzu.yuzu_emu.databinding.FragmentHomeSettingsBinding
 import org.yuzu.yuzu_emu.features.DocumentProvider
 import org.yuzu.yuzu_emu.features.fetcher.SpacingItemDecoration
+import org.yuzu.yuzu_emu.features.performance.OpenSwDiagnosticBundle
 import org.yuzu.yuzu_emu.features.settings.model.Settings
 import org.yuzu.yuzu_emu.features.settings.ui.SettingsSubscreen
 import org.yuzu.yuzu_emu.model.DriverViewModel
@@ -93,6 +100,16 @@ class HomeSettingsFragment : Fragment() {
                     }
                 )
             )
+            if (BuildConfig.IS_OPENSW) {
+                add(
+                    HomeSetting(
+                        R.string.opensw_diagnostic_bundle,
+                        R.string.opensw_diagnostic_bundle_description,
+                        R.drawable.ic_export,
+                        { shareOpenSwDiagnosticBundle() }
+                    )
+                )
+            }
             add(
                 HomeSetting(
                     R.string.app_settings,
@@ -342,6 +359,26 @@ class HomeSettingsFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+
+    private fun shareOpenSwDiagnosticBundle() {
+        viewLifecycleOwner.lifecycleScope.launch {
+            val bundle = withContext(Dispatchers.IO) {
+                OpenSwDiagnosticBundle.create(requireContext().applicationContext)
+            }
+            val uri = FileProvider.getUriForFile(
+                requireContext(),
+                "${requireContext().packageName}.provider",
+                bundle
+            )
+            val intent = Intent(Intent.ACTION_SEND)
+                .setType("application/zip")
+                .putExtra(Intent.EXTRA_STREAM, uri)
+                .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            startActivity(
+                Intent.createChooser(intent, getString(R.string.opensw_diagnostic_bundle))
+            )
+        }
     }
 
     private fun openFileManager() {

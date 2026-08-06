@@ -161,13 +161,17 @@ struct KernelCore::Impl {
         CleanupObject(hidbus_shared_mem);
         CleanupObject(system_resource_limit);
 
-        for (u32 core_id = 0; core_id < Core::Hardware::NUM_CPU_CORES; core_id++) {
-            if (shutdown_threads[core_id]) {
-                shutdown_threads[core_id]->Close(kernel);
-                shutdown_threads[core_id] = nullptr;
+        auto CloseThread = [&kernel](KThread*& thread) {
+            if (thread != nullptr) {
+                thread->Close(kernel);
+                thread = nullptr;
             }
-
+        };
+        for (u32 core_id = 0; core_id < Core::Hardware::NUM_CPU_CORES; core_id++) {
             schedulers[core_id].reset();
+            CloseThread(shutdown_threads[core_id]);
+            CloseThread(main_threads[core_id]);
+            CloseThread(idle_threads[core_id]);
         }
 
         // Next host thead ID to use, 0-3 IDs represent core threads, >3 represent others
@@ -216,12 +220,16 @@ struct KernelCore::Impl {
             schedulers[i].emplace(system.Kernel());
             cores[i].emplace(system.Kernel(), i);
 
-            auto* main_thread{Kernel::KThread::Create(system.Kernel())};
+            auto*& main_thread = main_threads[i];
+            ASSERT(main_thread == nullptr);
+            main_thread = Kernel::KThread::Create(system.Kernel());
             main_thread->SetCurrentCore(core);
             ASSERT(Kernel::KThread::InitializeMainThread(system, main_thread, core).IsSuccess());
             KThread::Register(system.Kernel(), main_thread);
 
-            auto* idle_thread{Kernel::KThread::Create(system.Kernel())};
+            auto*& idle_thread = idle_threads[i];
+            ASSERT(idle_thread == nullptr);
+            idle_thread = Kernel::KThread::Create(system.Kernel());
             idle_thread->SetCurrentCore(core);
             ASSERT(Kernel::KThread::InitializeIdleThread(system, idle_thread, core).IsSuccess());
             KThread::Register(system.Kernel(), idle_thread);
@@ -822,6 +830,8 @@ struct KernelCore::Impl {
     // Memory layout
     std::optional<KMemoryLayout> memory_layout;
 
+    std::array<KThread*, Core::Hardware::NUM_CPU_CORES> main_threads{};
+    std::array<KThread*, Core::Hardware::NUM_CPU_CORES> idle_threads{};
     std::array<KThread*, Core::Hardware::NUM_CPU_CORES> shutdown_threads{};
     std::array<std::optional<Kernel::KScheduler>, Core::Hardware::NUM_CPU_CORES> schedulers{};
 
@@ -1106,6 +1116,10 @@ void KernelCore::RunOnGuestCoreProcess(std::string&& process_name, std::function
 
     // Initialize the thread.
     KThread* thread = KThread::Create(*this);
+    ASSERT(thread != nullptr);
+    SCOPE_EXIT {
+        thread->Close(*this);
+    };
     ASSERT(R_SUCCEEDED(KThread::InitializeServiceThread(
         System(), thread, std::move(func), ServiceThreadPriority, ServiceThreadCore, process)));
 

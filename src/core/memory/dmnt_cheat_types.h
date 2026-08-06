@@ -3,6 +3,7 @@
 
 #pragma once
 
+#include <string>
 #include "common/common_types.h"
 
 namespace Core::Memory {
@@ -31,6 +32,7 @@ struct CheatDefinition {
 struct CheatEntry {
     bool enabled{};
     u32 cheat_id{};
+    std::string source;
     CheatDefinition definition{};
 };
 

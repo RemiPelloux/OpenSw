@@ -207,7 +207,25 @@
         android:background="?attr/colorSurface"
         tools:visibility="gone">
 
-        <include layout="@layout/layout_quick_settings" />
+        <FrameLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent">
+
+            <include
+                android:id="@+id/quick_settings_content"
+                layout="@layout/layout_quick_settings" />
+
+            <include
+                android:id="@+id/cheats_content"
+                layout="@layout/layout_cheat_panel"
+                android:visibility="gone" />
+
+            <include
+                android:id="@+id/performance_content"
+                layout="@layout/layout_performance_panel"
+                android:visibility="gone" />
+
+        </FrameLayout>
 
     </com.google.android.material.navigation.NavigationView>
 
@@ -217,6 +235,11 @@
     android:layout_height="match_parent"
     android:layout_gravity="start"
     android:focusedByDefault="true"
+    app:itemBackground="@drawable/opensw_navigation_item_background"
+    app:itemHorizontalPadding="14dp"
+    app:itemIconSize="22dp"
+    app:itemIconTint="?attr/colorOnSurfaceVariant"
+    app:itemTextColor="?attr/colorOnSurface"
     app:headerLayout="@layout/header_in_game"
     app:menu="@menu/menu_in_game"
     android:background="?attr/colorSurface"

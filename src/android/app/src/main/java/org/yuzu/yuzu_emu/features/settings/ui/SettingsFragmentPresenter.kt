@@ -6,6 +6,7 @@ package org.yuzu.yuzu_emu.features.settings.ui
 import android.annotation.SuppressLint
 import android.os.Build
 import android.widget.Toast
+import org.yuzu.yuzu_emu.BuildConfig
 import org.yuzu.yuzu_emu.NativeLibrary
 import org.yuzu.yuzu_emu.R
 import org.yuzu.yuzu_emu.YuzuApplication
@@ -28,11 +29,10 @@ import org.yuzu.yuzu_emu.features.settings.model.StringSetting
 import org.yuzu.yuzu_emu.features.settings.model.view.*
 import org.yuzu.yuzu_emu.utils.InputHandler
 import org.yuzu.yuzu_emu.utils.NativeConfig
+import org.yuzu.yuzu_emu.utils.OpenSwPerformanceModeManager
 import org.yuzu.yuzu_emu.utils.DirectoryInitialization
 import org.yuzu.yuzu_emu.utils.FullscreenHelper
-import androidx.core.content.edit
 import androidx.fragment.app.FragmentActivity
-import org.yuzu.yuzu_emu.fragments.MessageDialogFragment
 
 class SettingsFragmentPresenter(
     private val settingsViewModel: SettingsViewModel,
@@ -88,7 +88,7 @@ class SettingsFragmentPresenter(
         val sharpnessFilterNames = setOf(
             context.getString(R.string.scaling_filter_fsr),
             context.getString(R.string.scaling_filter_sgsr),
-            context.getString(R.string.scaling_filter_sgsr_edge),
+            context.getString(R.string.scaling_filter_sgsr_edge)
         )
         return names.asSequence()
             .mapIndexedNotNull { index, name ->
@@ -1092,6 +1092,64 @@ class SettingsFragmentPresenter(
             }
 
             add(HeaderSetting(R.string.app_settings))
+            if (BuildConfig.IS_OPENSW) {
+                val gameTitleId = settingsViewModel.game?.programIdHex
+                val performanceMode: AbstractIntSetting = object : AbstractIntSetting {
+                    override fun getInt(needsGlobal: Boolean): Int =
+                        if (gameTitleId == null) {
+                            OpenSwPerformanceModeManager.getMode(context)
+                        } else {
+                            OpenSwPerformanceModeManager.getGameMode(context, gameTitleId)
+                        }
+
+                    override fun setInt(value: Int) {
+                        if (gameTitleId == null) {
+                            OpenSwPerformanceModeManager.apply(context, value)
+                        } else {
+                            OpenSwPerformanceModeManager.setGameMode(context, gameTitleId, value)
+                        }
+                    }
+
+                    override val key = if (gameTitleId == null) {
+                        OpenSwPerformanceModeManager.KEY_MODE
+                    } else {
+                        "${OpenSwPerformanceModeManager.KEY_MODE}.game"
+                    }
+                    override val isRuntimeModifiable = false
+                    override val defaultValue = if (gameTitleId == null) {
+                        0
+                    } else {
+                        OpenSwPerformanceModeManager.INHERIT
+                    }
+                    override fun getValueAsString(needsGlobal: Boolean): String =
+                        getInt(needsGlobal).toString()
+
+                    override fun reset() = setInt(defaultValue)
+                }
+                add(
+                    SingleChoiceSetting(
+                        performanceMode,
+                        titleId = R.string.opensw_performance_mode,
+                        descriptionId = if (gameTitleId == null) {
+                            R.string.opensw_performance_mode_description
+                        } else {
+                            R.string.opensw_game_performance_mode_description
+                        },
+                        choicesId = if (gameTitleId == null) {
+                            R.array.openswPerformanceModeEntries
+                        } else {
+                            R.array.openswGamePerformanceModeEntries
+                        },
+                        valuesId = if (gameTitleId == null) {
+                            R.array.openswPerformanceModeValues
+                        } else {
+                            R.array.openswGamePerformanceModeValues
+                        },
+                        warnChoices = listOf(3),
+                        warningMessage = R.string.opensw_experimental_warning
+                    )
+                )
+            }
             add(IntSetting.APP_LANGUAGE.key)
 
             if (NativeLibrary.isUpdateCheckerEnabled()) {

@@ -767,7 +767,7 @@ std::unique_ptr<GraphicsPipeline> PipelineCache::CreateGraphicsPipeline(
     bool build_in_parallel) try {
     ProfilePipelineCompilation();
     auto hash = key.Hash();
-    LOG_INFO(Render_Vulkan, "{:#016x}", hash);
+    LOG_TRACE(Render_Vulkan, "{:#016x}", hash);
     size_t env_index{0};
     std::array<Shader::IR::Program, Maxwell::MaxShaderProgram> programs;
     const bool uses_vertex_a{key.unique_hashes[0] != 0};

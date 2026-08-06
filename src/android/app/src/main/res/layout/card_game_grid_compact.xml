@@ -13,7 +13,7 @@
         app:cardElevation="0dp"
         app:cardBackgroundColor="@color/eden_card_background"
         app:strokeWidth="0dp"
-        android:layout_width="wrap_content"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:layout_margin="4dp"
@@ -25,7 +25,7 @@
         android:foreground="@color/eden_border_gradient_start">
 
         <androidx.constraintlayout.widget.ConstraintLayout
-            android:layout_width="wrap_content"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:paddingTop="3dp"
             android:paddingLeft="4dp"
@@ -34,8 +34,8 @@
 
             <FrameLayout
                 android:id="@+id/image_container"
-                android:layout_width="150dp"
-                android:layout_height="100dp"
+                android:layout_width="match_parent"
+                android:layout_height="84dp"
                 app:layout_constraintEnd_toEndOf="parent"
                 app:layout_constraintStart_toStartOf="parent"
                 app:layout_constraintTop_toTopOf="parent">
@@ -44,7 +44,7 @@
                     android:id="@+id/image_game_screen_compact"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    app:shapeAppearance="@style/ShapeAppearance.Material3.Corner.Medium"
+                    app:shapeAppearance="@style/ShapeAppearance.Material3.Corner.Small"
                     android:scaleType="centerCrop"
                     tools:src="@drawable/default_icon" />
 
@@ -59,14 +59,14 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:layout_gravity="bottom"
-                    android:layout_margin="6dp"
+                    android:layout_margin="7dp"
                     android:requiresFadingEdge="horizontal"
-                    android:textAlignment="center"
+                    android:textAlignment="viewStart"
                     android:textSize="12sp"
                     android:textStyle="bold"
                     android:textColor="@android:color/white"
                     android:shadowColor="@android:color/black"
-                    android:shadowDx="1"
+                    android:shadowDx="0"
                     android:shadowDy="1"
                     android:shadowRadius="2"
                     android:maxLines="2"

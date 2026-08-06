@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="about_app_description">Émulation Switch pour Android, certifiée et mesurée sur AYN Thor</string>
+    <string name="app_notification_channel_description">Notifications d’émulation OpenSw</string>
+    <string name="app_notification_running">OpenSw est actif</string>
+    <string name="welcome_description">Configurez &lt;b>OpenSw&lt;/b> et commencez à jouer.</string>
+    <string name="select_games_folder_description">Permet à OpenSw de remplir la bibliothèque de jeux</string>
+    <string name="open_user_folder">Ouvrir le dossier OpenSw</string>
+    <string name="open_user_folder_description">Gérer les fichiers internes de OpenSw</string>
+    <string name="notification_no_directory_link">Impossible d’ouvrir le dossier OpenSw</string>
+    <string name="share_log_description">Partager le journal OpenSw pour diagnostiquer un problème</string>
+    <string name="share_gpu_log_description">Partager le journal GPU OpenSw pour diagnostiquer un problème graphique</string>
+    <string name="manage_yuzu_data">Gérer les données OpenSw</string>
+    <string name="contributors_description">Personnes ayant rendu possibles OpenSw et ses fondations upstream</string>
+    <string name="licenses_description">Projets open source utilisés par OpenSw</string>
+    <string name="invalid_yuzu_backup">Sauvegarde OpenSw invalide</string>
+    <string name="driver_shader_wipe_dialog_message">OpenSw a effacé les caches de shaders pour préserver la validité des pipelines Vulkan après le changement de pilote. Des saccades sont possibles pendant leur reconstruction.</string>
+    <string name="eden_theme">OpenSw Graphite</string>
+    <string name="opensw_based_on_eden">Basé sur Eden</string>
+    <string name="opensw_based_on_eden_description">OpenSw conserve la licence GPL et les copyrights Eden et yuzu.</string>
+</resources>

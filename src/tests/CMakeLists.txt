@@ -10,6 +10,7 @@ add_executable(tests
     common/container_hash.cpp
     common/fibers.cpp
     common/host_memory.cpp
+    common/page_table.cpp
     common/param_package.cpp
     common/range_map.cpp
     common/ring_buffer.cpp
@@ -18,6 +19,8 @@ add_executable(tests
     common/unique_function.cpp
     core/core_timing.cpp
     core/perf_stats.cpp
+    core/memory_block_manager.cpp
+    core/memory/cheat_parser.cpp
     core/internal_network/network.cpp
     video_core/memory_tracker.cpp
     input_common/calibration_configuration_job.cpp

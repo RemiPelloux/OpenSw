@@ -74,6 +74,15 @@
                     android:text="@string/about_app_description"
                     android:textAlignment="center" />
 
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/button_opensw_upstream"
+                    style="@style/Widget.Material3.Button.TextButton"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:text="@string/opensw_based_on_eden"
+                    app:icon="@drawable/ic_code" />
+
             </LinearLayout>
 
             <LinearLayout

@@ -268,49 +268,48 @@
         <item name="android:elevation">0dp</item>
         <item name="android:padding">16dp</item>
     </style>
+    <style name="OpenSwViewToggleButton" parent="Widget.Material3.Button.OutlinedButton">
+        <item name="android:layout_width">40dp</item>
+        <item name="android:layout_height">40dp</item>
+        <item name="android:minWidth">40dp</item>
+        <item name="android:minHeight">40dp</item>
+        <item name="android:padding">0dp</item>
+        <item name="backgroundTint">@color/opensw_view_toggle_background</item>
+        <item name="cornerRadius">6dp</item>
+        <item name="iconPadding">0dp</item>
+        <item name="iconSize">20dp</item>
+        <item name="iconTint">@color/opensw_view_toggle_icon</item>
+        <item name="strokeColor">?attr/colorOutline</item>
+        <item name="strokeWidth">1dp</item>
+    </style>
     <!-- Synthwave Text Styles -->
     <style name="SynthwaveText.Title" parent="TextAppearance.Material3.DisplayLarge">
         <item name="android:textColor">@color/eden_on_background</item>
         <item name="android:textStyle">bold</item>
-        <item name="android:letterSpacing">0.1</item>
-        <item name="android:fontFamily">monospace</item>
-        <item name="android:shadowColor">@color/eden_glow_pink</item>
-        <item name="android:shadowDx">0</item>
-        <item name="android:shadowDy">0</item>
-        <item name="android:shadowRadius">8</item>
+        <item name="android:letterSpacing">0</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
     </style>
     <style name="SynthwaveText.Header" parent="TextAppearance.Material3.DisplaySmall">
         <item name="android:textColor">@color/eden_primary</item>
         <item name="android:textStyle">bold</item>
-        <item name="android:letterSpacing">0.05</item>
-        <item name="android:fontFamily">monospace</item>
-        <item name="android:shadowColor">@color/eden_glow_pink</item>
-        <item name="android:shadowDx">0</item>
-        <item name="android:shadowDy">0</item>
-        <item name="android:shadowRadius">6</item>
+        <item name="android:letterSpacing">0</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
     </style>
     <style name="SynthwaveText.Body" parent="TextAppearance.Material3.BodyLarge">
         <item name="android:textColor">@color/eden_on_background</item>
-        <item name="android:fontFamily">monospace</item>
-        <item name="android:letterSpacing">0.02</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:letterSpacing">0</item>
     </style>
     <style name="SynthwaveText.Secondary" parent="TextAppearance.Material3.BodyMedium">
         <item name="android:textColor">@color/eden_secondary</item>
-        <item name="android:fontFamily">monospace</item>
-        <item name="android:shadowColor">@color/eden_glow_cyan</item>
-        <item name="android:shadowDx">0</item>
-        <item name="android:shadowDy">0</item>
-        <item name="android:shadowRadius">4</item>
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:letterSpacing">0</item>
     </style>
     <style name="SynthwaveText.Accent" parent="TextAppearance.Material3.LabelLarge">
         <item name="android:textColor">@color/eden_accent_orange</item>
         <item name="android:textStyle">bold</item>
-        <item name="android:fontFamily">monospace</item>
-        <item name="android:letterSpacing">0.1</item>
-        <item name="android:shadowColor">@color/eden_glow_orange</item>
-        <item name="android:shadowDx">0</item>
-        <item name="android:shadowDy">0</item>
-        <item name="android:shadowRadius">4</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:letterSpacing">0</item>
     </style>
     <!-- Shape appearance for carousel images -->
     <style name="ShapeAppearance.Eden.CarouselImage" parent="">
@@ -319,6 +318,15 @@
         <item name="cornerSizeTopRight">8dp</item>
         <item name="cornerSizeBottomLeft">0dp</item>
         <item name="cornerSizeBottomRight">0dp</item>
+    </style>
+
+    <style name="OpenSwPerformanceMetric" parent="TextAppearance.Material3.BodyLarge">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">48dp</item>
+        <item name="android:gravity">center_vertical</item>
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:textColor">?attr/colorOnSurface</item>
+        <item name="android:letterSpacing">0</item>
     </style>
 
 </resources>

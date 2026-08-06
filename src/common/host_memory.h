@@ -55,6 +55,9 @@ public:
 
     void ClearBackingRegion(size_t physical_offset, size_t length, u32 fill_value);
 
+    /// Releases resident backing pages after every user of the emulated memory has stopped.
+    void ResetBackingMemory();
+
     [[nodiscard]] u8* BackingBasePointer() noexcept {
         return backing_base;
     }
@@ -71,6 +74,14 @@ public:
 
     bool IsInVirtualRange(void* address) const noexcept {
         return address >= virtual_base && address < virtual_base + virtual_size;
+    }
+
+    [[nodiscard]] bool IsVirtualRangeValid(size_t virtual_offset, size_t length) const noexcept {
+        return virtual_offset <= virtual_size && length <= virtual_size - virtual_offset;
+    }
+
+    [[nodiscard]] size_t VirtualSize() const noexcept {
+        return virtual_size;
     }
 
 private:

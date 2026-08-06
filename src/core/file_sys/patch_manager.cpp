@@ -102,7 +102,18 @@ std::optional<std::vector<Core::Memory::CheatEntry>> ReadCheatFileFromFolder(
     }
 
     const Core::Memory::TextCheatParser parser;
-    return parser.Parse(std::string_view(reinterpret_cast<const char*>(data.data()), data.size()));
+    auto cheats = parser.Parse(
+        std::string_view(reinterpret_cast<const char*>(data.data()), data.size()));
+    if (cheats.empty()) {
+        LOG_WARNING(Common_Filesystem,
+                    "Rejected invalid cheats file for title_id={:016X}, build_id={}", title_id,
+                    build_id);
+    } else {
+        LOG_INFO(Common_Filesystem,
+                 "Loaded {} cheat sections for title_id={:016X}, build_id={}", cheats.size(),
+                 title_id, build_id);
+    }
+    return cheats;
 }
 
 void AppendCommaIfNotEmpty(std::string& to, std::string_view with) {
@@ -484,10 +495,16 @@ std::vector<Core::Memory::CheatEntry> PatchManager::CreateCheatList(const BuildI
     for (const auto& subdir : patch_dirs) {
         if (std::find(disabled.cbegin(), disabled.cend(), subdir->GetName()) == disabled.cend()) {
             if (auto cheats_dir = FindSubdirectoryCaseless(subdir, "cheats"); cheats_dir != nullptr) {
-                if (auto const res = ReadCheatFileFromFolder(title_id, build_id_, cheats_dir, true))
-                    std::copy(res->begin(), res->end(), std::back_inserter(out));
-                if (auto const res = ReadCheatFileFromFolder(title_id, build_id_, cheats_dir, false))
-                    std::copy(res->begin(), res->end(), std::back_inserter(out));
+                auto res = ReadCheatFileFromFolder(title_id, build_id_, cheats_dir, true);
+                if (!res) {
+                    res = ReadCheatFileFromFolder(title_id, build_id_, cheats_dir, false);
+                }
+                if (res) {
+                    for (auto& entry : *res) {
+                        entry.source = subdir->GetName();
+                    }
+                    std::move(res->begin(), res->end(), std::back_inserter(out));
+                }
             }
         }
     }
@@ -499,8 +516,12 @@ std::vector<Core::Memory::CheatEntry> PatchManager::CreateCheatList(const BuildI
             std::vector<u8> data(f->GetSize());
             if (f->Read(data.data(), data.size()) == data.size()) {
                 const Core::Memory::TextCheatParser parser;
-                auto const res = parser.Parse(std::string_view(reinterpret_cast<const char*>(data.data()), data.size()));
-                std::copy(res.begin(), res.end(), std::back_inserter(out));
+                auto res = parser.Parse(
+                    std::string_view(reinterpret_cast<const char*>(data.data()), data.size()));
+                for (auto& entry : res) {
+                    entry.source = name;
+                }
+                std::move(res.begin(), res.end(), std::back_inserter(out));
             } else {
                 LOG_INFO(Common_Filesystem, "Failed to read cheats file for title_id={:016X}", title_id);
             }

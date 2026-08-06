@@ -1,41 +1,25 @@
-# Eden Build Documentation
+# OpenSw documentation
 
-Are you just a casual user? Take a look at our [User Handbook](./user) then!
+OpenSw's maintained Android documentation is under [opensw](./opensw/README.md).
 
-If you want to register/signup as a contributor, take a gander at the [signup guide](./SIGNUP.md).
+- [Build and install OpenSw](./opensw/Android.md)
+- [Performance profiles and measurement](./opensw/Performance.md)
+- [Session stability and memory lifecycle](./opensw/SessionStability.md)
+- [Cockpit and live cheats](./opensw/CockpitAndCheats.md)
+- [Troubleshooting and diagnostics](./opensw/Troubleshooting.md)
+- [Engineering roadmap](./opensw/Roadmap.md)
+- [AYN Thor acceptance baseline](./performance/ayn-thor-baseline.md)
+- [Development rules](./policies/DevelopmentRules.md)
 
-This contains documentation created by developers. This contains build instructions, guidelines, instructions/layouts for [cool stuff we made](./CPMUtil), and more.
+## Inherited upstream documentation
 
-- **[General Build Instructions](./Build.md)**
-- **[CMake Options](./Options.md)**
-- **[Cross Compiling](./CrossCompile.md)**
-- **[Development Guidelines](./Development.md)**
-- **[Dependencies](./Deps.md)**
-- **[Debug Guidelines](./Debug.md)**
-- **[RenderDoc usage](./RenderDoc.md)**
-- **[CPM - CMake Package Manager](./CPMUtil)**
-- **[Platform-Specific Caveats](./Caveats.md)**
-- **[The NVIDIA SM86 (Maxwell) GPU](./NvidiaGpu.md)**
-- **[Cross compilation](./CrossCompile.md)**
-- **[Driver Bugs](./DriverBugs.md)**
-- **[Building Older Commits](./build/OlderCommits.md)**
-- Subsystems:
-  - **[Dynarmic](./dynarmic/README.md)**
-  - **[HOS Kernel](./HosKernel.md)**
-  - **[Settings](./Settings.md)**
+The remaining desktop, command-line and subsystem guides were inherited from Eden/yuzu. They are
+retained for source history and engineering context, but have not all been validated for OpenSw.
+Commands and binary names in those guides may therefore still correctly refer to Eden or yuzu.
+Do not mechanically rename them unless the corresponding target has been built and tested.
 
-## Policies
-
-Policies and information on development.
-
-- **[AI and LLM Usage](./policies/AI.md)**
-- **[Coding guidelines](./policies/Coding.md)**
-- **[Contributing](../CONTRIBUTING.md)**
-
-## Externals
-
-Other useful resources in general, take a quick read if you need.
-
-- **[SwitchBrew](https://switchbrew.org/wiki/Main_Page)**
-- **[IPS file format](https://zerosoft.zophar.net/ips.php)**
-- **[IPSwitch file format](https://github.com/3096/ipswitch)**
+- [General upstream build guide](./Build.md)
+- [Upstream user handbook](./user/README.md)
+- [CMake options](./Options.md)
+- [Core and renderer development](./Development.md)
+- [Dynarmic design](./dynarmic/README.md)

@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstring>
 #include <locale>
+#include <malloc.h>
 #include <map>
 #include <set>
 #include <sstream>
@@ -45,6 +46,7 @@ extern "C" {
 #include "common/android/id_cache.h"
 #include "common/dynamic_library.h"
 #include "common/fs/path_util.h"
+#include "common/hex_util.h"
 #include "common/logging.h"
 #include "common/scm_rev.h"
 #include "common/scope_exit.h"
@@ -388,6 +390,14 @@ void EmulationSession::ShutdownEmulation() {
         m_system.ShutdownMainProcess();
         m_load_result = Core::SystemResultStatus::ErrorNotInitialized;
         m_window.reset();
+        if (android_get_device_api_level() >= 28) {
+            using MalloptFunction = int (*)(int, int);
+            static const auto mallopt_function =
+                reinterpret_cast<MalloptFunction>(dlsym(RTLD_DEFAULT, "mallopt"));
+            if (mallopt_function != nullptr) {
+                (void)mallopt_function(M_PURGE, 0);
+            }
+        }
         OnEmulationStopped(Core::SystemResultStatus::Success);
         return;
     }
@@ -1707,6 +1717,66 @@ JNIEXPORT void JNICALL Java_org_yuzu_yuzu_1emu_NativeLibrary_updatePowerState(
     g_battery_percentage.store(percentage, std::memory_order_relaxed);
     g_is_charging.store(isCharging, std::memory_order_relaxed);
     g_has_battery.store(hasBattery, std::memory_order_relaxed);
+}
+
+JNIEXPORT jobject JNICALL Java_org_yuzu_yuzu_1emu_NativeLibrary_getCheatContext(
+    JNIEnv* env, jobject) {
+    if (!EmulationSession::GetInstance().IsRunning()) {
+        return nullptr;
+    }
+    const auto& system = EmulationSession::GetInstance().System();
+    auto context = system.GetCheatContext();
+    if (!context) {
+        context = Core::Memory::CheatContext{
+            .title_id = system.GetApplicationProcessProgramID(),
+            .build_id = Common::HexToString(system.GetApplicationProcessBuildID())
+                            .substr(0, sizeof(u64) * 2),
+        };
+    }
+
+    const auto context_class = env->FindClass("org/yuzu/yuzu_emu/NativeLibrary$CheatContext");
+    const auto constructor =
+        env->GetMethodID(context_class, "<init>", "(Ljava/lang/String;Ljava/lang/String;)V");
+    const auto title_id = Common::Android::ToJString(env, fmt::format("{:016X}", context->title_id));
+    const auto build_id = Common::Android::ToJString(env, context->build_id);
+    return env->NewObject(context_class, constructor, title_id, build_id);
+}
+
+JNIEXPORT jobjectArray JNICALL Java_org_yuzu_yuzu_1emu_NativeLibrary_getLoadedCheats(
+    JNIEnv* env, jobject) {
+    const auto entry_class = env->FindClass("org/yuzu/yuzu_emu/NativeLibrary$CheatEntry");
+    if (!EmulationSession::GetInstance().IsRunning()) {
+        return env->NewObjectArray(0, entry_class, nullptr);
+    }
+    const auto cheats = EmulationSession::GetInstance().System().GetLoadedCheats();
+    const auto constructor = env->GetMethodID(
+        entry_class, "<init>", "(ILjava/lang/String;ZZLjava/lang/String;Ljava/lang/String;)V");
+    const auto result = env->NewObjectArray(static_cast<jsize>(cheats.size()), entry_class, nullptr);
+
+    for (jsize index = 0; index < static_cast<jsize>(cheats.size()); ++index) {
+        const auto& cheat = cheats[index];
+        const auto name = Common::Android::ToJString(env, cheat.name);
+        const auto fingerprint = Common::Android::ToJString(env, cheat.fingerprint);
+        const auto source = Common::Android::ToJString(env, cheat.source);
+        const auto entry = env->NewObject(entry_class, constructor, static_cast<jint>(cheat.session_id),
+                                          name, static_cast<jboolean>(cheat.enabled),
+                                          static_cast<jboolean>(cheat.is_master), fingerprint, source);
+        env->SetObjectArrayElement(result, index, entry);
+        env->DeleteLocalRef(entry);
+        env->DeleteLocalRef(name);
+        env->DeleteLocalRef(fingerprint);
+        env->DeleteLocalRef(source);
+    }
+    return result;
+}
+
+JNIEXPORT jboolean JNICALL Java_org_yuzu_yuzu_1emu_NativeLibrary_setCheatEnabled(
+    JNIEnv*, jobject, jint session_id, jboolean enabled) {
+    if (!EmulationSession::GetInstance().IsRunning() || session_id < 0) {
+        return JNI_FALSE;
+    }
+    return EmulationSession::GetInstance().System().SetCheatEnabled(
+        static_cast<u32>(session_id), enabled == JNI_TRUE);
 }
 
 JNIEXPORT jboolean JNICALL Java_org_yuzu_yuzu_1emu_NativeLibrary_isUpdateCheckerEnabled(

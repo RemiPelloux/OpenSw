@@ -7,7 +7,6 @@
 // import android.annotation.SuppressLint
 import kotlin.collections.setOf
 import org.jlleitschuh.gradle.ktlint.reporter.ReporterType
-import com.github.triplet.gradle.androidpublisher.ReleaseStatus
 import org.gradle.api.tasks.Copy
 
 plugins {
@@ -17,7 +16,6 @@ plugins {
     kotlin("plugin.serialization") version "1.9.20"
     id("androidx.navigation.safeargs.kotlin")
     id("org.jlleitschuh.gradle.ktlint") version "11.4.0"
-    id("com.github.triplet.play") version "3.8.6"
     id("idea")
 }
 
@@ -39,6 +37,14 @@ android {
 
     val isNightly =
         providers.gradleProperty("nightly").orNull?.toBooleanStrictOrNull() ?: false
+    val openSwCpuPreset = providers.gradleProperty("openswCpuPreset").orElse("generic").get()
+    val openSwLtoMode = providers.gradleProperty("openswLtoMode").orElse("off").get()
+    require(openSwCpuPreset in setOf("generic", "armv9")) {
+        "openswCpuPreset must be generic or armv9"
+    }
+    require(openSwLtoMode in setOf("off", "thin")) {
+        "openswLtoMode must be off or thin"
+    }
 
     buildFeatures {
         viewBinding = true
@@ -68,6 +74,11 @@ android {
         targetSdk = 36
         versionName = getGitVersion()
         versionCode = autoVersion
+        manifestPlaceholders += mapOf("profileableShell" to false)
+        buildConfigField("boolean", "IS_OPENSW", "false")
+        buildConfigField("String", "EDEN_PACKAGE", "\"dev.eden.eden_emulator.nightly\"")
+        buildConfigField("String", "OPENSW_CPU_PRESET", "\"generic\"")
+        buildConfigField("String", "OPENSW_LTO_MODE", "\"off\"")
 
         externalNativeBuild {
             cmake {
@@ -169,6 +180,28 @@ android {
             isJniDebuggable = true
         }
 
+        register("profile") {
+            signingConfig = signingConfigs.getByName("default")
+            isDebuggable = false
+            isJniDebuggable = false
+            isMinifyEnabled = false
+            applicationIdSuffix = ".profile"
+            versionNameSuffix = "-profile"
+            manifestPlaceholders += mapOf(
+                "appNameSuffix" to " Profile",
+                "profileableShell" to true
+            )
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+            externalNativeBuild {
+                cmake {
+                    arguments.add("-DOPENSW_PROFILE=ON")
+                }
+            }
+        }
+
         // Signed by debug key disallowing distribution on Play Store.
         // Attaches 'debug' suffix to version and package name, allowing installation alongside the release build.
         debug {
@@ -181,21 +214,6 @@ android {
             manifestPlaceholders += mapOf("appNameSuffix" to " Debug")
         }
 
-        create("profile") {
-            initWith(getByName("release"))
-            signingConfig = signingConfigs.getByName("default")
-            isDebuggable = false
-            isJniDebuggable = false
-            isMinifyEnabled = false
-            applicationIdSuffix = ".profile"
-            versionNameSuffix = "-profile"
-            manifestPlaceholders += mapOf("appNameSuffix" to " Profile")
-            externalNativeBuild {
-                cmake {
-                    arguments.add("-DOPENSW_PROFILE=ON")
-                }
-            }
-        }
     }
 
     // appNameBase is used for the primary identifier
@@ -216,13 +234,30 @@ android {
 
         create("openSw") {
             dimension = "version"
-            applicationId = "com.remipelloux.opensw"
             manifestPlaceholders += mapOf("appNameBase" to "OpenSw")
             resValue("string", "app_name_suffixed", "OpenSw")
+            applicationId = "com.remipelloux.opensw"
+            versionName =
+                "opensw-${runGitCommand(listOf("git", "rev-parse", "--short=12", "HEAD"))}"
+            buildConfigField("boolean", "IS_OPENSW", "true")
+            buildConfigField("String", "OPENSW_CPU_PRESET", "\"$openSwCpuPreset\"")
+            buildConfigField("String", "OPENSW_LTO_MODE", "\"$openSwLtoMode\"")
+            if (openSwCpuPreset != "generic" || openSwLtoMode != "off") {
+                versionNameSuffix = "-$openSwCpuPreset-$openSwLtoMode"
+            }
 
             externalNativeBuild {
                 cmake {
-                    arguments.add("-DOPEN_SW=ON")
+                    arguments.addAll(
+                        listOf(
+                            "-DENABLE_UPDATE_CHECKER=OFF",
+                            "-DNIGHTLY_BUILD=OFF",
+                            "-DOPEN_SW=ON",
+                            "-DYUZU_BUILD_PRESET=$openSwCpuPreset",
+                            "-DENABLE_LTO=${if (openSwLtoMode == "off") "OFF" else "ON"}",
+                            "-DLTO_MODE=${if (openSwLtoMode == "off") "auto" else openSwLtoMode}"
+                        )
+                    )
                 }
             }
 
@@ -345,16 +380,8 @@ ktlint {
     }
 }
 
-play {
-    val keyPath = System.getenv("SERVICE_ACCOUNT_KEY_PATH")
-    if (keyPath != null) {
-        serviceAccountCredentials.set(File(keyPath))
-    }
-    track.set(System.getenv("STORE_TRACK") ?: "internal")
-    releaseStatus.set(ReleaseStatus.COMPLETED)
-}
-
 dependencies {
+    testImplementation("junit:junit:4.13.2")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
     implementation("androidx.recyclerview:recyclerview:1.4.0")

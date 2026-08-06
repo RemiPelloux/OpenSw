@@ -207,8 +207,9 @@ std::optional<VAddr> AppLoader_NSO::LoadModule(Kernel::KProcess& process, Core::
         return load_base + image_size;
     }
 
-    // Apply cheats if they exist and the program has a valid title ID
-    if (pm) {
+    // Cheat addresses and Build IDs are relative to the main NSO. Registering another module
+    // (such as sdk) here replaces the active cheat context with an unrelated Build ID.
+    if (pm && name == "main") {
         system.SetApplicationProcessBuildID(nso_header.build_id);
         const auto cheats = pm->CreateCheatList(nso_header.build_id);
         if (!cheats.empty()) {

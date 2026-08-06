@@ -5,14 +5,16 @@
     android:id="@+id/card_game_list"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="8dp"
+    android:layout_marginHorizontal="8dp"
+    android:layout_marginVertical="4dp"
     android:clickable="true"
     android:focusable="true"
     android:transitionName="card_game"
     app:cardCornerRadius="8dp"
     app:cardElevation="0dp"
-    app:cardBackgroundColor="@android:color/transparent"
-    app:strokeWidth="0dp">
+    app:cardBackgroundColor="@color/eden_card_background_elevated"
+    app:strokeColor="?attr/colorOutline"
+    app:strokeWidth="1dp">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -21,14 +23,13 @@
 
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/image_game_screen"
-            android:layout_width="66dp"
-            android:layout_height="66dp"
+            android:layout_width="58dp"
+            android:layout_height="58dp"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:shapeAppearance="@style/ShapeAppearance.Material3.Corner.Medium"
-            app:strokeColor="@color/eden_card_background"
-            app:strokeWidth="4dp"
+            app:shapeAppearance="@style/ShapeAppearance.Material3.Corner.Small"
+            app:strokeWidth="0dp"
             tools:src="@drawable/default_icon" />
 
         <com.google.android.material.textview.MaterialTextView

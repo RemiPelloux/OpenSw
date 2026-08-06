@@ -397,6 +397,11 @@ struct System::Impl {
 
         stop_event.request_stop();
         core_timing.SyncPause(false);
+
+        // Cheat callbacks run on HostTiming and may access HID services. Destroy the engine first;
+        // its destructor unschedules the event and waits for any in-flight callback to finish.
+        cheat_engine.reset();
+
         Network::CancelPendingSocketOperations();
         kernel.SuspendEmulation(true);
         kernel.CloseServices();
@@ -404,7 +409,6 @@ struct System::Impl {
         services.reset();
         service_manager.reset();
         fs_controller.Reset();
-        cheat_engine.reset();
         core_timing.ClearPendingEvents();
         app_loader.reset();
         audio_core.reset();
@@ -414,6 +418,7 @@ struct System::Impl {
         cpu_manager.Shutdown();
         debugger.reset();
         kernel.Shutdown();
+        device_memory->buffer.ResetBackingMemory();
         stop_event = {};
         Network::RestartSocketOperations();
 
@@ -753,6 +758,24 @@ void System::RegisterCheatList(const std::vector<Memory::CheatEntry>& list,
                                u64 main_region_size) {
     impl->cheat_engine.emplace(*this, list, build_id);
     impl->cheat_engine->SetMainMemoryParameters(main_region_begin, main_region_size);
+}
+
+std::optional<Memory::CheatContext> System::GetCheatContext() const {
+    if (!impl->cheat_engine) {
+        return std::nullopt;
+    }
+    return impl->cheat_engine->GetContext();
+}
+
+std::vector<Memory::CheatSnapshot> System::GetLoadedCheats() const {
+    if (!impl->cheat_engine) {
+        return {};
+    }
+    return impl->cheat_engine->GetLoadedCheats();
+}
+
+bool System::SetCheatEnabled(u32 session_id, bool enabled) {
+    return impl->cheat_engine && impl->cheat_engine->SetCheatEnabled(session_id, enabled);
 }
 
 void System::SetFrontendAppletSet(Service::AM::Frontend::FrontendAppletSet&& set) {

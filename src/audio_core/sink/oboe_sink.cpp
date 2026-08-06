@@ -32,6 +32,7 @@ public:
     }
 
     ~OboeSinkStream() override {
+        Finalize();
         LOG_INFO(Audio_Sink, "Destroyed Oboe stream");
     }
 
@@ -159,8 +160,12 @@ private:
                                 ->setDataCallback(this)
                                 ->setErrorCallback(this)
                                 ->openStream(m_stream);
-        ASSERT(result == oboe::Result::OK);
-        return result == oboe::Result::OK && this->SetStreamProperties();
+        if (result != oboe::Result::OK) {
+            LOG_ERROR(Audio_Sink, "Failed to open Oboe stream: {}", oboe::convertToText(result));
+            m_stream.reset();
+            return false;
+        }
+        return this->SetStreamProperties();
     }
 
     bool SetStreamProperties() {

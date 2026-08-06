@@ -9,67 +9,133 @@
 
 <h1 align="center">
   <br>
-  <a href="https://git.eden-emu.dev/eden-emu/eden"><img src="./dist/qt_themes/default/icons/256x256/eden.png" alt="Eden" width="200"></a>
+  <img src="./branding/opensw-monogram.svg" alt="OpenSw" width="200">
   <br>
-  <b>Eden</b>
+  <b>OpenSw</b>
   <br>
 </h1>
 
-<h4 align="center"><b>Eden</b> is a free and opensource (FOSS) Switch 1 emulator, derived from Yuzu and Sudachi - started by developer Camille LaVey.
-It's written in C++ with portability in mind, with builds for Windows, Linux, macOS, Android, FreeBSD and more.
+<h4 align="center">
+OpenSw is an Android Switch emulator fork with a general ARM64 build and a performance path
+measured on AYN Thor. It combines reversible per-game profiles, live cheats, a dual-screen cockpit
+and reproducible performance diagnostics.
 </h4>
 
 <p align="center">
-    </a>
-    <a href="https://discord.gg/HstXbPch7X">
-        <img src="https://img.shields.io/discord/1367654015269339267?color=5865F2&label=Eden&logo=discord&logoColor=white"
-            alt="Discord">
-    </a>
-    <a href="https://stt.gg/qKgFEAbH">
-        <img src="https://img.shields.io/revolt/invite/qKgFEAbH?color=d61f3a&label=Stoat"
-            alt="Stoat">
-    </a>
-</p>
-
-<p align="center">
-  <a href="#compatibility">Compatibility</a> |
-  <a href="#development">Development</a> |
+  <a href="#features">Features</a> |
+  <a href="#live-cheats">Live cheats</a> |
+  <a href="#isolation">Isolation</a> |
   <a href="#building">Building</a> |
-  <a href="#download">Download</a> |
-  <a href="#support">Support</a> |
+  <a href="#testing">Testing</a> |
+  <a href="#roadmap">Roadmap</a> |
+  <a href="#based-on-eden">Based on Eden</a> |
   <a href="#license">License</a>
 </p>
 
-## Compatibility
+## Features
 
-The emulator is capable of running most commercial games at full speed, provided you meet the necessary hardware requirements.
+- A separate `OpenSw` Android package that can coexist with the official Eden nightly build.
+- `Standard`, `Thor Balanced`, `Thor 60 stable` and experimental `Thor Max` modes.
+- A global default with optional per-Title-ID overrides that never rewrite game configuration files.
+- A release-like, locally signed and profileable APK for repeatable AYN Thor measurements.
+- A read-only Eden import assistant for keys, firmware, profiles, saves, settings, mods and cheats.
+- An in-game cheat overlay with controller and touch navigation.
+- A shared Performance Lab with p95 frametime, memory, power, thermal warnings and A/B reports.
+- An automatic cockpit on the Thor secondary display with an in-game drawer fallback.
+- Sanitised diagnostic bundles without keys, saves, firmware, game paths or game content.
+- Build-ID-aware cheat import from text files, Atmosphere/Eden trees and ZIP archives.
+- Optional cheat catalogues backed by `switch-cheats-db` and `NX-60FPS-RES-GFX-Cheats`.
+- Perfetto capture tooling and a documented AYN Thor performance baseline.
+- Eden's updater and publication configuration disabled in OpenSw builds.
 
-A list of supported games will be available in future. Please be patient.
+## Current status
 
-Check out our [website](https://eden-emu.dev) for the latest news on exciting features, monthly progress reports, and more!
+The maintained Android target builds as `openSwProfile` and runs independently from Eden on the AYN
+Thor. Pokemon Legends: Arceus 1.1.1 has been verified with Build ID `AEE8F150DDA1B5A8`; the live
+cheat engine applied Mastercode plus the 60 FPS section and a stable presentation sample measured
+59.96 FPS.
 
-[![Packaging status](https://repology.org/badge/vertical-allrepos/eden-emulator.svg)](https://repology.org/project/eden-emulator/versions)
+Repeated-session shutdown has received focused fixes for cheat callbacks, audio streams, emulated
+backing memory, page tables, process trackers and guest service-thread references. The current work
+also releases the main and idle kernel threads owned by each emulated core and asks Bionic to return
+unused allocator pages after shutdown. These last two changes build successfully but remain pending
+the deterministic 30-cycle device acceptance run, so they are not presented as a completed release
+certification.
 
-## Contribute
+## Live cheats
 
-To contribute to Eden; be it financially, code, bug reports, or otherwise, see our [Contributing guidelines](./CONTRIBUTING.md).
+Open the in-game menu and select **Cheats** to enable or disable compatible codes without restarting
+the emulator. The panel shows the current Title ID and Build ID, supports search and active-only
+filtering, and keeps the game running behind it.
 
-## Documentation
+OpenSw loads cheats only when their 16-character Build ID exactly matches the game's main NSO. The
+Mastercode is enabled and locked automatically; ordinary cheats default to off. State is stored by
+Title ID, Build ID and opcode fingerprint, so changed remote codes do not inherit an old enabled
+state. Disabling a cheat stops future executions but cannot undo memory writes that already occurred;
+some codes can therefore still require a game restart.
 
-We have a user manual! See our [User Handbook](./docs/user/README.md).
+Catalogue installation is explicit and never silently replaces a locally modified file. Imports are
+validated, size-limited, protected against ZIP path traversal and installed atomically with backups.
+
+## Isolation
+
+OpenSw uses `com.remipelloux.opensw`; debug builds use `com.remipelloux.opensw.debug`. Neither
+package replaces or shares private app data with `dev.eden.eden_emulator.nightly`.
+
+The OpenSw modes only affect OpenSw. No mode changes Android, CPU/GPU frequencies, unsafe memory
+settings or the official Eden installation. `Standard` restores the exact values captured before a
+Thor mode was enabled.
+
+The Eden migration flow uses Android's document picker and a user-granted read-only source. It stages
+and verifies copied files before installing them into OpenSw; game files, caches, logs and temporary
+data are not copied.
 
 ## Building
 
-See the [General Build Guide](docs/Build.md)
+Build the locally signed, release-like profiling APK from `src/android`:
 
-For information on provided development tooling, see the [Tools directory](./tools)
+```sh
+./gradlew :app:assembleOpenSwProfile
+```
 
-## Download
+The APK is produced at
+`src/android/app/build/outputs/apk/openSw/profile/app-openSw-profile.apk`.
 
-You can download the latest releases from [our release page](https://git.eden-emu.dev/eden-emu/eden/releases).
+Build and archive the generic, ARMv9, ThinLTO and ARMv9 + ThinLTO measurement APKs with:
 
-Save us some bandwidth! We have [mirrors available](./docs/user/ThirdParty.md#mirrors) as well.
+```sh
+tools/performance/build-opensw-matrix.sh
+```
+
+## Testing
+
+See the [OpenSw handbook](./docs/opensw/README.md) and [OPENSW.md](./OPENSW.md) for product,
+package and device-testing rules. Performance acceptance and the fixed AYN Thor scenarios are in
+[docs/performance/ayn-thor-baseline.md](./docs/performance/ayn-thor-baseline.md).
+
+Session lifetime findings, valid measurements and rejected measurements are recorded in
+[docs/opensw/SessionStability.md](./docs/opensw/SessionStability.md).
+
+The current device baseline covers an AYN Thor with Snapdragon 8 Gen 2 and Adreno 740. Performance
+changes are promoted only after repeatable A/B measurements; risky compiler flags and Android clock
+changes are intentionally excluded.
+
+## Roadmap
+
+The ordered engineering roadmap and its acceptance gates are maintained in
+[docs/opensw/Roadmap.md](./docs/opensw/Roadmap.md). Stability and deterministic device automation
+come before new performance flags or additional UI features.
+
+## Based on Eden
+
+OpenSw is [based on Eden](https://git.eden-emu.dev/eden-emu/eden) and retains the Eden/yuzu source
+history, copyrights and GPL notices. It is not affiliated with or supported by the upstream Eden
+Emulator Project.
+
+Unverified desktop guides are retained as clearly labelled upstream documentation under
+[docs](./docs). OpenSw-specific documentation lives under [docs/opensw](./docs/opensw).
 
 ## License
 
-Eden is licensed under the GPLv3 (or any later version). Refer to the [LICENSE.txt](https://git.eden-emu.dev/eden-emu/eden/src/branch/master/LICENSE.txt) file.
+OpenSw remains licensed under GPLv3 (or any later version). Refer to
+[LICENSE.txt](./LICENSE.txt).

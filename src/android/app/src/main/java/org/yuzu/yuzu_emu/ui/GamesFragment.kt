@@ -85,7 +85,7 @@ class GamesFragment : Fragment() {
     private fun getCurrentViewType(): Int {
         val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
         val key = if (isLandscape) CarouselRecyclerView.CAROUSEL_VIEW_TYPE_LANDSCAPE else CarouselRecyclerView.CAROUSEL_VIEW_TYPE_PORTRAIT
-        val fallback = if (isLandscape) GameAdapter.VIEW_TYPE_CAROUSEL else GameAdapter.VIEW_TYPE_GRID
+        val fallback = if (isLandscape) GameAdapter.VIEW_TYPE_GRID_COMPACT else GameAdapter.VIEW_TYPE_GRID
         return preferences.getInt(key, fallback)
     }
 
@@ -224,7 +224,7 @@ class GamesFragment : Fragment() {
                     GridLayoutManager(context, columns)
                 }
                 GameAdapter.VIEW_TYPE_GRID_COMPACT -> {
-                    val columns = resources.getInteger(R.integer.game_columns_grid)
+                    val columns = resources.getInteger(R.integer.game_columns_grid_compact)
                     GridLayoutManager(context, columns)
                 }
                 GameAdapter.VIEW_TYPE_LIST -> {
@@ -322,7 +322,6 @@ class GamesFragment : Fragment() {
             if (binding.frameSearch.visibility == View.VISIBLE) closeSearch() else openSearch()
         }
 
-        // Setup view button
         binding.viewButton.setOnClickListener { showViewMenu(it) }
 
         // Setup filter button
@@ -347,54 +346,32 @@ class GamesFragment : Fragment() {
             popup.menu.findItem(R.id.view_carousel)?.isVisible = false
         }
 
-        val currentViewType = getCurrentViewType()
-        when (currentViewType) {
+        when (getCurrentViewType()) {
             GameAdapter.VIEW_TYPE_LIST -> popup.menu.findItem(R.id.view_list).isChecked = true
-            GameAdapter.VIEW_TYPE_GRID_COMPACT -> popup.menu.findItem(R.id.view_grid_compact).isChecked = true
+            GameAdapter.VIEW_TYPE_GRID_COMPACT ->
+                popup.menu.findItem(R.id.view_grid_compact).isChecked = true
             GameAdapter.VIEW_TYPE_GRID -> popup.menu.findItem(R.id.view_grid).isChecked = true
-            GameAdapter.VIEW_TYPE_CAROUSEL -> popup.menu.findItem(R.id.view_carousel).isChecked = true
+            GameAdapter.VIEW_TYPE_CAROUSEL ->
+                popup.menu.findItem(R.id.view_carousel).isChecked = true
         }
 
         popup.setOnMenuItemClickListener { item ->
-            when (item.itemId) {
-                R.id.view_grid -> {
-                    if (getCurrentViewType() == GameAdapter.VIEW_TYPE_CAROUSEL) onPause()
-                    setCurrentViewType(GameAdapter.VIEW_TYPE_GRID)
-                    applyGridGamesBinding()
-                    item.isChecked = true
-                    true
-                }
-
-                R.id.view_grid_compact -> {
-                    if (getCurrentViewType() == GameAdapter.VIEW_TYPE_CAROUSEL) onPause()
-                    setCurrentViewType(GameAdapter.VIEW_TYPE_GRID_COMPACT)
-                    applyGridGamesBinding()
-                    item.isChecked = true
-                    true
-                }
-
-                R.id.view_list -> {
-                    if (getCurrentViewType() == GameAdapter.VIEW_TYPE_CAROUSEL) onPause()
-                    setCurrentViewType(GameAdapter.VIEW_TYPE_LIST)
-                    applyGridGamesBinding()
-                    item.isChecked = true
-                    true
-                }
-
-                R.id.view_carousel -> {
-                    if (!item.isChecked || getCurrentViewType() != GameAdapter.VIEW_TYPE_CAROUSEL) {
-                        setCurrentViewType(GameAdapter.VIEW_TYPE_CAROUSEL)
-                        applyGridGamesBinding()
-                        item.isChecked = true
-                        onResume()
-                    }
-                    true
-                }
-
-                else -> false
+            val viewType = when (item.itemId) {
+                R.id.view_grid -> GameAdapter.VIEW_TYPE_GRID
+                R.id.view_grid_compact -> GameAdapter.VIEW_TYPE_GRID_COMPACT
+                R.id.view_list -> GameAdapter.VIEW_TYPE_LIST
+                R.id.view_carousel -> GameAdapter.VIEW_TYPE_CAROUSEL
+                else -> return@setOnMenuItemClickListener false
             }
+            if (viewType != getCurrentViewType()) {
+                if (getCurrentViewType() == GameAdapter.VIEW_TYPE_CAROUSEL) onPause()
+                setCurrentViewType(viewType)
+                applyGridGamesBinding()
+                if (viewType == GameAdapter.VIEW_TYPE_CAROUSEL) onResume()
+            }
+            item.isChecked = true
+            true
         }
-
         popup.show()
     }
 

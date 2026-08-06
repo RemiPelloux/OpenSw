@@ -463,8 +463,14 @@ Result KPageTableBase::FinalizeProcess() {
 void KPageTableBase::Finalize() {
     this->FinalizeProcess();
 
-    auto BlockCallback = [&](KProcessAddress addr, u64 size) {
-        if (m_impl.fastmem_arena) {
+    auto BlockCallback = [&](KProcessAddress addr, u64 size, KMemoryState state) {
+        if (m_impl.fastmem_arena && ShouldUnmapFastmemOnFinalize(state)) {
+            ASSERT_MSG(m_system.DeviceMemory().buffer.IsVirtualRangeValid(GetInteger(addr), size),
+                       "Page-table finalization outside fastmem arena: page_table={}, "
+                       "address_bits={}, base={:#x}, size={:#x}, state={:#x}",
+                       static_cast<const void*>(std::addressof(m_impl)),
+                       m_impl.GetAddressSpaceBits(),
+                       GetInteger(addr), size, static_cast<u32>(state));
             m_system.DeviceMemory().buffer.Unmap(GetInteger(addr), size, false);
         }
 
@@ -502,6 +508,10 @@ void KPageTableBase::Finalize() {
         m_resource_limit->Release(m_system.Kernel(), Svc::LimitableResource::PhysicalMemoryMax,
                                   m_mapped_ipc_server_memory);
     }
+
+    // KProcess instances are slab allocated and finalized without running their destructors.
+    // Release the host page-entry mapping before the slab storage is reused by another session.
+    m_impl.Reset();
 }
 
 KProcessAddress KPageTableBase::GetRegionAddress(Svc::MemoryState state) const {

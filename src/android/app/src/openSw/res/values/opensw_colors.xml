@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Flavor-only compatibility aliases not declared by opensw_theme.xml. -->
+    <color name="ic_launcher_background">#111418</color>
+    <color name="eden_on_primary">#111418</color>
+    <color name="eden_on_secondary">#111418</color>
+
+    <color name="eden_accent_orange">#F2C94C</color>
+    <color name="eden_error">#FF6B6B</color>
+    <color name="eden_success">#55D6A5</color>
+    <color name="eden_warning">#F2C94C</color>
+    <color name="eden_info">#38BDE7</color>
+
+    <color name="eden_glow_pink">#4038BDE7</color>
+    <color name="eden_glow_cyan">#4038BDE7</color>
+    <color name="eden_glow_orange">#40F2C94C</color>
+    <color name="eden_overlay">#CC101214</color>
+
+    <color name="eden_button_primary_bg">#38BDE7</color>
+    <color name="eden_button_secondary_bg">#00000000</color>
+    <color name="eden_button_secondary_border">#38BDE7</color>
+    <color name="eden_transparent">#00000000</color>
+    <color name="eden_primary_transparent">#1438BDE7</color>
+    <color name="eden_secondary_transparent">#1455D6A5</color>
+</resources>

@@ -24,6 +24,7 @@
 #include "common/scope_exit.h"
 
 #if defined(__linux__)
+#include <linux/falloc.h>
 #include <sys/random.h>
 #elif defined(__APPLE__)
 #include <sys/types.h>
@@ -635,6 +636,26 @@ public:
         ASSERT_MSG(ret == 0, "mprotect failed: {}", strerror(errno));
     }
 
+#if defined(__linux__)
+    void ResetBackingMemory() {
+        if (fd >= 0) {
+            const int ret = fallocate(fd, FALLOC_FL_PUNCH_HOLE | FALLOC_FL_KEEP_SIZE, 0,
+                                      static_cast<off_t>(backing_size));
+            if (ret != 0) {
+                LOG_WARNING(HW_Memory, "Failed to release HostMemory memfd pages: {}",
+                            strerror(errno));
+            }
+            return;
+        }
+
+        const int ret = madvise(backing_base, backing_size, MADV_DONTNEED);
+        if (ret != 0) {
+            LOG_WARNING(HW_Memory, "Failed to release anonymous HostMemory pages: {}",
+                        strerror(errno));
+        }
+    }
+#endif
+
     void EnableDirectMappedAddress() {
         virtual_base = nullptr;
     }
@@ -734,8 +755,14 @@ void HostMemory::Map(size_t virtual_offset, size_t host_offset, size_t length, M
     ASSERT(virtual_offset % PageAlignment == 0);
     ASSERT(host_offset % PageAlignment == 0);
     ASSERT(length % PageAlignment == 0);
-    ASSERT(virtual_offset + length <= virtual_size);
-    ASSERT(host_offset + length <= backing_size);
+    ASSERT_MSG(IsVirtualRangeValid(virtual_offset, length),
+               "HostMemory::Map outside virtual arena: offset={:#x}, length={:#x}, "
+               "virtual_size={:#x}, separate_heap={}",
+               virtual_offset, length, virtual_size, separate_heap);
+    ASSERT_MSG(host_offset <= backing_size && length <= backing_size - host_offset,
+               "HostMemory::Map outside backing store: offset={:#x}, length={:#x}, "
+               "backing_size={:#x}, separate_heap={}",
+               host_offset, length, backing_size, separate_heap);
     if (length == 0 || !virtual_base || !impl) {
         return;
     }
@@ -747,7 +774,10 @@ void HostMemory::Unmap(size_t virtual_offset, size_t length, bool separate_heap)
 #if !(defined(__OPENORBIS__) || defined(__managarm__))
     ASSERT(virtual_offset % PageAlignment == 0);
     ASSERT(length % PageAlignment == 0);
-    ASSERT(virtual_offset + length <= virtual_size);
+    ASSERT_MSG(IsVirtualRangeValid(virtual_offset, length),
+               "HostMemory::Unmap outside virtual arena: offset={:#x}, length={:#x}, "
+               "virtual_size={:#x}, separate_heap={}",
+               virtual_offset, length, virtual_size, separate_heap);
     if (length == 0 || !virtual_base || !impl) {
         return;
     }
@@ -759,7 +789,10 @@ void HostMemory::Protect(size_t virtual_offset, size_t length, MemoryPermission 
 #if !(defined(__OPENORBIS__) || defined(__managarm__))
     ASSERT(virtual_offset % PageAlignment == 0);
     ASSERT(length % PageAlignment == 0);
-    ASSERT(virtual_offset + length <= virtual_size);
+    ASSERT_MSG(IsVirtualRangeValid(virtual_offset, length),
+               "HostMemory::Protect outside virtual arena: offset={:#x}, length={:#x}, "
+               "virtual_size={:#x}",
+               virtual_offset, length, virtual_size);
     if (length == 0 || !virtual_base || !impl) {
         return;
     }
@@ -772,6 +805,14 @@ void HostMemory::Protect(size_t virtual_offset, size_t length, MemoryPermission 
 
 void HostMemory::ClearBackingRegion(size_t physical_offset, size_t length, u32 fill_value) {
     std::memset(backing_base + physical_offset, fill_value, length);
+}
+
+void HostMemory::ResetBackingMemory() {
+#if defined(__linux__) && !(defined(__OPENORBIS__) || defined(__managarm__))
+    if (impl) {
+        impl->ResetBackingMemory();
+    }
+#endif
 }
 
 void HostMemory::EnableDirectMappedAddress() {

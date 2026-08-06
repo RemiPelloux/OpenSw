@@ -14,6 +14,7 @@ import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import kotlin.math.roundToInt
 import org.yuzu.yuzu_emu.R
+import org.yuzu.yuzu_emu.BuildConfig
 import org.yuzu.yuzu_emu.features.settings.model.BooleanSetting
 import org.yuzu.yuzu_emu.features.settings.model.IntSetting
 import org.yuzu.yuzu_emu.ui.main.ThemeProvider
@@ -32,6 +33,10 @@ object ThemeHelper {
 
     fun setTheme(activity: AppCompatActivity) {
         setThemeMode(activity)
+        if (BuildConfig.IS_OPENSW) {
+            activity.setTheme(R.style.Theme_Eden_Main)
+            return
+        }
         when (Theme.from(IntSetting.THEME.getInt())) {
             Theme.Default -> activity.setTheme(getSelectedStaticThemeColor())
             Theme.MaterialYou -> {
@@ -87,7 +92,11 @@ object ThemeHelper {
     }
 
     fun setThemeMode(activity: AppCompatActivity) {
-        val themeMode = IntSetting.THEME_MODE.getInt()
+        val themeMode = if (BuildConfig.IS_OPENSW) {
+            AppCompatDelegate.MODE_NIGHT_YES
+        } else {
+            IntSetting.THEME_MODE.getInt()
+        }
         activity.delegate.localNightMode = themeMode
         val windowController = WindowCompat.getInsetsController(
             activity.window,

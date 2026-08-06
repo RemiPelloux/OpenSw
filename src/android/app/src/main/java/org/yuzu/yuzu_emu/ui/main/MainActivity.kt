@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.Context
 import android.net.Uri
 import android.os.Bundle
+import android.provider.DocumentsContract
 import android.view.View
 import android.view.ViewGroup.MarginLayoutParams
 import android.view.WindowManager
@@ -55,7 +56,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import androidx.documentfile.provider.DocumentFile
+import androidx.lifecycle.lifecycleScope
+import org.yuzu.yuzu_emu.BuildConfig
+import org.yuzu.yuzu_emu.features.migration.EdenImportCategory
+import org.yuzu.yuzu_emu.features.migration.EdenImportManager
+import org.yuzu.yuzu_emu.features.performance.AynThorDetector
 
 class MainActivity : AppCompatActivity(), ThemeProvider {
     private lateinit var binding: ActivityMainBinding
@@ -70,6 +75,60 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
 
     private val CHECKED_DECRYPTION = "CheckedDecryption"
     private var checkedDecryption = false
+    private var pendingEdenCategories = EdenImportCategory.entries.toSet()
+
+    private val edenImportTreeLauncher =
+        registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+            if (uri == null) return@registerForActivityResult
+            if (uri.authority != "${BuildConfig.EDEN_PACKAGE}.user") {
+                MaterialAlertDialogBuilder(this)
+                    .setTitle(R.string.eden_import_failed)
+                    .setMessage(R.string.eden_import_wrong_source)
+                    .setPositiveButton(android.R.string.ok, null)
+                    .show()
+                return@registerForActivityResult
+            }
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION
+            )
+            val progress = MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.eden_import_running)
+                .setMessage(R.string.eden_import_running_description)
+                .setCancelable(false)
+                .show()
+            lifecycleScope.launch {
+                val result = runCatching {
+                    withContext(Dispatchers.IO) {
+                        EdenImportManager(applicationContext).import(uri, pendingEdenCategories)
+                    }
+                }
+                progress.dismiss()
+                result.onSuccess { report ->
+                    PreferenceManager.getDefaultSharedPreferences(applicationContext)
+                        .edit { putBoolean(PREF_EDEN_IMPORT_COMPLETE, true) }
+                    MaterialAlertDialogBuilder(this@MainActivity)
+                        .setTitle(R.string.eden_import_complete)
+                        .setMessage(
+                            getString(
+                                R.string.eden_import_report,
+                                report.importedFiles,
+                                report.importedBytes,
+                                report.backups,
+                                report.skippedCategories.size
+                            )
+                        )
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                }.onFailure { error ->
+                    MaterialAlertDialogBuilder(this@MainActivity)
+                        .setTitle(R.string.eden_import_failed)
+                        .setMessage(error.message ?: getString(R.string.error))
+                        .setPositiveButton(android.R.string.ok, null)
+                        .show()
+                }
+            }
+        }
 
     override fun attachBaseContext(base: Context) {
         super.attachBaseContext(YuzuApplication.applyLanguage(base))
@@ -128,7 +187,10 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
                 ThemeHelper.SYSTEM_BAR_ALPHA
             )
         )
-        if (InsetsHelper.getSystemGestureType(applicationContext) != InsetsHelper.GESTURE_NAVIGATION) {
+        if (
+            InsetsHelper.getSystemGestureType(applicationContext) !=
+            InsetsHelper.GESTURE_NAVIGATION
+        ) {
             binding.navigationBarShade.setBackgroundColor(
                 ThemeHelper.getColorWithOpacity(
                     MaterialColors.getColor(
@@ -161,14 +223,111 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
         EmulationActivity.stopForegroundService(this)
 
         val firstTimeSetup = PreferenceManager.getDefaultSharedPreferences(applicationContext)
-                .getBoolean(Settings.PREF_FIRST_APP_LAUNCH, true)
+            .getBoolean(Settings.PREF_FIRST_APP_LAUNCH, true)
 
-        if (!firstTimeSetup && NativeLibrary.isUpdateCheckerEnabled() && BooleanSetting.ENABLE_UPDATE_CHECKS.getBoolean()) {
-             checkForUpdates()
+        if (!BuildConfig.IS_OPENSW && !firstTimeSetup && NativeLibrary.isUpdateCheckerEnabled() &&
+            BooleanSetting.ENABLE_UPDATE_CHECKS.getBoolean()
+        ) {
+            checkForUpdates()
         }
         setInsets()
         applyFullscreenPreference()
+        if (!maybeOfferEdenImport()) {
+            maybeOfferThorStable()
+        }
     }
+
+    private fun maybeOfferEdenImport(): Boolean {
+        if (!BuildConfig.IS_OPENSW || !isEdenInstalled()) return false
+        val preferences = PreferenceManager.getDefaultSharedPreferences(applicationContext)
+        if (preferences.getBoolean(PREF_EDEN_IMPORT_COMPLETE, false) ||
+            preferences.getBoolean(PREF_EDEN_IMPORT_NEVER, false)
+        ) {
+            return false
+        }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.eden_detected)
+            .setMessage(R.string.eden_detected_description)
+            .setPositiveButton(R.string.eden_import_action) { _, _ -> showEdenImportCategories() }
+            .setNeutralButton(R.string.later, null)
+            .setNegativeButton(R.string.never) { _, _ ->
+                preferences.edit { putBoolean(PREF_EDEN_IMPORT_NEVER, true) }
+            }
+            .show()
+        return true
+    }
+
+    private fun maybeOfferThorStable() {
+        if (!BuildConfig.IS_OPENSW || !isFreshInstall() ||
+            !AynThorDetector.matches(Build.MANUFACTURER, Build.MODEL, Build.PRODUCT)
+        ) {
+            return
+        }
+        val preferences = PreferenceManager.getDefaultSharedPreferences(applicationContext)
+        if (preferences.getBoolean(PREF_THOR_PROFILE_OFFERED, false)) return
+        preferences.edit { putBoolean(PREF_THOR_PROFILE_OFFERED, true) }
+
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.opensw_thor_detected)
+            .setMessage(R.string.opensw_thor_detected_description)
+            .setPositiveButton(R.string.opensw_use_thor_60_stable) { _, _ ->
+                OpenSwPerformanceModeManager.apply(
+                    applicationContext,
+                    PerformanceMode.THOR_60_STABLE.value
+                )
+            }
+            .setNegativeButton(R.string.opensw_keep_standard, null)
+            .show()
+    }
+
+    private fun isFreshInstall(): Boolean = runCatching {
+        val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getPackageInfo(
+                packageName,
+                android.content.pm.PackageManager.PackageInfoFlags.of(0)
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getPackageInfo(packageName, 0)
+        }
+        info.firstInstallTime == info.lastUpdateTime
+    }.getOrDefault(false)
+
+    private fun showEdenImportCategories() {
+        val categories = EdenImportCategory.entries
+        val selected = BooleanArray(categories.size) { true }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.eden_import_categories)
+            .setMultiChoiceItems(
+                categories.map { getString(it.label) }.toTypedArray(),
+                selected
+            ) { _, index, checked -> selected[index] = checked }
+            .setPositiveButton(R.string.eden_choose_folder) { _, _ ->
+                pendingEdenCategories = categories
+                    .filterIndexed { index, _ -> selected[index] }
+                    .toSet()
+                val root = DocumentsContract.buildRootUri(
+                    "${BuildConfig.EDEN_PACKAGE}.user",
+                    "root"
+                )
+                edenImportTreeLauncher.launch(root)
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
+    }
+
+    private fun isEdenInstalled(): Boolean = runCatching {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getPackageInfo(
+                BuildConfig.EDEN_PACKAGE,
+                android.content.pm.PackageManager.PackageInfoFlags.of(0)
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getPackageInfo(BuildConfig.EDEN_PACKAGE, 0)
+        }
+    }.isSuccess
 
     private fun checkForUpdates() {
         Thread {
@@ -213,7 +372,6 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
 
     private fun downloadAndInstallUpdate(release: NativeLibrary.UpdateResult) {
         CoroutineScope(Dispatchers.IO).launch {
-            val packageId = applicationContext.packageName
             val asset = release.assets[0]
             val artifact = asset.split("/").last()
             val apkFile = File(cacheDir, "update-$artifact.apk")
@@ -246,7 +404,10 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
                                 onFailure = { exception ->
                                     Toast.makeText(
                                         this@MainActivity,
-                                        getString(R.string.update_install_failed, exception.message),
+                                        getString(
+                                            R.string.update_install_failed,
+                                            exception.message
+                                        ),
                                         Toast.LENGTH_LONG
                                     ).show()
                                 }
@@ -292,8 +453,6 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
         progressBar = null
         progressMessage = null
     }
-
-
     fun displayMultiplayerDialog() {
         val dialog = NetPlayDialog(this)
         dialog.show()
@@ -434,7 +593,8 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
 
         val uriString = result.toString()
         val folder = gamesViewModel.folders.value.firstOrNull {
-            it.uriString == uriString && it.type == org.yuzu.yuzu_emu.model.DirectoryType.EXTERNAL_CONTENT
+            it.uriString == uriString &&
+                it.type == org.yuzu.yuzu_emu.model.DirectoryType.EXTERNAL_CONTENT
         }
         if (folder != null) {
             Toast.makeText(
@@ -445,7 +605,11 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
             return
         }
 
-        val externalContentDir = org.yuzu.yuzu_emu.model.GameDir(uriString, false, org.yuzu.yuzu_emu.model.DirectoryType.EXTERNAL_CONTENT)
+        val externalContentDir = org.yuzu.yuzu_emu.model.GameDir(
+            uriString,
+            false,
+            org.yuzu.yuzu_emu.model.DirectoryType.EXTERNAL_CONTENT
+        )
         gamesViewModel.addFolder(externalContentDir, savedFromGameFragment = false)
     }
 
@@ -530,4 +694,10 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
                 result = result
             )
         }
+
+    private companion object {
+        const val PREF_EDEN_IMPORT_COMPLETE = "opensw_eden_import_complete"
+        const val PREF_EDEN_IMPORT_NEVER = "opensw_eden_import_never"
+        const val PREF_THOR_PROFILE_OFFERED = "opensw_thor_profile_offered"
+    }
 }

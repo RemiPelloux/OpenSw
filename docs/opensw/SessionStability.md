@@ -1,0 +1,67 @@
+# OpenSw session stability
+
+This document tracks repeated launch and shutdown behaviour on Android. It distinguishes confirmed
+root causes from measurements that only describe symptoms.
+
+## Implemented lifecycle fixes
+
+OpenSw now performs the following teardown work in dependency order:
+
+1. Stop the cheat engine and wait for in-flight callbacks before HID and service teardown.
+2. Close Oboe audio streams before destroying the audio core.
+3. Stop CPU and GPU work before releasing emulated backing memory.
+4. Release tracked fastmem mappings, process page tables and process memory trackers.
+5. Release the creator reference for every guest service thread after it starts.
+6. Retain and close the four main and four idle kernel-thread references after their schedulers stop.
+7. On Android API 28 or newer, request `M_PURGE` after native shutdown so Bionic can return unused
+   allocator pages to the operating system.
+
+The purge changes residency, not ownership. It does not replace object-lifetime fixes and is never
+used to hide an assert or an invalid memory range.
+
+## Evidence and limits
+
+The service-thread reference fix was instrumented directly: all 52 guest service threads finalized
+and their execution references were released. Six short Arceus cycles with the Bionic purge then
+completed without a crash or native assert and reduced immediate residual PSS substantially. The
+remaining 65-70 MiB per-cycle slope led to the main/idle thread ownership fix.
+
+The profile APK containing the main/idle fix builds successfully. Runtime certification is still
+open because the first ADB coordinate sequence did not activate `Quit emulation`; the process was
+still running the game when memory was sampled. That 4.8 GiB measurement is invalid and excluded.
+
+Android heapprofd is not an accepted source for this test on the current Thor firmware. OpenSw uses
+custom fiber stacks and heapprofd disconnects with `CLIENT_ERROR_INVALID_STACK_BOUNDS`, producing a
+partial running-session profile.
+
+## Validation snapshot: 2026-08-05
+
+- `assembleOpenSwProfile`: passed on the main/idle ownership fix and Bionic purge.
+- Native `tests` target: built successfully.
+- Cheats: 24 assertions across 5 cases passed.
+- Fibers: 15 assertions across 3 cases passed.
+- Page-table reset: 12 assertions passed.
+- KMemoryBlockManager fastmem finalization: 3 assertions passed.
+
+The complete host suite is not green. `DeviceMemoryManager: UpdatePagesCachedBatch basic` and the
+first HostMemory case both reproduce a SIGSEGV in the macOS test process. The CoreTiming wildcard
+run did not complete within two minutes and was interrupted. None of these results is attributed to
+the Android lifecycle fix without a focused diagnosis, but they remain release blockers rather than
+being omitted from the record.
+
+## Deterministic acceptance procedure
+
+Future automated cycles must drive a test-only session command or Android instrumentation action
+that invokes the same production shutdown path as the UI. Screen coordinates are not accepted.
+Every sample must first prove all of the following:
+
+- `MainActivity` is the top resumed OpenSw activity;
+- the native session reports stopped;
+- no emulation surface is attached;
+- the OpenSw PID is unchanged;
+- Eden has no running PID.
+
+Record PSS, RSS, native heap, activity count and view count at 10 and 30 seconds. Run six cycles for
+a patch check, then 30 cycles for release acceptance. Reject the run on any assert, abort, ANR,
+failed shutdown acknowledgement or unexplained linear growth. A 60-minute gameplay session remains
+required after the cycle test passes.
