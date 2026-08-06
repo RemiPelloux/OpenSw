@@ -239,7 +239,7 @@ supérieure à 2 %.
 
 ## Livrables
 
-Build final effectué depuis le merge `a45a12bf0e620ed490e8c038678f0597fccbeeee`, Android SDK
+Build final effectué depuis `5dae3d78c64e0996eb36e6c0ce2b4bd92028f753`, Android SDK
 `/Users/remipelloux/Library/Android/sdk` et les tâches suivantes:
 
 ```sh
@@ -253,14 +253,19 @@ cd src/android
 
 | Variant | Application ID | APK | SHA-256 |
 | --- | --- | --- | --- |
-| `openSwRelease` | `com.remipelloux.opensw` | `src/android/app/build/outputs/apk/openSw/release/app-openSw-release.apk` | `3a3e7090ba086ab7b99d6ab4472200380bedc0b3fcd1b1ea3971be8ee4985724` |
-| `openSwProfile` | `com.remipelloux.opensw.profile` | `src/android/app/build/outputs/apk/openSw/profile/app-openSw-profile.apk` | `c556ba501c0b2342467fe44c9a570f115294e9f206206a52e93822bca4411378` |
+| `openSwRelease` | `com.remipelloux.opensw` | `src/android/app/build/outputs/apk/openSw/release/app-openSw-release.apk` | `a60531f30b1cb76a234ca8517c1ddce009d8ba253f33dc499998269d155b9880` |
+| `openSwProfile` | `com.remipelloux.opensw.profile` | `src/android/app/build/outputs/apk/openSw/profile/app-openSw-profile.apk` | `fde09a2a0030ea3b5396276d2257e86f17e5bef87c30ac0a1a35f412359903aa` |
 
-Une version Release antérieure de cette refonte a été installée et contrôlée sur le Thor. Le build
-final `opensw-a45a12bf0e62` n'a pas pu être réinstallé après validation car le Thor n'était plus
-visible par ADB; son installation reste en attente. Le variant Profile est le livrable de mesure;
-chaque campagne doit l'accompagner de son SHA-256, du manifeste exact du scénario et du protocole de
-session longue ci-dessus.
+Le build Release final `opensw-5dae3d78c64e` a été installé avec succès sur le Thor. Les captures
+1920x1080 confirment l'absence de hero/jaquette dupliquée, la barre de sélection compacte, le bouton
+favori et le dock sans collision. Le contrôle a aussi détecté puis corrigé l'éditeur de recherche
+plein écran Android: le clavier paysage conserve maintenant la bibliothèque visible. Le variant
+Profile est le livrable de mesure; chaque campagne doit l'accompagner de son SHA-256, du manifeste
+exact du scénario et du protocole de session longue ci-dessus.
+
+Le lint vital, R8 et les suites Release/Profile passent. Le lint complet conserve 94 erreurs
+préexistantes, principalement des usages `NewApi` avec `minSdk 24`; les deux erreurs de contraintes
+de la bibliothèque signalées pendant cette refonte sont corrigées. Aucune baseline n'a été ajoutée.
 
 ## Risques résiduels
 
