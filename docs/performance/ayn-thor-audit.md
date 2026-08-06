@@ -19,7 +19,7 @@ La bibliothèque réelle, les insets paysage et la navigation D-pad ont été co
 | Build natif OpenSw Profile | vérifié | `externalNativeBuildOpenSwProfile` réussi avec `OPENSW_PROFILE` |
 | Tests métriques Kotlin | vérifié | `testOpenSwDebugUnitTest` réussi |
 | Tests `opensw-performance-v2` | vérifié | 8 tests Python réussis |
-| APK Debug/Profile | vérifié sur l'hôte | chemins, identifiants et SHA-256 dans la section Livrables |
+| APK Release/Profile | vérifié sur l'hôte | chemins, identifiants et SHA-256 dans la section Livrables |
 | UI paysage Thor | vérifié sur appareil | bibliothèque réelle, barre compacte, focus D-pad et changement de sélection |
 | Captures UI multi-format | validation partielle | paysage Thor vérifié; portrait, thèmes et tailles de police restent à couvrir |
 | Runs A/B courts sur Thor | validation utilisateur en attente | cinq runs par variante requis |
@@ -200,8 +200,8 @@ supérieure à 2 %.
 
 ## Livrables
 
-Build final effectué depuis HEAD `5e1d5e82dcc98627c769b7ca32384ded16bc5e1d` avec les modifications
-locales de cet audit, Android SDK `/Users/remipelloux/Library/Android/sdk` et les tâches suivantes:
+Build final effectué depuis le merge `a45a12bf0e620ed490e8c038678f0597fccbeeee`, Android SDK
+`/Users/remipelloux/Library/Android/sdk` et les tâches suivantes:
 
 ```sh
 cd src/android
@@ -214,12 +214,14 @@ cd src/android
 
 | Variant | Application ID | APK | SHA-256 |
 | --- | --- | --- | --- |
-| `openSwRelease` | `com.remipelloux.opensw` | `src/android/app/build/outputs/apk/openSw/release/app-openSw-release.apk` | `32c8a75e69562d708c86c8bed9f09d596c7aa70e0c8a58b618d07bbde4759bc8` |
-| `openSwProfile` | `com.remipelloux.opensw.profile` | `src/android/app/build/outputs/apk/openSw/profile/app-openSw-profile.apk` | `1125a511168efd413d47b7886ed49b2db46fe6295543fc92bc29870efeb486dd` |
+| `openSwRelease` | `com.remipelloux.opensw` | `src/android/app/build/outputs/apk/openSw/release/app-openSw-release.apk` | `3a3e7090ba086ab7b99d6ab4472200380bedc0b3fcd1b1ea3971be8ee4985724` |
+| `openSwProfile` | `com.remipelloux.opensw.profile` | `src/android/app/build/outputs/apk/openSw/profile/app-openSw-profile.apk` | `c556ba501c0b2342467fe44c9a570f115294e9f206206a52e93822bca4411378` |
 
-Le variant Release ci-dessus est installé sur le Thor. Le variant Profile est le livrable de
-mesure; chaque campagne doit l'accompagner de son SHA-256, du manifeste exact du scénario et du
-protocole de session longue ci-dessus.
+Une version Release antérieure de cette refonte a été installée et contrôlée sur le Thor. Le build
+final `opensw-a45a12bf0e62` n'a pas pu être réinstallé après validation car le Thor n'était plus
+visible par ADB; son installation reste en attente. Le variant Profile est le livrable de mesure;
+chaque campagne doit l'accompagner de son SHA-256, du manifeste exact du scénario et du protocole de
+session longue ci-dessus.
 
 ## Risques résiduels
 

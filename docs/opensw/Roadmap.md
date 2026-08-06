@@ -5,17 +5,13 @@ evidence; compilation alone is not a performance or stability result.
 
 ## Current top bottlenecks
 
-1. Android CPU affinity currently pins the four emulated CPU threads to host CPUs `0-3` without
-   reading the SoC topology. The function name claims performance-core placement, but no capacity or
-   frequency data is used. This can trap emulation on inefficient cores and is the highest-priority
-   sustained-performance investigation.
-2. Every `Common::Fiber` eagerly allocates and zeroes a 2 MiB stack plus a 2 MiB rewind stack. The
-   rewind path is currently unused, while dozens of service and kernel fibers make this a major
-   startup, memory-residency and shutdown-lifetime cost.
-3. Vulkan pipeline compilation uses at least four workers because the current clamp makes the
-   documented automatic/zero branch unreachable. Six or seven effective workers can contend with
-   four critical CPU emulation threads, while some pipeline paths still wait synchronously and cause
-   frametime spikes.
+1. Vulkan worker selection and small-draw waits still need a controlled 2/4/6-worker comparison
+   with cold and warm caches. No default changes until Perfetto attribution and five-run A/B evidence
+   show a p95/p99 or median-FPS improvement without regression.
+2. Runtime memory, audio cancellation, guarded fibers and Vulkan teardown now compile and have
+   focused tests, but still need 6-cycle, 30-cycle and 60-minute Arceus validation on the Thor.
+3. Three Eden upstream changes remain unported: isolated NPad and audio bounds fixes, plus a much
+   larger bindless descriptor implementation that requires its own branch and visual/performance A/B.
 
 ## P0: release stability
 
@@ -24,12 +20,11 @@ evidence; compilation alone is not a performance or stability result.
    control surface in public release builds.
 2. Validate the main/idle kernel-thread ownership fix with six cycles, then 30 cycles, recording
    10-second and 30-second memory snapshots.
-3. Report remaining dangling kernel objects by concrete type and reference count. Fix ownership at
-   the creator; do not bulk-close unknown objects or suppress the shutdown warning.
-4. Instrument fiber creation, destruction, peak stack use and ownership by thread type. Remove the
-   unused rewind allocation or make it lazy, then right-size stacks with guard pages. Require fiber
-   assertions and the 30-cycle memory test to remain green before promotion.
-5. Diagnose and fix the reproducible macOS host-test crashes in HostMemory and
+3. Keep the kernel registry non-owning and diagnostic-only. Fix any remaining ownership issue at the
+   creator; do not bulk-close unknown objects or suppress the shutdown warning.
+4. Validate guarded fiber stacks and cancelled audio waits under repeated lifecycle stress. Require
+   the 30-cycle memory test to remain green before promotion.
+5. Diagnose the remaining macOS host-test failures in HostMemory and
    `DeviceMemoryManager: UpdatePagesCachedBatch basic`; bound the CoreTiming test duration.
 6. Run Arceus for 60 minutes and complete repeated pause, resume, rotation and secondary-display
    attach/detach checks without assert, ANR or abnormal memory growth.
@@ -37,10 +32,8 @@ evidence; compilation alone is not a performance or stability result.
 
 ## P1: measured Thor performance
 
-1. Remove the unconditional Android `CPU 0-3` affinity from the baseline. Detect host CPU capacity
-   and maximum frequency when evaluating an optional topology-aware policy. Compare no affinity,
-   Android-managed scheduling and topology-aware placement using FPS, p95/p99, speed and thermal
-   state; keep affinity disabled unless it wins reproducibly without regressions.
+1. Keep Android-managed scheduling as the baseline now that unconditional `CPU 0-3` affinity has
+   been removed. Evaluate topology-aware placement only as an optional measured experiment.
 2. Fix Vulkan worker selection so `0` has an explicit automatic meaning and values below four are
    testable. Compare 2, 4 and 6 workers with cold/warm caches, measure compilation time, p95/p99 and
    temperature, and make the displayed Thor Max worker count match the effective native count.
@@ -59,6 +52,8 @@ evidence; compilation alone is not a performance or stability result.
    overlay and no work for hidden metrics.
 4. Audit French and English strings, accessibility labels and compact/grid/list/carousel layouts on
    both Thor displays.
+5. Add favorites and recently played/resume ordering, then a compact game-details drawer with
+   quick actions. Keep the 64 dp selection bar and do not reintroduce a hero or duplicated cover.
 
 ## P3: distribution
 
