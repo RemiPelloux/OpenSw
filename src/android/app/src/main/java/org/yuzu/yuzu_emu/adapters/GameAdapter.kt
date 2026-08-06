@@ -52,6 +52,9 @@ class GameAdapter(
         const val VIEW_TYPE_LIST = 2
         const val VIEW_TYPE_CAROUSEL = 3
         private const val CARD_SIZE_PAYLOAD = "card-size"
+        private val TITLE_WHITESPACE = Regex("[\\t\\n\\r]+")
+
+        private fun cleanTitle(title: String): String = title.replace(TITLE_WHITESPACE, " ")
     }
 
     private var viewType = 0
@@ -196,7 +199,7 @@ class GameAdapter(
             iconRequest?.dispose()
             iconRequest = GameIconUtils.loadGameIcon(model, listBinding.imageGameScreen)
 
-            listBinding.textGameTitle.text = model.title.replace("[\\t\\n\\r]+".toRegex(), " ")
+            listBinding.textGameTitle.text = cleanTitle(model.title)
             listBinding.textGameDeveloper.text = model.developer
 
             listBinding.textGameTitle.marquee()
@@ -214,7 +217,7 @@ class GameAdapter(
             iconRequest?.dispose()
             iconRequest = GameIconUtils.loadGameIcon(model, gridBinding.imageGameScreen)
 
-            gridBinding.textGameTitle.text = model.title.replace("[\\t\\n\\r]+".toRegex(), " ")
+            gridBinding.textGameTitle.text = cleanTitle(model.title)
 
             bindInteraction(gridBinding.cardGameGrid, model)
 
@@ -233,10 +236,7 @@ class GameAdapter(
                 gridCompactBinding.imageGameScreenCompact
             )
 
-            gridCompactBinding.textGameTitleCompact.text = model.title.replace(
-                "[\\t\\n\\r]+".toRegex(),
-                " "
-            )
+            gridCompactBinding.textGameTitleCompact.text = cleanTitle(model.title)
 
             bindInteraction(gridCompactBinding.cardGameGridCompact, model)
 
@@ -252,7 +252,7 @@ class GameAdapter(
             iconRequest?.dispose()
             iconRequest = GameIconUtils.loadGameIcon(model, carouselBinding.imageGameScreen)
 
-            carouselBinding.textGameTitle.text = model.title.replace("[\\t\\n\\r]+".toRegex(), " ")
+            carouselBinding.textGameTitle.text = cleanTitle(model.title)
             bindInteraction(carouselBinding.cardGameCarousel, model)
 
             carouselBinding.imageGameScreen.contentDescription =

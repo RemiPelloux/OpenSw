@@ -5,6 +5,7 @@ package org.yuzu.yuzu_emu.ui
 
 import android.content.Context
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.content.res.Configuration
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -46,8 +47,12 @@ import info.debatty.java.stringsimilarity.Jaccard
 import info.debatty.java.stringsimilarity.JaroWinkler
 import java.util.Locale
 import androidx.core.content.edit
+import androidx.core.content.ContextCompat
 import androidx.core.view.doOnNextLayout
 import coil.request.Disposable
+import org.yuzu.yuzu_emu.features.library.GameLibraryOrganizer
+import org.yuzu.yuzu_emu.features.library.LibraryEntry
+import org.yuzu.yuzu_emu.features.library.LibrarySort
 
 class GamesFragment : Fragment() {
     private var _binding: FragmentGamesBinding? = null
@@ -65,6 +70,9 @@ class GamesFragment : Fragment() {
         private const val SEARCH_TEXT = "SearchText"
         private const val SEARCH_OPEN = "SearchOpen"
         private const val PREF_SORT_TYPE = "GamesSortType"
+        private const val PREF_FAVORITE_PATHS = "OpenSwFavoriteGamePaths"
+        private const val RECENT_WINDOW_MS = 24L * 60L * 60L * 1000L
+        private val TITLE_WHITESPACE = Regex("[\\t\\n\\r]+")
     }
 
     private val gamesViewModel: GamesViewModel by activityViewModels()
@@ -200,6 +208,9 @@ class GamesFragment : Fragment() {
         binding.selectedLaunch.setOnClickListener {
             selectedGame?.let { gameAdapter.launchGame(it, binding.root) }
         }
+        binding.selectedFavorite.setOnClickListener {
+            selectedGame?.let(::toggleFavorite)
+        }
 
         setInsets()
     }
@@ -274,26 +285,8 @@ class GamesFragment : Fragment() {
         }
     }
 
-    private var lastSearchText: String = ""
-    private var lastFilter: Int = preferences.getInt(PREF_SORT_TYPE, View.NO_ID)
-
     private fun setAdapter(games: List<Game>) {
-        val currentSearchText = binding.searchText.text.toString()
-        val activeFilter = currentFilter
-
-        val searchChanged = currentSearchText != lastSearchText
-        val filterChanged = activeFilter != lastFilter
-
-        if (searchChanged || filterChanged) {
-            filterAndSearch(games)
-            lastSearchText = currentSearchText
-            lastFilter = activeFilter
-        } else {
-            ((binding.gridGames as? RecyclerView)?.adapter as? GameAdapter)?.submitList(games) {
-                restoreSelection(games)
-            }
-            gamesViewModel.setFilteredGames(games)
-        }
+        filterAndSearch(games)
         binding.noticeText.setVisible(games.isEmpty() && !gamesViewModel.isReloading.value)
         if (games.isEmpty()) {
             selectGame(null)
@@ -403,22 +396,35 @@ class GamesFragment : Fragment() {
     private var currentFilter = View.NO_ID
 
     private fun filterAndSearch(baseList: List<Game> = gamesViewModel.games.value) {
-        val filteredList: List<Game> = when (currentFilter) {
-            R.id.alphabetical -> baseList.sortedBy { it.title }
-            R.id.filter_recently_played -> {
-                baseList.filter {
-                    val lastPlayedTime = preferences.getLong(it.keyLastPlayedTime, 0L)
-                    lastPlayedTime > (System.currentTimeMillis() - 24 * 60 * 60 * 1000)
-                }.sortedByDescending { preferences.getLong(it.keyLastPlayedTime, 0L) }
-            }
-            R.id.filter_recently_added -> {
-                baseList.filter {
-                    val addedTime = preferences.getLong(it.keyAddedToLibraryTime, 0L)
-                    addedTime > (System.currentTimeMillis() - 24 * 60 * 60 * 1000)
-                }.sortedByDescending { preferences.getLong(it.keyAddedToLibraryTime, 0L) }
-            }
-            else -> baseList
+        val favoritePaths = favoritePaths()
+        val sort = when (currentFilter) {
+            R.id.alphabetical -> LibrarySort.ALPHABETICAL
+            R.id.filter_recently_played -> LibrarySort.RECENTLY_PLAYED
+            R.id.filter_recently_added -> LibrarySort.RECENTLY_ADDED
+            else -> LibrarySort.DEFAULT
         }
+        val entries = baseList.map { game ->
+            LibraryEntry(
+                item = game,
+                title = game.title,
+                isFavorite = game.path in favoritePaths,
+                lastPlayedTime = if (sort == LibrarySort.RECENTLY_PLAYED) {
+                    preferences.getLong(game.keyLastPlayedTime, 0L)
+                } else {
+                    0L
+                },
+                addedTime = if (sort == LibrarySort.RECENTLY_ADDED) {
+                    preferences.getLong(game.keyAddedToLibraryTime, 0L)
+                } else {
+                    0L
+                }
+            )
+        }
+        val filteredList = GameLibraryOrganizer.organize(
+            entries = entries,
+            sort = sort,
+            recentAfter = System.currentTimeMillis() - RECENT_WINDOW_MS
+        )
 
         val searchTerm = binding.searchText.text.toString().lowercase(Locale.getDefault())
         if (searchTerm.isEmpty()) {
@@ -431,11 +437,14 @@ class GamesFragment : Fragment() {
             val title = game.title.lowercase(Locale.getDefault())
             val score = searchAlgorithm.similarity(searchTerm, title)
             if (score > 0.03) {
-                ScoredGame(score, game)
+                ScoredGame(score, game, game.path in favoritePaths)
             } else {
                 null
             }
-        }.sortedByDescending { it.score }.map { it.item }
+        }.sortedWith(
+            compareByDescending<ScoredGame> { it.isFavorite }
+                .thenByDescending { it.score }
+        ).map { it.item }
 
         submitFilteredList(sortedList)
     }
@@ -451,7 +460,11 @@ class GamesFragment : Fragment() {
         }
     }
 
-    private inner class ScoredGame(val score: Double, val item: Game)
+    private inner class ScoredGame(
+        val score: Double,
+        val item: Game,
+        val isFavorite: Boolean
+    )
 
     private fun focusSearch() {
         binding.searchText.requestFocus()
@@ -463,6 +476,7 @@ class GamesFragment : Fragment() {
     private fun openSearch() {
         binding.title.visibility = View.INVISIBLE
         binding.frameSearch.visibility = View.VISIBLE
+        setUtilityActionsVisible(false)
         focusSearch()
     }
 
@@ -471,8 +485,20 @@ class GamesFragment : Fragment() {
         binding.searchText.clearFocus()
         binding.frameSearch.visibility = View.GONE
         binding.title.visibility = View.VISIBLE
+        setUtilityActionsVisible(true)
         val imm = requireActivity().getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(binding.searchText.windowToken, 0)
+    }
+
+    private fun setUtilityActionsVisible(visible: Boolean) {
+        binding.viewButton.setVisible(visible)
+        binding.filterButton.setVisible(visible)
+        binding.settingsButton.setVisible(visible)
+        if (visible) {
+            updateButtonsVisibility()
+        } else {
+            binding.addDirectory.visibility = View.GONE
+        }
     }
 
     private var selectedGame: Game? = null
@@ -494,9 +520,10 @@ class GamesFragment : Fragment() {
         gamesViewModel.setSelectedGame(game)
         binding.focusScene.setVisible(game != null)
         if (game == null) return
-        binding.selectedTitle.text = game.title.replace("[\\t\\n\\r]+".toRegex(), " ")
+        binding.selectedTitle.text = game.title.replace(TITLE_WHITESPACE, " ")
         binding.selectedVersion.text = game.version.ifBlank { getString(R.string.opensw_no_version) }
         binding.selectedPlaytime.text = formatPlayTime(game)
+        updateFavoriteButton(game)
 
         val filtered = gamesViewModel.filteredGames.value
         val index = filtered.indexOfFirst { it.path == game.path }
@@ -514,6 +541,37 @@ class GamesFragment : Fragment() {
         val seconds = NativeLibrary.playTimeManagerGetPlayTime(game.programId)
         if (seconds <= 0) return getString(R.string.opensw_never_played)
         return "${seconds / 3600} h ${(seconds % 3600) / 60} min"
+    }
+
+    private fun favoritePaths(): Set<String> =
+        preferences.getStringSet(PREF_FAVORITE_PATHS, emptySet()).orEmpty().toSet()
+
+    private fun toggleFavorite(game: Game) {
+        val favorites = favoritePaths().toMutableSet()
+        if (!favorites.add(game.path)) {
+            favorites.remove(game.path)
+        }
+        preferences.edit { putStringSet(PREF_FAVORITE_PATHS, favorites) }
+        updateFavoriteButton(game)
+        filterAndSearch()
+    }
+
+    private fun updateFavoriteButton(game: Game) {
+        val isFavorite = game.path in favoritePaths()
+        binding.selectedFavorite.apply {
+            setImageResource(
+                if (isFavorite) R.drawable.ic_star_filled else R.drawable.ic_star_outline
+            )
+            contentDescription = getString(
+                if (isFavorite) R.string.opensw_remove_favorite else R.string.opensw_add_favorite
+            )
+            imageTintList = ColorStateList.valueOf(
+                ContextCompat.getColor(
+                    requireContext(),
+                    if (isFavorite) R.color.opensw_yellow else R.color.opensw_outline
+                )
+            )
+        }
     }
 
     override fun onDestroyView() {

@@ -1,56 +1,98 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="?attr/colorSurface"
-    android:orientation="vertical"
     android:paddingTop="12dp">
 
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="4dp"
-        android:layout_marginHorizontal="18dp"
-        android:orientation="horizontal">
+    <View
+        android:id="@+id/cockpit_focus_rail"
+        android:layout_width="4dp"
+        android:layout_height="42dp"
+        android:layout_marginStart="20dp"
+        android:background="@color/opensw_cyan"
+        app:layout_constraintBottom_toBottomOf="@id/cockpit_header"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@id/cockpit_header" />
 
-        <View
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/cockpit_header"
+        android:layout_width="0dp"
+        android:layout_height="62dp"
+        android:layout_marginStart="36dp"
+        android:layout_marginEnd="20dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <TextView
+            android:id="@+id/cockpit_title"
+            style="@style/OpenSwFocusTitle"
             android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:background="#36C5F0" />
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="16dp"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:textSize="20sp"
+            app:layout_constraintBottom_toTopOf="@id/cockpit_context"
+            app:layout_constraintEnd_toStartOf="@id/cockpit_state"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_chainStyle="packed"
+            tools:text="Pokémon Legends: Arceus" />
 
-        <View
+        <TextView
+            android:id="@+id/cockpit_context"
+            style="@style/OpenSwDataText"
             android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_marginHorizontal="4dp"
-            android:layout_weight="1"
-            android:background="#3DDC84" />
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:textColor="?attr/colorOnSurfaceVariant"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/cockpit_state"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/cockpit_title"
+            tools:text="01001F5010DFA000" />
 
-        <View
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:background="#F4C542" />
-    </LinearLayout>
+        <TextView
+            android:id="@+id/cockpit_state"
+            style="@style/OpenSwDataText"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:text="@string/cockpit_running"
+            android:textColor="@color/opensw_mint"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
-    <TextView
-        android:id="@+id/cockpit_title"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="18dp"
-        android:layout_marginTop="10dp"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:textAppearance="?attr/textAppearanceTitleMedium"
-        android:textColor="?attr/colorOnSurface" />
+    <View
+        android:id="@+id/cockpit_header_rule"
+        android:layout_width="0dp"
+        android:layout_height="1dp"
+        android:background="@color/opensw_outline"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/cockpit_header" />
 
     <com.google.android.material.button.MaterialButtonToggleGroup
         android:id="@+id/cockpit_tabs"
-        android:layout_width="match_parent"
-        android:layout_height="44dp"
-        android:layout_marginHorizontal="18dp"
-        android:layout_marginTop="10dp"
+        android:layout_width="0dp"
+        android:layout_height="48dp"
+        android:layout_marginHorizontal="20dp"
+        android:layout_marginTop="8dp"
         app:checkedButton="@id/cockpit_tab_performance"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/cockpit_header_rule"
         app:selectionRequired="true"
         app:singleSelection="true">
 
@@ -60,7 +102,9 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="@string/performance_lab" />
+            android:text="@string/performance_lab"
+            android:textAllCaps="false"
+            app:icon="@drawable/ic_frames" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/cockpit_tab_cheats"
@@ -68,7 +112,9 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="@string/cheats" />
+            android:text="@string/cheats"
+            android:textAllCaps="false"
+            app:icon="@drawable/ic_code" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/cockpit_tab_session"
@@ -76,13 +122,19 @@
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_weight="1"
-            android:text="@string/cockpit_session" />
+            android:text="@string/cockpit_session"
+            android:textAllCaps="false"
+            app:icon="@drawable/ic_controller" />
     </com.google.android.material.button.MaterialButtonToggleGroup>
 
     <FrameLayout
-        android:layout_width="match_parent"
+        android:id="@+id/cockpit_content"
+        android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_weight="1">
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/cockpit_tabs">
 
         <include
             android:id="@+id/cockpit_performance_content"
@@ -93,39 +145,80 @@
             layout="@layout/layout_cheat_panel"
             android:visibility="gone" />
 
-        <LinearLayout
+        <ScrollView
             android:id="@+id/cockpit_session_content"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:padding="24dp"
+            android:fillViewport="true"
             android:visibility="gone">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/cockpit_pause"
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:text="@string/emulation_pause"
-                app:icon="@drawable/ic_pause" />
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:paddingHorizontal="20dp"
+                android:paddingTop="20dp"
+                android:paddingBottom="28dp">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/cockpit_overlay"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginTop="10dp"
-                android:text="@string/emulation_show_overlay"
-                app:icon="@drawable/ic_controller" />
+                <TextView
+                    style="@style/OpenSwDataText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/cockpit_session_controls"
+                    android:textColor="@color/opensw_cyan" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/cockpit_quick_settings"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:layout_marginTop="10dp"
-                android:text="@string/quick_settings"
-                app:icon="@drawable/ic_tune" />
-        </LinearLayout>
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/cockpit_pause"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="12dp"
+                    android:nextFocusDown="@id/cockpit_overlay"
+                    android:text="@string/emulation_pause"
+                    android:textAllCaps="false"
+                    app:cornerRadius="8dp"
+                    app:icon="@drawable/ic_pause" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/cockpit_overlay"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="8dp"
+                    android:nextFocusDown="@id/cockpit_quick_settings"
+                    android:nextFocusUp="@id/cockpit_pause"
+                    android:text="@string/emulation_show_overlay"
+                    android:textAllCaps="false"
+                    app:cornerRadius="8dp"
+                    app:icon="@drawable/ic_controller" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/cockpit_quick_settings"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="8dp"
+                    android:nextFocusDown="@id/cockpit_stop"
+                    android:nextFocusUp="@id/cockpit_overlay"
+                    android:text="@string/quick_settings"
+                    android:textAllCaps="false"
+                    app:cornerRadius="8dp"
+                    app:icon="@drawable/ic_tune" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/cockpit_stop"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="52dp"
+                    android:layout_marginTop="20dp"
+                    android:nextFocusUp="@id/cockpit_quick_settings"
+                    android:text="@string/emulation_exit"
+                    android:textAllCaps="false"
+                    android:textColor="@color/opensw_yellow"
+                    app:cornerRadius="8dp"
+                    app:icon="@drawable/ic_exit"
+                    app:iconTint="@color/opensw_yellow"
+                    app:strokeColor="@color/opensw_yellow" />
+            </LinearLayout>
+        </ScrollView>
     </FrameLayout>
-</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>

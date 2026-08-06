@@ -732,7 +732,8 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                     updateQuickOverlayMenuEntry(visible)
                     NativeConfig.saveGlobalConfig()
                 },
-                onQuickSettings = ::openQuickSettingsMenu
+                onQuickSettings = ::openQuickSettingsMenu,
+                onStopEmulation = ::stopEmulationFromUi
             )
             cockpitController.start()
         }
@@ -929,12 +930,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 }
 
                 R.id.menu_exit -> {
-                    clearPausedFrame()
-                    emulationState.stop()
-                    NativeConfig.reloadGlobalConfig()
-                    emulationViewModel.setIsEmulationStopping(true)
-                    binding.drawerLayout.close()
-                    binding.inGameMenu.requestFocus()
+                    stopEmulationFromUi()
                     true
                 }
 
@@ -1309,6 +1305,15 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
         binding.drawerLayout.openDrawer(binding.quickSettingsSheet)
     }
 
+    private fun stopEmulationFromUi() {
+        clearPausedFrame()
+        emulationState.stop()
+        NativeConfig.reloadGlobalConfig()
+        emulationViewModel.setIsEmulationStopping(true)
+        binding.drawerLayout.close()
+        binding.inGameMenu.requestFocus()
+    }
+
     private fun openCheatMenu() {
         performancePanel.hide()
         cheatPanel.showCheats()
@@ -1367,6 +1372,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
     private fun pauseEmulationAndCaptureFrame() {
         emulationState.pause()
         updatePauseMenuEntry(true)
+        if (this::cockpitController.isInitialized) {
+            cockpitController.onPauseStateChanged()
+        }
         capturePausedFrameFromCore()
         updatePausedFrameVisibility()
     }
@@ -1418,6 +1426,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
         clearPausedFrame()
         emulationState.resume()
         updatePauseMenuEntry(emulationState.isPaused)
+        if (this::cockpitController.isInitialized) {
+            cockpitController.onPauseStateChanged()
+        }
         updatePausedFrameVisibility()
     }
 

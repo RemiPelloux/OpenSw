@@ -69,7 +69,7 @@
                     android:layout_height="match_parent"
                     android:background="@android:color/transparent"
                     android:hint="@string/home_search_games"
-                    android:imeOptions="actionDone"
+                    android:imeOptions="actionDone|flagNoExtractUi"
                     android:inputType="text"
                     android:maxLines="1"
                     android:paddingStart="12dp"
@@ -158,7 +158,7 @@
             android:maxLines="1"
             android:textSize="20sp"
             app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/selected_launch"
+            app:layout_constraintEnd_toStartOf="@id/selected_favorite"
             app:layout_constraintStart_toEndOf="@id/focus_rail"
             app:layout_constraintTop_toTopOf="parent"
             tools:text="Pokémon Legends: Arceus" />
@@ -171,6 +171,8 @@
             android:includeFontPadding="false"
             android:maxLines="1"
             android:visibility="gone"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
             tools:text="1.1.1" />
 
         <com.google.android.material.textview.MaterialTextView
@@ -181,7 +183,23 @@
             android:includeFontPadding="false"
             android:maxLines="1"
             android:visibility="gone"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
             tools:text="42 h 18 min" />
+
+        <ImageButton
+            android:id="@+id/selected_favorite"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_marginEnd="6dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/opensw_add_favorite"
+            android:padding="10dp"
+            android:src="@drawable/ic_star_outline"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/selected_launch"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="@color/opensw_outline" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/selected_launch"

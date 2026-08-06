@@ -11,6 +11,8 @@
     <string name="opensw_loading">Loading library</string>
     <string name="opensw_library_error">The library could not be loaded.</string>
     <string name="opensw_retry">Retry</string>
+    <string name="opensw_add_favorite">Add to favorites</string>
+    <string name="opensw_remove_favorite">Remove from favorites</string>
 
     <!-- General application strings -->
     <string name="app_name" translatable="false">Eden</string>
@@ -1902,6 +1904,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="performance_report_missing">No performance report is available yet</string>
     <string name="performance_share_chooser">Share OpenSw performance report</string>
     <string name="cockpit_session">Session</string>
+    <string name="cockpit_running">Running</string>
+    <string name="cockpit_paused">Paused</string>
+    <string name="cockpit_session_controls">Session controls</string>
     <string name="opensw_cockpit_display">OpenSw cockpit enabled on display %1$d</string>
     <string name="opensw_diagnostic_bundle">Share OpenSw diagnostics</string>
     <string name="opensw_diagnostic_bundle_description">Export device, build and recent performance reports without keys, saves or game paths</string>

@@ -26,7 +26,8 @@ class PerformancePanelController(
     private val fragment: Fragment,
     private val panel: View,
     private val gameTitle: String,
-    private val titleId: String
+    private val titleId: String,
+    private val compact: Boolean = false
 ) {
     private val title = panel.findViewById<TextView>(R.id.performance_game_title)
     private val context = panel.findViewById<TextView>(R.id.performance_context)
@@ -43,6 +44,11 @@ class PerformancePanelController(
 
     init {
         title.text = gameTitle
+        if (compact) {
+            panel.findViewById<View>(R.id.performance_brand_rail).visibility = View.GONE
+            panel.findViewById<View>(R.id.performance_heading).visibility = View.GONE
+            title.visibility = View.GONE
+        }
         capture.setOnClickListener { toggleCapture() }
         share.setOnClickListener { shareLatestReport() }
         fragment.viewLifecycleOwner.lifecycleScope.launch {

@@ -3,9 +3,7 @@
 
 package org.yuzu.yuzu_emu.model
 
-import android.net.Uri
 import android.widget.Toast
-import androidx.documentfile.provider.DocumentFile
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.preference.PreferenceManager
@@ -123,21 +121,11 @@ class GamesViewModel : ViewModel() {
                         if (storedGames!!.isNotEmpty()) {
                             val deserializedGames = mutableSetOf<Game>()
                             storedGames.forEach {
-                                val game: Game
                                 try {
-                                    game = Json.decodeFromString(it)
+                                    deserializedGames.add(Json.decodeFromString(it))
                                 } catch (e: Exception) {
                                     // We don't care about any errors related to parsing the game cache
                                     return@forEach
-                                }
-
-                                val gameExists =
-                                    DocumentFile.fromSingleUri(
-                                        YuzuApplication.appContext,
-                                        Uri.parse(game.path)
-                                    )?.exists()
-                                if (gameExists == true) {
-                                    deserializedGames.add(game)
                                 }
                             }
                             setGames(deserializedGames.toList())

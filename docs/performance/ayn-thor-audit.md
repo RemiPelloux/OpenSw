@@ -84,7 +84,12 @@ La bibliothèque réelle, les insets paysage et la navigation D-pad ont été co
 - La refonte conserve Views/XML, RecyclerView, Navigation et Coil.
 - Une barre de sélection paysage de 64 dp affiche le titre, la version, le temps de jeu et l'action
   Lancer. La jaquette reste uniquement dans la bibliothèque, sans doublon ni hero occupant l'écran.
+- Les favoris sont persistés par chemin dans un unique `StringSet`. Ils restent en tête dans les
+  tris par défaut, alphabétique et récents, ainsi que dans les résultats de recherche. Le bouton
+  étoile de la barre de sélection reclasse la liste par DiffUtil sans rafraîchissement global.
 - La recherche est repliée derrière une action; tri, mode et réglages restent compacts.
+- Pendant la saisie, les actions secondaires de la barre supérieure sont repliées afin que le champ
+  utilise la largeur disponible, notamment en portrait.
 - Grille, liste et carousel restent disponibles. Aucun `notifyDataSetChanged()` global n'est émis
   lors d'un changement de mode.
 - La sélection est restaurée par chemin, le focus D-pad est explicite, l'appui long conserve les
@@ -92,6 +97,40 @@ La bibliothèque réelle, les insets paysage et la navigation D-pad ont été co
 - Coil décode à la taille demandée, borne son cache à 64 MiB, annule les requêtes recyclées et
   précharge au plus deux voisins de chaque côté.
 - Les états chargement, vide, erreur/retry et jaquette absente sont présents.
+
+### Cockpit écran secondaire
+
+- L'écran secondaire n'affiche ni hero ni jaquette. Une barre compacte conserve le titre, le Title
+  ID et l'état `En cours`/`En pause` au-dessus des vues Performance, Cheats et Session.
+- Les en-têtes jeu/performance dupliqués sont masqués dans ce contexte compact.
+- Session expose Pause/Reprise, overlay, réglages rapides et arrêt de l'émulation. L'ordre de focus
+  vertical est explicite pour la manette et le clavier.
+- Le rendu 1080x1240, les thèmes, les langues et la taille de police maximale restent à valider sur
+  appareil.
+
+## Synchronisation Eden du 6 août 2026
+
+Le fetch de `upstream/master` ne laisse aucun patch officiel unique non porté selon
+`git log --cherry-pick`. Les commits suivants sont conservés comme commits séparés:
+
+- `3efd58df8a`, port de `49a0ca6d5d`: bindless buffers/descriptors Vulkan;
+- `f01fa3dee7`, port de `a0f1cd1baf`: garde null NPad;
+- `fbca988241`, port de `a43664c0fd`: bornes audio DSP et correction Jamboree.
+
+Le bindless Vulkan compile avec les compteurs OpenSw existants, mais reste une optimisation non
+mesurée jusqu'aux cinq runs A/B et contrôles visuels sur Thor.
+
+## Trois optimisations prioritaires
+
+1. Le chemin bindless Vulkan officiel réduit le coût de gestion des buffers et des descripteurs.
+   Statut: compilé Release/Profile, validation Thor A/B en attente.
+2. Le tri bibliothèque prend désormais un snapshot O(n) des favoris et timestamps avant le tri;
+   il ne relit plus `SharedPreferences` dans le comparateur O(n log n).
+3. Le bootstrap du cache bibliothèque ne fait plus un appel SAF `DocumentFile.exists()` par jeu
+   avant le scan complet qui réconcilie déjà la liste. Cela supprime le N+1 d'I/O au cold start.
+
+Le nettoyage des retours/tabulations des titres réutilise aussi une expression régulière compilée
+une fois par processus au lieu de la reconstruire à chaque rebind.
 
 ## Protocole reproductible
 
