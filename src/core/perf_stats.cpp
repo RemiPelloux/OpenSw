@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <chrono>
 #include <iterator>
+#include <cmath>
 #include <mutex>
 #include <numeric>
 #include <sstream>
@@ -72,9 +73,14 @@ void PerfStats::EndSystemFrame() {
 
     auto frame_end = Clock::now();
     const auto frame_time = frame_end - frame_begin;
+    const double frame_time_ms = std::chrono::duration<double, std::milli>(frame_time).count();
     if (current_index < perf_history.size()) {
-        perf_history[current_index++] =
-            std::chrono::duration<double, std::milli>(frame_time).count();
+        perf_history[current_index++] = frame_time_ms;
+    }
+    if (++lifetime_system_frames > IgnoreFrames) {
+        rolling_frametimes[rolling_index] = frame_time_ms;
+        rolling_index = (rolling_index + 1) % RollingWindowSize;
+        rolling_count = std::min(rolling_count + 1, RollingWindowSize);
     }
     accumulated_frametime += frame_time;
     system_frames += 1;
@@ -99,6 +105,18 @@ double PerfStats::GetMeanFrametime() const {
     return sum / static_cast<double>(current_index - IgnoreFrames);
 }
 
+double PerfStats::GetRollingP95Frametime() const {
+    std::scoped_lock lock{object_mutex};
+    if (rolling_count == 0) {
+        return 0.0;
+    }
+    std::vector<double> window(rolling_frametimes.begin(),
+                               rolling_frametimes.begin() + rolling_count);
+    const size_t rank = (95 * window.size() + 99) / 100;
+    std::nth_element(window.begin(), window.begin() + rank - 1, window.end());
+    return window[rank - 1] / 1000.0;
+}
+
 PerfStatsResults PerfStats::GetAndResetStats(microseconds current_system_time_us) {
     std::scoped_lock lock{object_mutex};
 
@@ -106,14 +124,20 @@ PerfStatsResults PerfStats::GetAndResetStats(microseconds current_system_time_us
     // Walltime elapsed since stats were reset
     const auto interval = duration_cast<DoubleSecs>(now - reset_point).count();
 
-    const auto system_us_per_second = (current_system_time_us - reset_point_system_us) / interval;
+    const auto system_us_per_second = interval > 0.0
+                                          ? (current_system_time_us - reset_point_system_us) / interval
+                                          : microseconds::zero();
     const auto current_frames = static_cast<double>(game_frames.load(std::memory_order_relaxed));
-    const auto current_fps = current_frames / interval;
+    const auto current_fps = interval > 0.0 ? current_frames / interval : 0.0;
+    const auto system_fps = interval > 0.0 ? static_cast<double>(system_frames) / interval : 0.0;
+    const auto frametime = system_frames > 0
+                               ? duration_cast<DoubleSecs>(accumulated_frametime).count() /
+                                     static_cast<double>(system_frames)
+                               : 0.0;
     const PerfStatsResults results{
-        .system_fps = static_cast<double>(system_frames) / interval,
+        .system_fps = std::isfinite(system_fps) ? system_fps : 0.0,
         .average_game_fps = (current_fps + previous_fps) / 2.0,
-        .frametime = duration_cast<DoubleSecs>(accumulated_frametime).count() /
-                     static_cast<double>(system_frames),
+        .frametime = std::isfinite(frametime) ? frametime : 0.0,
         .emulation_speed = system_us_per_second.count() / 1'000'000.0,
     };
 

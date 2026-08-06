@@ -222,6 +222,22 @@
         <item name="backgroundTint">@color/eden_primary</item>
     </style>
 
+    <style name="OpenSwFocusTitle" parent="TextAppearance.Material3.HeadlineLarge">
+        <item name="android:fontFamily">sans-serif-condensed</item>
+        <item name="android:textStyle">bold</item>
+        <item name="android:letterSpacing">0</item>
+    </style>
+
+    <style name="OpenSwUiText" parent="TextAppearance.Material3.BodyMedium">
+        <item name="android:fontFamily">sans-serif</item>
+        <item name="android:letterSpacing">0</item>
+    </style>
+
+    <style name="OpenSwDataText" parent="TextAppearance.Material3.LabelMedium">
+        <item name="android:fontFamily">monospace</item>
+        <item name="android:letterSpacing">0</item>
+    </style>
+
     <style name="EdenButton.Secondary" parent="Widget.Material3.Button.OutlinedButton">
         <item name="strokeColor">@color/eden_secondary</item>
         <item name="strokeWidth">2dp</item>

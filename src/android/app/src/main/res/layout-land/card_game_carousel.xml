@@ -1,10 +1,11 @@
 <org.yuzu.yuzu_emu.views.GradientBorderCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/card_game_carousel"
     android:layout_width="wrap_content"
     android:layout_height="match_parent"
-    app:cardCornerRadius="16dp"
+    app:cardCornerRadius="8dp"
     app:cardElevation="0dp"
     app:cardPreventCornerOverlap="true"
     android:clipChildren="true"
@@ -33,17 +34,21 @@
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/text_game_title"
-            style="@style/TextAppearance.Material3.TitleMedium"
+            style="@style/OpenSwUiText"
             android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="0dp"
-            android:requiresFadingEdge="horizontal"
+            android:layout_height="44dp"
+            android:ellipsize="end"
+            android:gravity="center"
+            android:includeFontPadding="false"
+            android:maxLines="2"
+            android:paddingHorizontal="6dp"
             android:textAlignment="center"
+            android:textSize="13sp"
             app:layout_constraintTop_toBottomOf="@+id/image_game_screen"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintBottom_toBottomOf="parent"
-            android:text="Game Title" />
+            tools:text="Pokémon Legends: Arceus" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </org.yuzu.yuzu_emu.views.GradientBorderCardView>

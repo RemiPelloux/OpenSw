@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
+    <string name="opensw_search">Rechercher un jeu</string>
+    <string name="opensw_view_mode">Changer la vue de la bibliothèque</string>
+    <string name="opensw_sort">Trier la bibliothèque</string>
+    <string name="opensw_settings">Ouvrir les paramètres</string>
+    <string name="opensw_launch">Lancer</string>
+    <string name="opensw_no_version">Version inconnue</string>
+    <string name="opensw_never_played">Jamais lancé</string>
+    <string name="opensw_loading">Chargement de la bibliothèque</string>
+    <string name="opensw_library_error">La bibliothèque n’a pas pu être chargée.</string>
+    <string name="opensw_retry">Réessayer</string>
+
     <string name="app_disclaimer">Ce logiciel permet de jouer à des jeux de la console Nintendo Switch. Aucun titre ni clé de jeu n\'est inclus.<br /><br />Avant de commencer, veuillez localiser votre fichier <![CDATA[<b> prod.keys </b>]]> sur le stockage de votre appareil.<br /><br /><![CDATA[<a href=\"https://yuzu-mirror.github.io/help/quickstart\">En savoir plus</a>]]></string>
     <string name="notice_notification_channel_name">Avis et erreurs</string>
     <string name="notice_notification_channel_description">Affiche des notifications en cas de problème.</string>

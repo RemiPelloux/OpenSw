@@ -26,6 +26,14 @@ if (NIGHTLY_BUILD)
     add_compile_definitions(NIGHTLY_BUILD)
 endif()
 
+if (OPEN_SW)
+    add_compile_definitions(OPEN_SW)
+endif()
+
+if (OPENSW_PROFILE)
+    add_compile_definitions(OPENSW_PROFILE)
+endif()
+
 # Legacy (android only)
 if (YUZU_LEGACY)
     message(WARNING "Making legacy build. Performance may suffer.")

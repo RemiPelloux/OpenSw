@@ -9,7 +9,7 @@
     android:clickable="true"
     android:focusable="true"
     android:transitionName="card_game"
-    app:cardCornerRadius="16dp"
+    app:cardCornerRadius="8dp"
     app:cardElevation="0dp"
     app:cardBackgroundColor="@android:color/transparent"
     app:strokeWidth="0dp">
@@ -33,7 +33,7 @@
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/text_game_title"
-            style="@style/SynthwaveText.Body"
+            style="@style/OpenSwUiText"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
@@ -51,7 +51,7 @@
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/text_game_developer"
-            style="@style/SynthwaveText.Body"
+            style="@style/OpenSwUiText"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"

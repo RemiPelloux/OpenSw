@@ -49,6 +49,13 @@ class GamesViewModel : ViewModel() {
     val folders = _folders.asStateFlow()
 
     private val _filteredGames = MutableStateFlow<List<Game>>(emptyList())
+    val filteredGames: StateFlow<List<Game>> get() = _filteredGames
+
+    val libraryError: StateFlow<String?> get() = _libraryError
+    private val _libraryError = MutableStateFlow<String?>(null)
+
+    val selectedGamePath: StateFlow<String?> get() = _selectedGamePath
+    private val _selectedGamePath = MutableStateFlow<String?>(null)
 
     var lastScrollPosition: Int = 0
 
@@ -91,12 +98,17 @@ class GamesViewModel : ViewModel() {
         _filteredGames.value = games
     }
 
+    fun setSelectedGame(game: Game?) {
+        _selectedGamePath.value = game?.path
+    }
+
     fun reloadGames(directoriesChanged: Boolean, firstStartup: Boolean = false) {
         if (reloading.get()) {
             return
         }
         reloading.set(true)
         _isReloading.value = true
+        _libraryError.value = null
 
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
@@ -104,7 +116,9 @@ class GamesViewModel : ViewModel() {
                     if (firstStartup) {
                         // Retrieve list of cached games
                         val storedGames =
-                            PreferenceManager.getDefaultSharedPreferences(YuzuApplication.appContext)
+                            PreferenceManager.getDefaultSharedPreferences(
+                                YuzuApplication.appContext
+                            )
                                 .getStringSet(GameHelper.KEY_GAMES, emptySet())
                         if (storedGames!!.isNotEmpty()) {
                             val deserializedGames = mutableSetOf<Game>()
@@ -136,6 +150,8 @@ class GamesViewModel : ViewModel() {
                     if (directoriesChanged) {
                         setShouldSwapData(true)
                     }
+                } catch (exception: Exception) {
+                    _libraryError.value = exception.message ?: exception.javaClass.simpleName
                 } finally {
                     reloading.set(false)
                     _isReloading.value = false
@@ -150,8 +166,13 @@ class GamesViewModel : ViewModel() {
                 when (gameDir.type) {
                     DirectoryType.GAME -> {
                         NativeConfig.addGameDir(gameDir)
-                        val isFirstTimeSetup = PreferenceManager.getDefaultSharedPreferences(YuzuApplication.appContext)
-                            .getBoolean(org.yuzu.yuzu_emu.features.settings.model.Settings.PREF_FIRST_APP_LAUNCH, true)
+                        val isFirstTimeSetup = PreferenceManager.getDefaultSharedPreferences(
+                            YuzuApplication.appContext
+                        )
+                            .getBoolean(
+                                org.yuzu.yuzu_emu.features.settings.model.Settings.PREF_FIRST_APP_LAUNCH,
+                                true
+                            )
                         getGameDirsAndExternalContent(!isFirstTimeSetup)
                     }
                     DirectoryType.EXTERNAL_CONTENT -> {
@@ -181,7 +202,9 @@ class GamesViewModel : ViewModel() {
                     gameDirs.removeAt(removedDirIndex)
                     when (gameDir.type) {
                         DirectoryType.GAME -> {
-                            NativeConfig.setGameDirs(gameDirs.filter { it.type == DirectoryType.GAME }.toTypedArray())
+                            NativeConfig.setGameDirs(
+                                gameDirs.filter { it.type == DirectoryType.GAME }.toTypedArray()
+                            )
                         }
                         DirectoryType.EXTERNAL_CONTENT -> {
                             removeExternalContentDir(gameDir.uriString)

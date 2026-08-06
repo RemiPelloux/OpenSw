@@ -21,6 +21,8 @@ import coil.key.Keyer
 import coil.memory.MemoryCache
 import coil.request.ImageRequest
 import coil.request.Options
+import coil.request.Disposable
+import coil.size.pxOrElse
 import org.yuzu.yuzu_emu.R
 import org.yuzu.yuzu_emu.YuzuApplication
 import org.yuzu.yuzu_emu.model.Game
@@ -39,11 +41,21 @@ class GameIconFetcher(
 
     private fun decodeGameIcon(uri: String): Bitmap? {
         val data = GameMetadata.getIcon(uri)
+        val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+        BitmapFactory.decodeByteArray(data, 0, data.size, bounds)
+        val requestedWidth = options.size.width.pxOrElse { bounds.outWidth }
+        val requestedHeight = options.size.height.pxOrElse { bounds.outHeight }
+        var sampleSize = 1
+        while (bounds.outWidth / (sampleSize * 2) >= requestedWidth &&
+            bounds.outHeight / (sampleSize * 2) >= requestedHeight
+        ) {
+            sampleSize *= 2
+        }
         return BitmapFactory.decodeByteArray(
             data,
             0,
             data.size,
-            BitmapFactory.Options()
+            BitmapFactory.Options().apply { inSampleSize = sampleSize }
         )
     }
 
@@ -65,18 +77,27 @@ object GameIconUtils {
         }
         .memoryCache {
             MemoryCache.Builder(YuzuApplication.appContext)
-                .maxSizePercent(0.25)
+                .maxSizeBytes(64 * 1024 * 1024)
                 .build()
         }
         .build()
 
-    fun loadGameIcon(game: Game, imageView: ImageView) {
+    fun loadGameIcon(game: Game, imageView: ImageView): Disposable {
         val request = ImageRequest.Builder(YuzuApplication.appContext)
             .data(game)
             .target(imageView)
             .error(R.drawable.default_icon)
             .build()
-        imageLoader.enqueue(request)
+        return imageLoader.enqueue(request)
+    }
+
+    fun preloadGameIcon(game: Game, sizePx: Int): Disposable {
+        val request = ImageRequest.Builder(YuzuApplication.appContext)
+            .data(game)
+            .size(sizePx)
+            .error(R.drawable.default_icon)
+            .build()
+        return imageLoader.enqueue(request)
     }
 
     suspend fun getGameIcon(lifecycleOwner: LifecycleOwner, game: Game): Bitmap {

@@ -16,6 +16,7 @@
 #include "video_core/renderer_vulkan/vk_compute_pipeline.h"
 #include "video_core/renderer_vulkan/vk_descriptor_pool.h"
 #include "video_core/renderer_vulkan/vk_pipeline_cache.h"
+#include "video_core/renderer_vulkan/vk_pipeline_profile.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_update_descriptor.h"
 #include "video_core/shader_notify.h"
@@ -88,7 +89,9 @@ ComputePipeline::ComputePipeline(const Device& device_, Scheduler& scheduler, vk
             .basePipelineIndex = 0,
         };
         try {
-            pipeline = device.GetLogical().CreateComputePipeline(compute_ci, *pipeline_cache);
+            pipeline = MeasurePipelinePhase(PipelineProfilePhase::VulkanPipeline, [&] {
+                return device.GetLogical().CreateComputePipeline(compute_ci, *pipeline_cache);
+            });
         } catch (const vk::Exception& exception) {
             LOG_CRITICAL(Render_Vulkan, "Adreno rejected compute shader {:016X}: {}", shader_hash,
                          exception.what());
@@ -120,6 +123,7 @@ ComputePipeline::ComputePipeline(const Device& device_, Scheduler& scheduler, vk
     }};
     if (thread_worker) {
         thread_worker->QueueWork(std::move(func));
+        ProfilePipelineQueueDepth(thread_worker->PendingRequests());
     } else {
         func();
     }
@@ -238,8 +242,17 @@ void ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
     if (!is_built.load(std::memory_order::relaxed)) {
         // Wait for the pipeline to be built
         scheduler.Record([this](vk::CommandBuffer) {
+#ifdef OPENSW_PROFILE
+            const auto wait_start = std::chrono::steady_clock::now();
+#endif
             std::unique_lock lock{build_mutex};
             build_condvar.wait(lock, [this] { return is_built.load(std::memory_order::relaxed); });
+#ifdef OPENSW_PROFILE
+            const auto wait_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                     std::chrono::steady_clock::now() - wait_start)
+                                     .count();
+            ProfilePipelineWait(static_cast<u64>(wait_ns));
+#endif
         });
     }
 

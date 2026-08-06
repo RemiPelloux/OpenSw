@@ -213,6 +213,37 @@ void EmulationSession::SurfaceChanged() {
     m_window->OnSurfaceChanged(m_native_window);
 }
 
+void EmulationSession::UpdateSurface(ANativeWindow* native_window) {
+    std::scoped_lock lock(m_mutex);
+    if (m_native_window) {
+        ANativeWindow_release(m_native_window);
+    }
+    m_native_window = native_window;
+    if (m_is_running && m_window) {
+        m_window->OnSurfaceChanged(m_native_window);
+    }
+}
+
+void EmulationSession::ClearSurface() {
+    std::scoped_lock lock(m_mutex);
+    if (m_is_running && m_window) {
+        m_window->OnSurfaceChanged(nullptr);
+    }
+    if (m_native_window) {
+        ANativeWindow_release(m_native_window);
+        m_native_window = nullptr;
+    }
+}
+
+std::vector<u8> EmulationSession::GetAppletCaptureBuffer() {
+    std::scoped_lock lock(m_mutex);
+    if (!m_is_running) {
+        return {};
+    }
+    const auto tiled = m_system.GPU().GetAppletCaptureBuffer();
+    return {tiled.begin(), tiled.end()};
+}
+
 void EmulationSession::ConfigureFilesystemProvider(const std::string& filepath) {
     const auto file = m_system.GetFilesystem()->OpenFile(filepath, FileSys::OpenMode::Read);
     if (!file) {
@@ -693,15 +724,11 @@ extern "C" {
 
 void Java_org_yuzu_yuzu_1emu_NativeLibrary_surfaceChanged(JNIEnv* env, jobject instance,
                                                           [[maybe_unused]] jobject surf) {
-    EmulationSession::GetInstance().SetNativeWindow(ANativeWindow_fromSurface(env, surf));
-    EmulationSession::GetInstance().SurfaceChanged();
+    EmulationSession::GetInstance().UpdateSurface(ANativeWindow_fromSurface(env, surf));
 }
 
 void Java_org_yuzu_yuzu_1emu_NativeLibrary_surfaceDestroyed(JNIEnv* env, jobject instance) {
-    if (auto* native_window = EmulationSession::GetInstance().NativeWindow(); native_window) {
-        ANativeWindow_release(native_window);
-    }
-    EmulationSession::GetInstance().SetNativeWindow(nullptr);
+    EmulationSession::GetInstance().ClearSurface();
 }
 
 void Java_org_yuzu_yuzu_1emu_NativeLibrary_setAppDirectory(JNIEnv* env, jobject instance,
@@ -891,11 +918,7 @@ jboolean Java_org_yuzu_yuzu_1emu_NativeLibrary_isPaused(JNIEnv* env, jclass claz
 jbyteArray Java_org_yuzu_yuzu_1emu_NativeLibrary_getAppletCaptureBuffer(JNIEnv* env, jclass clazz) {
     using namespace VideoCore::Capture;
 
-    if (!EmulationSession::GetInstance().IsRunning()) {
-        return env->NewByteArray(0);
-    }
-
-    const auto tiled = EmulationSession::GetInstance().System().GPU().GetAppletCaptureBuffer();
+    const auto tiled = EmulationSession::GetInstance().GetAppletCaptureBuffer();
     if (tiled.size() < TiledSize) {
         return env->NewByteArray(0);
     }
@@ -932,16 +955,17 @@ void Java_org_yuzu_yuzu_1emu_NativeLibrary_initializeSystem(JNIEnv* env, jclass 
 }
 
 jdoubleArray Java_org_yuzu_yuzu_1emu_NativeLibrary_getPerfStats(JNIEnv* env, jclass clazz) {
-    jdoubleArray j_stats = env->NewDoubleArray(4);
+    jdoubleArray j_stats = env->NewDoubleArray(5);
 
     if (EmulationSession::GetInstance().IsRunning()) {
         jconst results = EmulationSession::GetInstance().PerfStats();
 
         // Converting the structure into an array makes it easier to pass it to the frontend
-        double stats[4] = {results.system_fps, results.average_game_fps, results.frametime,
-                           results.emulation_speed};
+        double stats[5] = {results.system_fps, results.average_game_fps, results.frametime,
+                           results.emulation_speed,
+                           EmulationSession::GetInstance().System().GetPerfStats().GetRollingP95Frametime()};
 
-        env->SetDoubleArrayRegion(j_stats, 0, 4, stats);
+        env->SetDoubleArrayRegion(j_stats, 0, 5, stats);
     }
 
     return j_stats;

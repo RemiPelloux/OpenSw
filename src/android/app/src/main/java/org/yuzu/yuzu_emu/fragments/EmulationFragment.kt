@@ -275,6 +275,10 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
             game = gameToUse
             emulationActivity?.updateSessionGame(gameToUse)
+            runCatching { gameToUse.programIdHex.lowercase().padStart(16, '0') }
+                .getOrNull()
+                ?.takeIf { it.matches(Regex("[0-9a-f]{16}")) }
+                ?.let { Log.info("OpenSw performance active title_id=$it") }
         } catch (e: Exception) {
             Log.error("[EmulationFragment] Error during game setup: ${e.message}")
             Toast.makeText(
@@ -349,7 +353,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
             if (GpuDriverHelper.isAdrenoGpu()) {
                 val programIdHex = game!!.programIdHex
                 if (NativeFreedrenoConfig.loadPerGameConfigWithGlobalFallback(programIdHex)) {
-                    Log.info("[EmulationFragment] Loaded per-game Freedreno config for $programIdHex")
+                    Log.info(
+                        "[EmulationFragment] Loaded per-game Freedreno config for $programIdHex"
+                    )
                 } else {
                     Log.info("[EmulationFragment] Using global Freedreno config for $programIdHex")
                 }
@@ -632,7 +638,6 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
         completeViewSetup()
     }
 
-
     private fun setupOverlayGamelessEditMode() {
         binding.surfaceInputOverlay.post {
             binding.surfaceInputOverlay.refreshControls(gameless = true)
@@ -791,11 +796,14 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                     true
                 }
 
-            if (BooleanSetting.ENABLE_QUICK_SETTINGS.getBoolean())
-                R.id.menu_quick_settings else 0 -> {
-                openQuickSettingsMenu()
-                true
-            }
+                if (BooleanSetting.ENABLE_QUICK_SETTINGS.getBoolean()) {
+                    R.id.menu_quick_settings
+                } else {
+                    0
+                } -> {
+                    openQuickSettingsMenu()
+                    true
+                }
 
                 R.id.menu_settings_per_game -> {
                     val action = HomeNavigationDirections.actionGlobalSettingsActivity(
@@ -1089,7 +1097,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
     private fun addQuickSettings() {
         binding.quickSettingsSheet.apply {
-            val container = binding.quickSettingsSheet.findViewById<ViewGroup>(R.id.quick_settings_container)
+            val container = binding.quickSettingsSheet.findViewById<ViewGroup>(
+                R.id.quick_settings_container
+            )
             val isSharpnessFilterSelected = isSharpnessScalingFilterSelected()
 
             container.removeAllViews()
@@ -1107,8 +1117,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 BooleanSetting.RENDERER_USE_SPEED_LIMIT.getBoolean(false),
                 container
             ) { enabled ->
-                if (enabled)
+                if (enabled) {
                     slowSpeed.isChecked = false
+                }
                 NativeLibrary.setTurboSpeedLimit(enabled)
             }!!
 
@@ -1118,8 +1129,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 BooleanSetting.RENDERER_USE_SPEED_LIMIT.getBoolean(false),
                 container
             ) { enabled ->
-                if (enabled)
+                if (enabled) {
                     turboSpeed.isChecked = false
+                }
                 NativeLibrary.setSlowSpeedLimit(enabled)
             }!!
 
@@ -1146,13 +1158,13 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 ShortSetting.RENDERER_SPEED_LIMIT,
                 minValue = 0,
                 maxValue = 400,
-                units = "%",
+                units = "%"
             )
 
             quickSettings.addBooleanSetting(
                 R.string.use_docked_mode,
                 container,
-                BooleanSetting.USE_DOCKED_MODE,
+                BooleanSetting.USE_DOCKED_MODE
             )
 
             quickSettings.addDivider(container)
@@ -1164,7 +1176,6 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                 R.array.rendererAccuracyNames,
                 R.array.rendererAccuracyValues
             )
-
 
             quickSettings.addIntSetting(
                 R.string.renderer_scaling_filter,
@@ -1208,7 +1219,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
         val sharpnessFilterNames = setOf(
             getString(R.string.scaling_filter_fsr),
             getString(R.string.scaling_filter_sgsr),
-            getString(R.string.scaling_filter_sgsr_edge),
+            getString(R.string.scaling_filter_sgsr_edge)
         )
         return names.asSequence()
             .mapIndexedNotNull { index, name ->
@@ -1492,10 +1503,11 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
         }
         binding.showStatsOverlayText.setVisible(showPerfOverlay)
         if (showPerfOverlay) {
-            //val SYSTEM_FPS = 0
+            // val SYSTEM_FPS = 0
             val FPS = 1
             val FRAMETIME = 2
-            //val SPEED = 3
+            val FRAMETIME_P95 = 4
+            // val SPEED = 3
             val sb = StringBuilder()
             perfStatsUpdater = {
                 if (emulationViewModel.emulationStarted.value &&
@@ -1516,8 +1528,11 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                         if (sb.isNotEmpty()) sb.append(" | ")
                         sb.append(
                             String.format(
-                                "FT: %.1fms",
-                                (perfStats[FRAMETIME] * 1000.0f).toFloat()
+                                "FT p95: %.1fms",
+                                (
+                                    perfStats.getOrElse(FRAMETIME_P95) { perfStats[FRAMETIME] } *
+                                        1000.0f
+                                    ).toFloat()
                             )
                         )
                     }
@@ -1573,7 +1588,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
                         val status = batteryIntent?.getIntExtra(BatteryManager.EXTRA_STATUS, -1)
                         val isCharging = status == BatteryManager.BATTERY_STATUS_CHARGING ||
-                                status == BatteryManager.BATTERY_STATUS_FULL
+                            status == BatteryManager.BATTERY_STATUS_FULL
 
                         if (isCharging) {
                             sb.append(" ${getString(R.string.charging)}")
@@ -1962,7 +1977,9 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
         if (this::emulationState.isInitialized) {
             emulationState.stop()
             if (NativeLibrary.isRunning() || NativeLibrary.isPaused()) {
-                Log.warning("[EmulationFragment] ROM swap stop fallback: forcing native stop request.")
+                Log.warning(
+                    "[EmulationFragment] ROM swap stop fallback: forcing native stop request."
+                )
                 NativeLibrary.stopEmulation()
             }
         } else {
@@ -2210,7 +2227,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
         ViewCompat.setOnApplyWindowInsetsListener(binding.quickSettingsSheet) { v, insets ->
             val systemBarsInsets: Insets = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-           if (v.layoutDirection == View.LAYOUT_DIRECTION_LTR) {
+            if (v.layoutDirection == View.LAYOUT_DIRECTION_LTR) {
                 v.setPadding(
                     systemBarsInsets.left,
                     systemBarsInsets.top,
@@ -2554,7 +2571,8 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
         if (hasConnectedControllers) {
             if (BooleanSetting.SHOW_INPUT_OVERLAY.getBoolean() &&
-                BooleanSetting.HIDE_OVERLAY_ON_CONTROLLER_INPUT.getBoolean()) {
+                BooleanSetting.HIDE_OVERLAY_ON_CONTROLLER_INPUT.getBoolean()
+            ) {
                 overlayHiddenByPhysicalController = true
                 toggleOverlay(false)
             }

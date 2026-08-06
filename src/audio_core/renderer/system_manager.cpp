@@ -36,7 +36,9 @@ void SystemManager::InitializeUnsafe() {
                         system->SendCommandToDsp();
                 }
                 audio_renderer.Signal();
-                audio_renderer.Wait();
+                if (!audio_renderer.Wait(stop_token)) {
+                    break;
+                }
             }
         });
     }

@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="eden_background">#F4F7F8</color>
+    <color name="eden_surface">#F4F7F8</color>
+    <color name="eden_surface_variant">#FFFFFF</color>
+    <color name="eden_card_background">#FFFFFF</color>
+    <color name="eden_card_background_elevated">#F4F7F8</color>
+    <color name="eden_on_background">#101214</color>
+    <color name="eden_on_surface">#202326</color>
+    <color name="eden_primary">#38BDE7</color>
+    <color name="eden_primary_variant">#C9EFFA</color>
+    <color name="eden_secondary">#55D6A5</color>
+    <color name="eden_secondary_variant">#D5F7E9</color>
+    <color name="eden_accent_purple">#F2C94C</color>
+    <color name="eden_accent_blue">#38BDE7</color>
+    <color name="eden_border">#596168</color>
+    <color name="eden_border_light">#899198</color>
+    <color name="eden_border_gradient_start">#38BDE7</color>
+    <color name="eden_border_gradient_end">#55D6A5</color>
+</resources>

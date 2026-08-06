@@ -1,6 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
+    <string name="opensw_search">Search games</string>
+    <string name="opensw_view_mode">Change library view</string>
+    <string name="opensw_sort">Sort library</string>
+    <string name="opensw_settings">Open settings</string>
+    <string name="opensw_launch">Play</string>
+    <string name="opensw_no_version">Version unknown</string>
+    <string name="opensw_never_played">Not played yet</string>
+    <string name="opensw_loading">Loading library</string>
+    <string name="opensw_library_error">The library could not be loaded.</string>
+    <string name="opensw_retry">Retry</string>
+
     <!-- General application strings -->
     <string name="app_name" translatable="false">Eden</string>
     <string name="app_disclaimer">This software will run games for the Nintendo Switch game console. No game titles or keys are included.&lt;br /&gt;&lt;br /&gt;Before you begin, please locate your <![CDATA[<b> prod.keys </b>]]> file on your device storage.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://yuzu-mirror.github.io/help/quickstart\">Learn more</a>]]></string>

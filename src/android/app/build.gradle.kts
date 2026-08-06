@@ -5,7 +5,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 // import android.annotation.SuppressLint
-import com.android.build.gradle.api.ApplicationVariant
 import kotlin.collections.setOf
 import org.jlleitschuh.gradle.ktlint.reporter.ReporterType
 import com.github.triplet.gradle.androidpublisher.ReleaseStatus
@@ -93,10 +92,12 @@ android {
                 )
 
                 if (isNightly) {
-                    arguments.addAll(listOf(
-                        "-DENABLE_UPDATE_CHECKER=ON",
-                        "-DNIGHTLY_BUILD=ON",
-                    ))
+                    arguments.addAll(
+                        listOf(
+                            "-DENABLE_UPDATE_CHECKER=ON",
+                            "-DNIGHTLY_BUILD=ON"
+                        )
+                    )
                 }
 
                 abiFilters("arm64-v8a")
@@ -179,6 +180,22 @@ android {
 
             manifestPlaceholders += mapOf("appNameSuffix" to " Debug")
         }
+
+        create("profile") {
+            initWith(getByName("release"))
+            signingConfig = signingConfigs.getByName("default")
+            isDebuggable = false
+            isJniDebuggable = false
+            isMinifyEnabled = false
+            applicationIdSuffix = ".profile"
+            versionNameSuffix = "-profile"
+            manifestPlaceholders += mapOf("appNameSuffix" to " Profile")
+            externalNativeBuild {
+                cmake {
+                    arguments.add("-DOPENSW_PROFILE=ON")
+                }
+            }
+        }
     }
 
     // appNameBase is used for the primary identifier
@@ -191,6 +208,23 @@ android {
 
             manifestPlaceholders += mapOf("appNameBase" to "Eden")
             resValue("string", "app_name_suffixed", "Eden")
+
+            ndk {
+                abiFilters += listOf("arm64-v8a")
+            }
+        }
+
+        create("openSw") {
+            dimension = "version"
+            applicationId = "com.remipelloux.opensw"
+            manifestPlaceholders += mapOf("appNameBase" to "OpenSw")
+            resValue("string", "app_name_suffixed", "OpenSw")
+
+            externalNativeBuild {
+                cmake {
+                    arguments.add("-DOPEN_SW=ON")
+                }
+            }
 
             ndk {
                 abiFilters += listOf("arm64-v8a")
@@ -257,7 +291,7 @@ android {
     externalNativeBuild {
         cmake {
             version = "3.31.6"
-            path = file("${edenDir}/CMakeLists.txt")
+            path = file("$edenDir/CMakeLists.txt")
         }
     }
 
@@ -267,17 +301,17 @@ android {
 
         // apply nightly suffix I/A
         resValue("string", "app_name_suffixed", "$currentName$suffix")
-        resValue("string", "app_name", "Eden$suffix")
+        resValue("string", "app_name", "$currentName$suffix")
     }
 }
 
 idea {
     module {
         // Inclusion to exclude build/ dir from non-Android
-        excludeDirs.add(file("${edenDir}/build"))
+        excludeDirs.add(file("$edenDir/build"))
 
         // also exclude CPM cache from automatic indexing
-        excludeDirs.add(file("${edenDir}/.cache"))
+        excludeDirs.add(file("$edenDir/.cache"))
     }
 }
 
@@ -288,7 +322,7 @@ tasks.register<Delete>("ktlintReset", fun Delete.() {
 val showFormatHelp = {
     logger.lifecycle(
         "If this check fails, please try running \"gradlew ktlintFormat\" for automatic " +
-                "codestyle fixes"
+            "codestyle fixes"
     )
 }
 tasks.getByPath("ktlintKotlinScriptCheck").doFirst { showFormatHelp.invoke() }
@@ -344,6 +378,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics-android:1.7.8")
     implementation("androidx.compose.ui:ui-text-android:1.7.8")
     implementation("net.swiftzer.semver:semver:2.0.0")
+    testImplementation("junit:junit:4.13.2")
 }
 
 fun runGitCommand(command: List<String>): String {
@@ -380,7 +415,7 @@ fun getGitVersion(): String {
 }
 
 afterEvaluate {
-    val artifactsDir = layout.projectDirectory.dir("${edenDir}/artifacts")
+    val artifactsDir = layout.projectDirectory.dir("$edenDir/artifacts")
     val outputsDir = layout.buildDirectory.dir("outputs").get()
 
     android.applicationVariants.forEach { variant ->
@@ -405,8 +440,8 @@ afterEvaluate {
             from(aabFile)
             into(artifactsDir)
 
-            dependsOn("assemble${variantTask}")
-            dependsOn("bundle${variantTask}")
+            dependsOn("assemble$variantTask")
+            dependsOn("bundle$variantTask")
         }
     }
 }

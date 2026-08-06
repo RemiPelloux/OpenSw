@@ -146,7 +146,14 @@ PresentManager::PresentManager(const vk::Instance& instance_,
     }
 }
 
-PresentManager::~PresentManager() = default;
+PresentManager::~PresentManager() {
+    Drain();
+    if (present_thread.joinable()) {
+        present_thread.request_stop();
+        frame_cv.notify_all();
+        present_thread.join();
+    }
+}
 
 Frame* PresentManager::GetRenderFrame() {
 
@@ -262,6 +269,11 @@ void PresentManager::WaitPresent() {
     // To ensure that frame has been presented as well take hold of the swapchain
     // mutex.
     std::scoped_lock swapchain_lock{swapchain_mutex};
+}
+
+void PresentManager::Drain() {
+    scheduler.WaitWorker();
+    WaitPresent();
 }
 
 void PresentManager::PresentThread(std::stop_token token) {

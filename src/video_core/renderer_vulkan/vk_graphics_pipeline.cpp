@@ -19,6 +19,7 @@
 #include "video_core/renderer_vulkan/pipeline_statistics.h"
 #include "video_core/renderer_vulkan/vk_buffer_cache.h"
 #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
+#include "video_core/renderer_vulkan/vk_pipeline_profile.h"
 #include "video_core/renderer_vulkan/vk_render_pass_cache.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_texture_cache.h"
@@ -293,7 +294,10 @@ GraphicsPipeline::GraphicsPipeline(
         const VkRenderPass render_pass{render_pass_cache.Get(MakeRenderPassKey(key.state, device))};
         Validate();
         try {
-            MakePipeline(render_pass);
+            MeasurePipelinePhase(PipelineProfilePhase::VulkanPipeline, [&] {
+                MakePipeline(render_pass);
+                return 0;
+            });
         } catch (const vk::Exception& exception) {
             LOG_CRITICAL(Render_Vulkan, "Graphics pipeline build failed: {}", exception.what());
             std::scoped_lock lock{build_mutex};
@@ -317,6 +321,7 @@ GraphicsPipeline::GraphicsPipeline(
     }};
     if (worker_thread) {
         worker_thread->QueueWork(std::move(func));
+        ProfilePipelineQueueDepth(worker_thread->PendingRequests());
     } else {
         func();
     }
@@ -549,8 +554,17 @@ void GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
     if (!is_built.load(std::memory_order::relaxed)) {
         // Wait for the pipeline to be built
         scheduler.Record([this](vk::CommandBuffer) {
+#ifdef OPENSW_PROFILE
+            const auto wait_start = std::chrono::steady_clock::now();
+#endif
             std::unique_lock lock{build_mutex};
             build_condvar.wait(lock, [this] { return is_built.load(std::memory_order::relaxed); });
+#ifdef OPENSW_PROFILE
+            const auto wait_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                     std::chrono::steady_clock::now() - wait_start)
+                                     .count();
+            ProfilePipelineWait(static_cast<u64>(wait_ns));
+#endif
         });
     }
     const bool is_rescaling{texture_cache.IsRescaling()};

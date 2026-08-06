@@ -1,1 +1,5 @@
-AI and LLM use is *strictly* prohibited within our codebase and surrounding community, including issues and comments. This includes using AI or LLMs to write docs/commit messages, debug issues, brainstorm ideas, research concepts, or search the codebase.
+AI-assisted development is allowed in this repository.
+
+Migration from `dev.eden.eden_emulator.nightly` may read and copy user-selected data
+into OpenSw after explicit confirmation. It must never delete, modify, or overwrite
+the source Eden application data.
