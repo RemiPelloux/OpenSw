@@ -80,3 +80,7 @@ Native reports can exceed Android's Binder transaction limit during a 60-second 
 Profile bridge therefore exports the report to its app-specific external directory and returns a
 small path, size and SHA-256 descriptor. `opensw-lab finish-capture` verifies the descriptor, pulls
 the report, verifies its bytes and removes that exact temporary device export.
+
+When a device has already failed ftrace validation, pass `--perfetto off` to the host capture. The
+manifest records Perfetto as unavailable while SurfaceFlinger, KGSL, RSS, Android thermal status and
+native Profile counters continue without repeatedly restarting the unavailable trace service.

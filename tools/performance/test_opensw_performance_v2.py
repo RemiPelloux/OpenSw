@@ -13,6 +13,7 @@ from opensw_performance_v2 import (
     CaptureError,
     LAB_INSTRUMENTATION,
     SCHEMA,
+    build_parser,
     compare_summaries,
     load_manifests,
     merge_surfaceflinger_latency,
@@ -130,6 +131,50 @@ class PerformanceV2Test(unittest.TestCase):
         self.assertIn('atrace_apps: "com.remipelloux.opensw.profile"', config)
         self.assertIn("duration_ms: 60000", config)
         self.assertNotIn("{package}", config)
+
+    def test_capture_parser_can_mark_unavailable_perfetto_off(self):
+        args = build_parser().parse_args(
+            [
+                "capture",
+                "--output",
+                "out",
+                "--scenario",
+                "scenario.json",
+                "--title-id",
+                "01001F5010DFA000",
+                "--run-id",
+                "run",
+                "--variant",
+                "candidate",
+                "--switch-firmware",
+                "22.5.0",
+                "--profile",
+                "STANDARD",
+                "--apk",
+                "app.apk",
+                "--replay-sha256",
+                "a" * 64,
+                "--game-version",
+                "1.1.1",
+                "--cache-state",
+                "warm",
+                "--cheat-set-sha256",
+                "b" * 64,
+                "--fan-mode",
+                "unchanged",
+                "--initial-temperature-c",
+                "60",
+                "--temperature-min-c",
+                "20",
+                "--temperature-max-c",
+                "80",
+                "--experiment-key",
+                "build",
+                "--perfetto",
+                "off",
+            ]
+        )
+        self.assertEqual("off", args.perfetto)
 
     def test_lab_result_decodes_instrumentation_payload(self):
         payload = base64.b64encode(json.dumps({"ok": True, "value": {"pid": 42}}).encode()).decode()
