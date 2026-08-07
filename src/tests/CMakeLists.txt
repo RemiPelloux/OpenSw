@@ -24,6 +24,7 @@ add_executable(tests
     core/internal_network/network.cpp
     video_core/memory_tracker.cpp
     video_core/pipeline_workers.cpp
+    video_core/vertex_buffer_ranges.cpp
     input_common/calibration_configuration_job.cpp
 )
 

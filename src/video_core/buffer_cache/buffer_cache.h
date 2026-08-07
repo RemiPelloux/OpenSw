@@ -12,8 +12,10 @@
 
 #include "common/range_sets.inc"
 #include "video_core/buffer_cache/buffer_cache_base.h"
+#include "video_core/buffer_cache/vertex_buffer_ranges.h"
 #include "video_core/guest_memory.h"
 #include "video_core/host1x/gpu_device_memory_manager.h"
+#include "video_core/renderer_vulkan/vk_pipeline_profile.h"
 #include "video_core/texture_cache/util.h"
 
 namespace VideoCommon {
@@ -809,46 +811,41 @@ void BufferCache<P>::BindHostVertexBuffers() {
 
     if (use_optimized_vertex_buffers) {
         auto& flags = maxwell3d->dirty.flags;
-        u32 enabled_mask = enabled_vertex_buffers_mask;
-        HostBindings<Buffer> bindings{};
-        u32 last_index = (std::numeric_limits<u32>::max)();
-        const auto flush_bindings = [&]() {
-            if (bindings.buffers.empty()) {
-                return;
+        u32 dirty_mask{};
+        for (u32 index = 0; index < NUM_VERTEX_BUFFERS; ++index) {
+            if (flags[Dirty::VertexBuffer0 + index]) {
+                dirty_mask |= 1U << index;
+                flags[Dirty::VertexBuffer0 + index] = false;
             }
-            bindings.max_index = bindings.min_index + static_cast<u32>(bindings.buffers.size());
-            runtime.BindVertexBuffers(bindings);
-            bindings = HostBindings<Buffer>{};
-            last_index = (std::numeric_limits<u32>::max)();
-        };
+        }
+        u32 enabled_mask = enabled_vertex_buffers_mask;
         while (enabled_mask != 0) {
             const u32 index = std::countr_zero(enabled_mask);
             enabled_mask &= (enabled_mask - 1);
             const Binding& binding = VertexBufferSlot(index);
             Buffer& buffer = slot_buffers[binding.buffer_id];
             TouchBuffer(buffer, binding.buffer_id);
-            SynchronizeBuffer(buffer, binding.device_addr, binding.size);
-            if (!flags[Dirty::VertexBuffer0 + index]) {
-                flush_bindings();
-                continue;
-            }
-            flags[Dirty::VertexBuffer0 + index] = false;
-            const u32 stride = maxwell3d->regs.vertex_streams[index].stride;
-            const u32 offset = buffer.Offset(binding.device_addr);
-            buffer.MarkUsage(offset, binding.size);
-            if (!bindings.buffers.empty() && index != last_index + 1) {
-                flush_bindings();
-            }
-            if (bindings.buffers.empty()) {
-                bindings.min_index = index;
-            }
-            bindings.buffers.push_back(&buffer);
-            bindings.offsets.push_back(offset);
-            bindings.sizes.push_back(binding.size);
-            bindings.strides.push_back(stride);
-            last_index = index;
+            u64 uploaded_bytes{};
+            SynchronizeBuffer(buffer, binding.device_addr, binding.size, &uploaded_bytes);
+            Vulkan::ProfileVertexBufferSynchronized(binding.size, uploaded_bytes);
         }
-        flush_bindings();
+        for (const VertexBufferRange range :
+             BuildDirtyVertexBufferRanges(enabled_vertex_buffers_mask, dirty_mask)) {
+            HostBindings<Buffer> bindings{};
+            bindings.min_index = range.first;
+            bindings.max_index = range.first + range.count;
+            for (u32 index = range.first; index < bindings.max_index; ++index) {
+                const Binding& binding = VertexBufferSlot(index);
+                Buffer& buffer = slot_buffers[binding.buffer_id];
+                const u32 offset = buffer.Offset(binding.device_addr);
+                buffer.MarkUsage(offset, binding.size);
+                bindings.buffers.push_back(&buffer);
+                bindings.offsets.push_back(offset);
+                bindings.sizes.push_back(binding.size);
+                bindings.strides.push_back(maxwell3d->regs.vertex_streams[index].stride);
+            }
+            runtime.BindVertexBuffers(bindings);
+        }
     } else {
         HostBindings<typename P::Buffer> host_bindings;
         bool any_valid{false};
@@ -857,7 +854,9 @@ void BufferCache<P>::BindHostVertexBuffers() {
             const Binding& binding = channel_state->vertex_buffers[index];
             Buffer& buffer = slot_buffers[binding.buffer_id];
             TouchBuffer(buffer, binding.buffer_id);
-            SynchronizeBuffer(buffer, binding.device_addr, binding.size);
+            u64 uploaded_bytes{};
+            SynchronizeBuffer(buffer, binding.device_addr, binding.size, &uploaded_bytes);
+            Vulkan::ProfileVertexBufferSynchronized(binding.size, uploaded_bytes);
             if (!flags[Dirty::VertexBuffer0 + index]) {
                 continue;
             }
@@ -1637,7 +1636,8 @@ void BufferCache<P>::TouchBuffer(Buffer& buffer, BufferId buffer_id) noexcept {
 }
 
 template <class P>
-bool BufferCache<P>::SynchronizeBuffer(Buffer& buffer, DAddr device_addr, u32 size) {
+bool BufferCache<P>::SynchronizeBuffer(Buffer& buffer, DAddr device_addr, u32 size,
+                                       u64* uploaded_bytes) {
     upload_copies.clear();
     u64 total_size_bytes = 0;
     u64 largest_copy = 0;
@@ -1653,6 +1653,9 @@ bool BufferCache<P>::SynchronizeBuffer(Buffer& buffer, DAddr device_addr, u32 si
     });
     if (total_size_bytes == 0) {
         return true;
+    }
+    if (uploaded_bytes) {
+        *uploaded_bytes = total_size_bytes;
     }
     const std::span<BufferCopy> copies_span(upload_copies.data(), upload_copies.size());
     UploadMemory(buffer, total_size_bytes, largest_copy, copies_span);
