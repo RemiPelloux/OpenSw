@@ -19,7 +19,6 @@
 #include "common/polyfill_thread.h"
 #include "common/settings.h"
 #include "video_core/renderer_vulkan/vk_master_semaphore.h"
-#include "video_core/renderer_vulkan/vk_pipeline_profile.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
 
 namespace VideoCommon {
@@ -74,9 +73,6 @@ public:
     /// Sends the current execution context to the GPU.
     u64 Flush(VkSemaphore signal_semaphore = {}, VkSemaphore wait_semaphore = {});
 
-    /// Sends the current execution context to the GPU with a specific active-pass end reason.
-    u64 Flush(RenderPassEndReason reason);
-
     /// Sends the current execution context to the GPU and waits for it to complete.
     void Finish(VkSemaphore signal_semaphore = {}, VkSemaphore wait_semaphore = {});
 
@@ -98,8 +94,7 @@ public:
 
     /// Requests the current execution context to be able to execute operations only allowed outside
     /// of a renderpass.
-    void RequestOutsideRenderPassOperationContext(
-        RenderPassEndReason reason = RenderPassEndReason::ExplicitOutsideOperation);
+    void RequestOutsideRenderPassOperationContext();
 
     /// Returns true when a render pass is currently active in the scheduler state.
     bool IsRenderPassActive() const {
@@ -318,14 +313,13 @@ private:
 
     void AllocateWorkerCommandBuffer();
 
-    u64 SubmitExecution(VkSemaphore signal_semaphore, VkSemaphore wait_semaphore,
-                        RenderPassEndReason reason);
+    u64 SubmitExecution(VkSemaphore signal_semaphore, VkSemaphore wait_semaphore);
 
     void AllocateNewContext();
 
-    void EndPendingOperations(RenderPassEndReason reason);
+    void EndPendingOperations();
 
-    void EndRenderPass(RenderPassEndReason reason);
+    void EndRenderPass();
 
     void AcquireNewChunk();
 

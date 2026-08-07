@@ -22,7 +22,6 @@ add_executable(tests
     core/memory_block_manager.cpp
     core/memory/cheat_parser.cpp
     core/internal_network/network.cpp
-    video_core/android_flush_policy.cpp
     video_core/memory_tracker.cpp
     video_core/pipeline_workers.cpp
     video_core/pipeline_transition_cache.cpp

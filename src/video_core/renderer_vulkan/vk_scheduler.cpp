@@ -56,14 +56,7 @@ Scheduler::~Scheduler() = default;
 
 u64 Scheduler::Flush(VkSemaphore signal_semaphore, VkSemaphore wait_semaphore) {
     // When flushing, we only send data to the worker thread; no waiting is necessary.
-    const u64 signal_value =
-        SubmitExecution(signal_semaphore, wait_semaphore, RenderPassEndReason::Submission);
-    AllocateNewContext();
-    return signal_value;
-}
-
-u64 Scheduler::Flush(RenderPassEndReason reason) {
-    const u64 signal_value = SubmitExecution({}, {}, reason);
+    const u64 signal_value = SubmitExecution(signal_semaphore, wait_semaphore);
     AllocateNewContext();
     return signal_value;
 }
@@ -71,7 +64,7 @@ u64 Scheduler::Flush(RenderPassEndReason reason) {
 void Scheduler::Finish(VkSemaphore signal_semaphore, VkSemaphore wait_semaphore) {
     // When finishing, we need to wait for the submission to have executed on the device.
     const u64 presubmit_tick = CurrentTick();
-    SubmitExecution(signal_semaphore, wait_semaphore, RenderPassEndReason::Submission);
+    SubmitExecution(signal_semaphore, wait_semaphore);
     Wait(presubmit_tick);
     AllocateNewContext();
 }
@@ -107,7 +100,6 @@ void Scheduler::BeginRenderPassImpl(const Framebuffer* framebuffer, VkRenderPass
     state.renderpass = renderpass;
     state.framebuffer = framebuffer_handle;
     state.render_area = render_area;
-    ProfileRenderPassBegin();
 
     if (GPU::Logging::IsActive() && Settings::values.gpu_log_vulkan_calls.GetValue()) {
         const std::string render_pass_info =
@@ -165,7 +157,7 @@ void Scheduler::RealizeDeferredClear() {
         dc.framebuffer->DiscardsMsaaColor() ? dc.color_clear_mask : 0u;
     const VkRenderPass renderpass = dc.framebuffer->RenderPassVariant(
         dc.color_clear_mask, dc.depth_stencil, color_discard_mask);
-    EndRenderPass(RenderPassEndReason::RenderPassSwitch);
+    EndRenderPass();
     BeginRenderPassImpl(dc.framebuffer, renderpass, clear_values.data(), count);
 }
 
@@ -176,7 +168,7 @@ bool Scheduler::DeferColorClear(const Framebuffer* framebuffer, u32 rt_slot,
     }
     if (deferred_clear.framebuffer != nullptr && deferred_clear.framebuffer != framebuffer) {
         RealizeDeferredClear();
-        EndRenderPass(RenderPassEndReason::RenderPassSwitch);
+        EndRenderPass();
     }
     deferred_clear.framebuffer = framebuffer;
     deferred_clear.color_clear_mask |= 1u << rt_slot;
@@ -190,7 +182,7 @@ bool Scheduler::DeferDepthStencilClear(const Framebuffer* framebuffer, const VkC
     }
     if (deferred_clear.framebuffer != nullptr && deferred_clear.framebuffer != framebuffer) {
         RealizeDeferredClear();
-        EndRenderPass(RenderPassEndReason::RenderPassSwitch);
+        EndRenderPass();
     }
     deferred_clear.framebuffer = framebuffer;
     deferred_clear.depth_stencil = true;
@@ -212,12 +204,12 @@ void Scheduler::RequestRenderpass(const Framebuffer* framebuffer) {
         return;
     }
     // Ends any active pass and realizes a deferred clear
-    EndRenderPass(RenderPassEndReason::RenderPassSwitch);
+    EndRenderPass();
     BeginRenderPassImpl(framebuffer, renderpass, nullptr, 0);
 }
 
-void Scheduler::RequestOutsideRenderPassOperationContext(RenderPassEndReason reason) {
-    EndRenderPass(reason);
+void Scheduler::RequestOutsideRenderPassOperationContext() {
+    EndRenderPass();
 }
 
 bool Scheduler::UpdateGraphicsPipeline(GraphicsPipeline* pipeline) {
@@ -340,11 +332,9 @@ void Scheduler::AllocateWorkerCommandBuffer() {
     });
 }
 
-u64 Scheduler::SubmitExecution(VkSemaphore signal_semaphore, VkSemaphore wait_semaphore,
-                               RenderPassEndReason reason) {
-    EndPendingOperations(reason);
+u64 Scheduler::SubmitExecution(VkSemaphore signal_semaphore, VkSemaphore wait_semaphore) {
+    EndPendingOperations();
     InvalidateState();
-    ProfileCommandBufferSubmission();
 
     const u64 signal_value = master_semaphore->NextTick();
     RecordWithUploadBuffer([signal_semaphore, wait_semaphore, signal_value,
@@ -399,18 +389,17 @@ void Scheduler::InvalidateState() {
     state_tracker.InvalidateCommandBufferState();
 }
 
-void Scheduler::EndPendingOperations(RenderPassEndReason reason) {
+void Scheduler::EndPendingOperations() {
     query_cache->CounterReset(VideoCommon::QueryType::ZPassPixelCount64);
-    EndRenderPass(reason);
+    EndRenderPass();
 }
 
-void Scheduler::EndRenderPass(RenderPassEndReason reason)
+void Scheduler::EndRenderPass()
     {
         RealizeDeferredClear();
         if (!state.renderpass) {
             return;
         }
-        ProfileRenderPassEnd(reason);
 
         query_cache->CounterClose(VideoCommon::QueryType::StreamingByteCount);
 

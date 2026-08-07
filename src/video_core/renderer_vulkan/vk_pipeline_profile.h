@@ -74,15 +74,6 @@ enum class PresentationProfilePhase {
     Present,
 };
 
-enum class RenderPassEndReason {
-    AndroidDrawHardFlush,
-    UploadSynchronization,
-    FeedbackLoop,
-    ExplicitOutsideOperation,
-    Submission,
-    RenderPassSwitch,
-};
-
 constexpr const char* PipelineProfileTraceName(PipelineProfilePhase phase) {
     switch (phase) {
     case PipelineProfilePhase::MaxwellTranslation:
@@ -112,7 +103,7 @@ constexpr const char* PresentationProfileTraceName(PresentationProfilePhase phas
 }
 
 // The first 17 fields are the original session snapshot contract. New fields are append-only.
-constexpr size_t PipelineProfileSnapshotSize = 63;
+constexpr size_t PipelineProfileSnapshotSize = 46;
 using PipelineProfileSnapshot = std::array<u64, PipelineProfileSnapshotSize>;
 
 constexpr u64 RenderRuntimeSnapshotSchemaVersion = 1;
@@ -148,14 +139,6 @@ void ProfileVertexBufferSynchronized(u64 synchronized_bytes, u64 uploaded_bytes)
 void ProfileTextureUpload(u64 bytes, u64 nanoseconds);
 void ProfileTextureDecode(u64 bytes, u64 nanoseconds);
 void ProfileTextureUnswizzle(u64 bytes, u64 nanoseconds);
-void ProfileRenderPassBegin();
-void ProfileRenderPassEnd(RenderPassEndReason reason);
-void ProfileCommandBufferSubmission();
-void ProfileBufferUpload(bool reordered, u64 bytes);
-void ProfilePostCopyBarrier();
-void ProfileFeedbackLoopBarrier();
-void ProfileAndroidDrawFlushDeferred();
-void ProfileAndroidDrawFlush(bool hard);
 void ResetPipelineProfile(u64 title_id);
 void StartPipelineProfileWindow();
 void ReportPipelineProfile();
@@ -184,14 +167,6 @@ inline void ProfileVertexBufferSynchronized(u64, u64) {}
 inline void ProfileTextureUpload(u64, u64) {}
 inline void ProfileTextureDecode(u64, u64) {}
 inline void ProfileTextureUnswizzle(u64, u64) {}
-inline void ProfileRenderPassBegin() {}
-inline void ProfileRenderPassEnd(RenderPassEndReason) {}
-inline void ProfileCommandBufferSubmission() {}
-inline void ProfileBufferUpload(bool, u64) {}
-inline void ProfilePostCopyBarrier() {}
-inline void ProfileFeedbackLoopBarrier() {}
-inline void ProfileAndroidDrawFlushDeferred() {}
-inline void ProfileAndroidDrawFlush(bool) {}
 inline void ResetPipelineProfile(u64) {}
 inline void StartPipelineProfileWindow() {}
 inline void ReportPipelineProfile() {}

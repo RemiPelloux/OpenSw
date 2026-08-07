@@ -118,18 +118,6 @@ class PerformanceAnalysisTest {
         assertEquals(35L, instrumentation.vertexBufferBindCalls)
         assertEquals(39L, instrumentation.textureUploadBytes)
         assertEquals(46L, instrumentation.descriptorOffsetSkips)
-
-        val renderPassInstrumentation =
-            PipelineProfileSnapshot.from(LongArray(63) { (it + 1).toLong() })!!
-        assertEquals(47L, renderPassInstrumentation.renderPassBegins)
-        assertEquals(
-            48L,
-            renderPassInstrumentation.renderPassEndsAndroidDrawHardFlush
-        )
-        assertEquals(54L, renderPassInstrumentation.commandBufferSubmissions)
-        assertEquals(56L, renderPassInstrumentation.reorderedBufferUploadBytes)
-        assertEquals(59L, renderPassInstrumentation.postCopyBarrierCalls)
-        assertEquals(63L, renderPassInstrumentation.androidDrawHardFlushes)
     }
 
     @Test
@@ -188,24 +176,7 @@ class PerformanceAnalysisTest {
             captureMaxQueueDepth = pipelineQueue,
             captureMaxPresentQueueDepth = presentQueue,
             captureSmallDrawWaits = base + 3,
-            captureSmallDrawWaitNs = base + 14,
-            renderPassBegins = base + 15,
-            renderPassEndsAndroidDrawHardFlush = base + 16,
-            renderPassEndsUploadSynchronization = base + 17,
-            renderPassEndsFeedbackLoop = base + 18,
-            renderPassEndsExplicitOutside = base + 19,
-            renderPassEndsSubmission = base + 20,
-            renderPassEndsSwitch = base + 21,
-            commandBufferSubmissions = base + 22,
-            reorderedBufferUploads = base + 23,
-            reorderedBufferUploadBytes = base + 24,
-            inlineBufferUploads = base + 25,
-            inlineBufferUploadBytes = base + 26,
-            postCopyBarrierCalls = base + 27,
-            feedbackLoopBarrierCalls = base + 28,
-            androidDrawFlushDeferred = base + 29,
-            androidDrawSoftFlushes = base + 30,
-            androidDrawHardFlushes = base + 31
+            captureSmallDrawWaitNs = base + 14
         )
 
         val summary = summarizePipelineProfiles(
@@ -216,12 +187,6 @@ class PerformanceAnalysisTest {
         assertEquals(5L, summary.maxPresentQueueDepth)
         assertEquals(15L, summary.cacheHits)
         assertEquals(15L, summary.presentNs)
-        assertEquals(15L, summary.renderPassBegins)
-        assertEquals(15L, summary.renderPassEndsUploadSynchronization)
-        assertEquals(15L, summary.commandBufferSubmissions)
-        assertEquals(15L, summary.reorderedBufferUploadBytes)
-        assertEquals(15L, summary.androidDrawFlushDeferred)
-        assertEquals(15L, summary.androidDrawHardFlushes)
 
         assertEquals(
             null,
