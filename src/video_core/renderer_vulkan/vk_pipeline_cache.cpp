@@ -736,6 +736,7 @@ void PipelineCache::LoadDiskResources(u64 title_id, std::stop_token stop_loading
 }
 
 GraphicsPipeline* PipelineCache::CurrentGraphicsPipelineSlowPath() {
+    ProfilePipelineSlowPath();
     const auto [pair, is_new]{graphics_cache.try_emplace(graphics_key)};
     auto& pipeline{pair->second};
     if (is_new) {

@@ -109,6 +109,15 @@ class PerformanceAnalysisTest {
         assertEquals(13L, extended.maxPresentQueueDepth)
         assertEquals(14L, extended.freeFrameWaitNs)
         assertEquals(17L, extended.presentNs)
+
+        val instrumentation = PipelineProfileSnapshot.from(LongArray(46) { (it + 1).toLong() })!!
+        assertEquals(22L, instrumentation.pipelineSelfHits)
+        assertEquals(24L, instrumentation.pipelineTransitionProbes)
+        assertEquals(27L, instrumentation.descriptorBufferDraws)
+        assertEquals(33L, instrumentation.descriptorRingStalls)
+        assertEquals(35L, instrumentation.vertexBufferBindCalls)
+        assertEquals(39L, instrumentation.textureUploadBytes)
+        assertEquals(46L, instrumentation.descriptorOffsetSkips)
     }
 
     @Test

@@ -16,18 +16,54 @@ from opensw_performance_v2 import (
     load_manifests,
     merge_surfaceflinger_latency,
     nearest_rank,
+    parse_kgsl_sample,
     parse_lab_result,
+    parse_named_temperatures_c,
     parse_surfaceflinger_latency,
+    parse_thermal_status,
     render_perfetto_config,
     resolve_surface,
     run_lab_command,
     summarize_frametimes,
+    validate_perfetto_trace,
     validate_manifest,
 )
 from opensw_lab import canonical_replay_sha256, execute as execute_lab, parser as lab_parser
 
 
 class PerformanceV2Test(unittest.TestCase):
+    def test_named_thermal_and_kgsl_samples_preserve_sources(self):
+        self.assertEqual(
+            {"gpu-usr": 43.2, "battery": 35.1},
+            parse_named_temperatures_c("gpu-usr=43200\nbattery=35100\n"),
+        )
+        self.assertEqual(
+            {
+                "utilization_percent": 98,
+                "frequency_hz": 680000000,
+                "busy_us": 100,
+                "total_us": 200,
+                "temperature_c": 44.0,
+            },
+            parse_kgsl_sample(
+                "util=98 %\nfrequency=680000000\nbusy=100 200\ntemperature=44000\n"
+            ),
+        )
+        self.assertEqual(0, parse_thermal_status("Thermal Status: 0"))
+
+    def test_perfetto_trace_rejects_empty_or_processless_payload(self):
+        with tempfile.TemporaryDirectory() as directory:
+            trace = Path(directory) / "trace.pftrace"
+            trace.write_bytes(b"x" * 2500)
+            self.assertEqual((False, "trace_too_small"), validate_perfetto_trace(trace, "pkg"))
+            trace.write_bytes(b"x" * 5000)
+            self.assertEqual(
+                (False, "missing_opensw_process_data"),
+                validate_perfetto_trace(trace, "pkg"),
+            )
+            trace.write_bytes(b"x" * 5000 + b"pkg")
+            self.assertEqual((True, None), validate_perfetto_trace(trace, "pkg"))
+
     def test_nearest_rank(self):
         values = list(range(1, 101))
         self.assertEqual(50, nearest_rank(values, 0.50))

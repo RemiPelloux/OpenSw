@@ -84,6 +84,31 @@ struct PipelineProfileCounters {
     std::atomic<u64> window_max_present_queue_depth{};
     std::atomic<u64> window_small_draw_waits{};
     std::atomic<u64> window_small_draw_wait_ns{};
+    std::atomic<u64> self_hits{};
+    std::atomic<u64> transition_hits{};
+    std::atomic<u64> transition_probes{};
+    std::atomic<u64> transition_hash_hits{};
+    std::atomic<u64> slow_path_lookups{};
+    std::atomic<u64> descriptor_buffer_draws{};
+    std::atomic<u64> push_descriptor_draws{};
+    std::atomic<u64> descriptor_set_draws{};
+    std::atomic<u64> descriptor_payload_reuses{};
+    std::atomic<u64> descriptor_bytes_written{};
+    std::atomic<u64> descriptor_chunk_switches{};
+    std::atomic<u64> descriptor_ring_stalls{};
+    std::atomic<u64> descriptor_ring_stall_ns{};
+    std::atomic<u64> vertex_buffer_bind_calls{};
+    std::atomic<u64> vertex_buffer_slots_bound{};
+    std::atomic<u64> vertex_buffer_synchronized_bytes{};
+    std::atomic<u64> vertex_buffer_uploaded_bytes{};
+    std::atomic<u64> texture_upload_bytes{};
+    std::atomic<u64> texture_upload_ns{};
+    std::atomic<u64> texture_decode_bytes{};
+    std::atomic<u64> texture_decode_ns{};
+    std::atomic<u64> texture_unswizzle_bytes{};
+    std::atomic<u64> texture_unswizzle_ns{};
+    std::atomic<u64> descriptor_offset_calls{};
+    std::atomic<u64> descriptor_offset_skips{};
 };
 
 PipelineProfileCounters counters;
@@ -181,6 +206,49 @@ void ProfilePresentationPhase(PresentationProfilePhase phase, u64 nanoseconds) {
     }
 }
 
+void ProfilePipelineSelfHit() { Add(counters.self_hits); }
+void ProfilePipelineTransitionLookup(size_t probes, bool hashed, bool hit) {
+    if (hit) Add(counters.transition_hits);
+    Add(counters.transition_probes, probes);
+    if (hashed && hit) Add(counters.transition_hash_hits);
+}
+void ProfilePipelineSlowPath() { Add(counters.slow_path_lookups); }
+void ProfileDescriptorDraw(bool descriptor_buffer, bool push_descriptor) {
+    Add(descriptor_buffer ? counters.descriptor_buffer_draws
+                          : push_descriptor ? counters.push_descriptor_draws
+                                            : counters.descriptor_set_draws);
+}
+void ProfileDescriptorPayloadReuse() { Add(counters.descriptor_payload_reuses); }
+void ProfileDescriptorBytesWritten(u64 bytes) { Add(counters.descriptor_bytes_written, bytes); }
+void ProfileDescriptorChunkSwitch() { Add(counters.descriptor_chunk_switches); }
+void ProfileDescriptorRingStall(u64 nanoseconds) {
+    Add(counters.descriptor_ring_stalls);
+    Add(counters.descriptor_ring_stall_ns, nanoseconds);
+}
+void ProfileDescriptorOffset(bool emitted) {
+    Add(emitted ? counters.descriptor_offset_calls : counters.descriptor_offset_skips);
+}
+void ProfileVertexBufferBind(size_t slots) {
+    Add(counters.vertex_buffer_bind_calls);
+    Add(counters.vertex_buffer_slots_bound, slots);
+}
+void ProfileVertexBufferSynchronized(u64 synchronized_bytes, u64 uploaded_bytes) {
+    Add(counters.vertex_buffer_synchronized_bytes, synchronized_bytes);
+    Add(counters.vertex_buffer_uploaded_bytes, uploaded_bytes);
+}
+void ProfileTextureUpload(u64 bytes, u64 nanoseconds) {
+    Add(counters.texture_upload_bytes, bytes);
+    Add(counters.texture_upload_ns, nanoseconds);
+}
+void ProfileTextureDecode(u64 bytes, u64 nanoseconds) {
+    Add(counters.texture_decode_bytes, bytes);
+    Add(counters.texture_decode_ns, nanoseconds);
+}
+void ProfileTextureUnswizzle(u64 bytes, u64 nanoseconds) {
+    Add(counters.texture_unswizzle_bytes, bytes);
+    Add(counters.texture_unswizzle_ns, nanoseconds);
+}
+
 void ResetPipelineProfile(u64 title_id) {
     runtime.title_id.store(title_id, std::memory_order_release);
     counters.title_id.store(0, std::memory_order_release);
@@ -205,6 +273,31 @@ void ResetPipelineProfile(u64 title_id) {
     counters.window_max_present_queue_depth.store(0, std::memory_order_relaxed);
     counters.window_small_draw_waits.store(0, std::memory_order_relaxed);
     counters.window_small_draw_wait_ns.store(0, std::memory_order_relaxed);
+    counters.self_hits.store(0, std::memory_order_relaxed);
+    counters.transition_hits.store(0, std::memory_order_relaxed);
+    counters.transition_probes.store(0, std::memory_order_relaxed);
+    counters.transition_hash_hits.store(0, std::memory_order_relaxed);
+    counters.slow_path_lookups.store(0, std::memory_order_relaxed);
+    counters.descriptor_buffer_draws.store(0, std::memory_order_relaxed);
+    counters.push_descriptor_draws.store(0, std::memory_order_relaxed);
+    counters.descriptor_set_draws.store(0, std::memory_order_relaxed);
+    counters.descriptor_payload_reuses.store(0, std::memory_order_relaxed);
+    counters.descriptor_bytes_written.store(0, std::memory_order_relaxed);
+    counters.descriptor_chunk_switches.store(0, std::memory_order_relaxed);
+    counters.descriptor_ring_stalls.store(0, std::memory_order_relaxed);
+    counters.descriptor_ring_stall_ns.store(0, std::memory_order_relaxed);
+    counters.vertex_buffer_bind_calls.store(0, std::memory_order_relaxed);
+    counters.vertex_buffer_slots_bound.store(0, std::memory_order_relaxed);
+    counters.vertex_buffer_synchronized_bytes.store(0, std::memory_order_relaxed);
+    counters.vertex_buffer_uploaded_bytes.store(0, std::memory_order_relaxed);
+    counters.texture_upload_bytes.store(0, std::memory_order_relaxed);
+    counters.texture_upload_ns.store(0, std::memory_order_relaxed);
+    counters.texture_decode_bytes.store(0, std::memory_order_relaxed);
+    counters.texture_decode_ns.store(0, std::memory_order_relaxed);
+    counters.texture_unswizzle_bytes.store(0, std::memory_order_relaxed);
+    counters.texture_unswizzle_ns.store(0, std::memory_order_relaxed);
+    counters.descriptor_offset_calls.store(0, std::memory_order_relaxed);
+    counters.descriptor_offset_skips.store(0, std::memory_order_relaxed);
     counters.title_id.store(title_id, std::memory_order_release);
 }
 
@@ -244,6 +337,31 @@ PipelineProfileSnapshot GetPipelineProfileSnapshot() {
         counters.window_max_present_queue_depth.load(std::memory_order_relaxed),
         counters.window_small_draw_waits.load(std::memory_order_relaxed),
         counters.window_small_draw_wait_ns.load(std::memory_order_relaxed),
+        counters.self_hits.load(std::memory_order_relaxed),
+        counters.transition_hits.load(std::memory_order_relaxed),
+        counters.transition_probes.load(std::memory_order_relaxed),
+        counters.transition_hash_hits.load(std::memory_order_relaxed),
+        counters.slow_path_lookups.load(std::memory_order_relaxed),
+        counters.descriptor_buffer_draws.load(std::memory_order_relaxed),
+        counters.push_descriptor_draws.load(std::memory_order_relaxed),
+        counters.descriptor_set_draws.load(std::memory_order_relaxed),
+        counters.descriptor_payload_reuses.load(std::memory_order_relaxed),
+        counters.descriptor_bytes_written.load(std::memory_order_relaxed),
+        counters.descriptor_chunk_switches.load(std::memory_order_relaxed),
+        counters.descriptor_ring_stalls.load(std::memory_order_relaxed),
+        counters.descriptor_ring_stall_ns.load(std::memory_order_relaxed),
+        counters.vertex_buffer_bind_calls.load(std::memory_order_relaxed),
+        counters.vertex_buffer_slots_bound.load(std::memory_order_relaxed),
+        counters.vertex_buffer_synchronized_bytes.load(std::memory_order_relaxed),
+        counters.vertex_buffer_uploaded_bytes.load(std::memory_order_relaxed),
+        counters.texture_upload_bytes.load(std::memory_order_relaxed),
+        counters.texture_upload_ns.load(std::memory_order_relaxed),
+        counters.texture_decode_bytes.load(std::memory_order_relaxed),
+        counters.texture_decode_ns.load(std::memory_order_relaxed),
+        counters.texture_unswizzle_bytes.load(std::memory_order_relaxed),
+        counters.texture_unswizzle_ns.load(std::memory_order_relaxed),
+        counters.descriptor_offset_calls.load(std::memory_order_relaxed),
+        counters.descriptor_offset_skips.load(std::memory_order_relaxed),
     };
     if (counters.title_id.load(std::memory_order_acquire) != title_id) {
         return {};

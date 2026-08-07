@@ -22,6 +22,7 @@
 #include "video_core/renderer_vulkan/vk_buffer_cache.h"
 #include "video_core/renderer_vulkan/vk_descriptor_buffer.h"
 #include "video_core/renderer_vulkan/vk_descriptor_pool.h"
+#include "video_core/renderer_vulkan/vk_pipeline_profile.h"
 #include "video_core/renderer_vulkan/vk_texture_cache.h"
 #include "video_core/renderer_vulkan/vk_update_descriptor.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
@@ -112,11 +113,19 @@ public:
 
     [[nodiscard]] GraphicsPipeline* Next(const GraphicsPipelineCacheKey& current_key) noexcept {
         if (key == current_key) {
+            ProfilePipelineSelfHit();
             return this;
         }
-        const auto it{std::find(transition_keys.begin(), transition_keys.end(), current_key)};
-        return it != transition_keys.end() ? transitions[std::distance(transition_keys.begin(), it)]
-                                           : nullptr;
+        size_t probes{};
+        for (size_t index = 0; index < transition_keys.size(); ++index) {
+            ++probes;
+            if (transition_keys[index] == current_key) {
+                ProfilePipelineTransitionLookup(probes, false, true);
+                return transitions[index];
+            }
+        }
+        ProfilePipelineTransitionLookup(probes, false, false);
+        return nullptr;
     }
 
     [[nodiscard]] bool IsBuilt() const noexcept {

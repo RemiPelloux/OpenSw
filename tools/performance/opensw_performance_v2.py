@@ -439,15 +439,81 @@ def verify_active_title_id(serial: str | None, package: str, pid: str, expected:
         raise CaptureError(f"Active OpenSw Title ID changed from {expected} to {active}")
 
 
-def collect_sample(serial: str | None, package: str) -> tuple[int, list[float]]:
+def parse_named_temperatures_c(raw: str) -> dict[str, float]:
+    temperatures: dict[str, float] = {}
+    for line in raw.splitlines():
+        name, separator, raw_value = line.partition("=")
+        if not separator:
+            continue
+        values = parse_temperatures_c(raw_value)
+        if values:
+            temperatures[name.strip()] = values[0]
+    return temperatures
+
+
+def parse_kgsl_sample(raw: str) -> dict[str, int | float]:
+    values: dict[str, int | float] = {}
+    for line in raw.splitlines():
+        name, separator, raw_value = line.partition("=")
+        if not separator:
+            continue
+        numbers = re.findall(r"\d+", raw_value)
+        if name == "busy" and len(numbers) >= 2:
+            values["busy_us"] = int(numbers[0])
+            values["total_us"] = int(numbers[1])
+        elif name == "util" and numbers:
+            values["utilization_percent"] = int(numbers[0])
+        elif name == "frequency" and numbers:
+            values["frequency_hz"] = int(numbers[0])
+        elif name == "temperature" and numbers:
+            value = float(numbers[0])
+            values["temperature_c"] = value / 1000.0 if value > 1000 else value
+    return values
+
+
+def parse_thermal_status(raw: str) -> int | None:
+    match = re.search(r"Thermal Status:\s*(\d+)", raw)
+    return int(match.group(1)) if match else None
+
+
+def validate_perfetto_trace(path: Path, package: str) -> tuple[bool, str | None]:
+    if path.stat().st_size < 4096:
+        return False, "trace_too_small"
+    if package.encode() not in path.read_bytes():
+        return False, "missing_opensw_process_data"
+    return True, None
+
+
+def collect_sample(
+    serial: str | None, package: str
+) -> tuple[int, dict[str, float], dict[str, Any], int | None]:
     meminfo = adb(serial, "shell", "dumpsys", "meminfo", package, check=False)
     thermal = adb(
         serial,
         "shell",
-        "for f in /sys/class/thermal/thermal_zone*/temp; do cat \"$f\" 2>/dev/null; done",
+        "for z in /sys/class/thermal/thermal_zone*; do "
+        "n=$(cat \"$z/type\" 2>/dev/null); t=$(cat \"$z/temp\" 2>/dev/null); "
+        "[ -n \"$n\" ] && [ -n \"$t\" ] && printf '%s=%s\\n' \"$n\" \"$t\"; done",
         check=False,
     )
-    return parse_meminfo_rss_kib(meminfo), parse_temperatures_c(thermal)
+    kgsl = adb(
+        serial,
+        "shell",
+        "printf 'util='; cat /sys/class/kgsl/kgsl-3d0/gpu_busy_percentage 2>/dev/null; "
+        "printf 'frequency='; cat /sys/class/kgsl/kgsl-3d0/gpuclk 2>/dev/null; "
+        "printf 'busy='; cat /sys/class/kgsl/kgsl-3d0/gpubusy 2>/dev/null; "
+        "printf 'temperature='; cat /sys/class/kgsl/kgsl-3d0/temp 2>/dev/null",
+        check=False,
+    )
+    status = parse_thermal_status(
+        adb(serial, "shell", "dumpsys", "thermalservice", check=False)
+    )
+    return (
+        parse_meminfo_rss_kib(meminfo),
+        parse_named_temperatures_c(thermal),
+        parse_kgsl_sample(kgsl),
+        status,
+    )
 
 
 def capture(args: argparse.Namespace) -> int:
@@ -516,15 +582,20 @@ def capture(args: argparse.Namespace) -> int:
     perfetto.stdin.close()
 
     rss_samples: list[int] = []
-    temperature_samples: list[float] = []
+    temperature_samples: list[dict[str, float]] = []
+    kgsl_samples: list[dict[str, Any]] = []
+    thermal_status_samples: list[int] = []
     latency_samples: list[str] = []
     deadline = time.monotonic() + args.duration
-    while perfetto.poll() is None and time.monotonic() < deadline + 5:
+    while time.monotonic() < deadline:
         verify_active_title_id(args.serial, args.package, pid, expected_title_id)
-        rss, temperatures = collect_sample(args.serial, args.package)
+        rss, temperatures, kgsl, thermal_status = collect_sample(args.serial, args.package)
         if rss:
             rss_samples.append(rss)
-        temperature_samples.extend(temperatures)
+        temperature_samples.append(temperatures)
+        kgsl_samples.append(kgsl)
+        if thermal_status is not None:
+            thermal_status_samples.append(thermal_status)
         latency_samples.append(
             adb(
                 args.serial,
@@ -537,13 +608,8 @@ def capture(args: argparse.Namespace) -> int:
             )
         )
         time.sleep(min(args.sample_interval, max(0.0, deadline - time.monotonic())))
-        if time.monotonic() >= deadline and perfetto.poll() is None:
-            time.sleep(0.25)
-
-    return_code = perfetto.wait(timeout=15)
+    return_code = perfetto.wait(timeout=15) if perfetto.poll() is None else perfetto.returncode
     stderr = perfetto.stderr.read() if perfetto.stderr else ""
-    if return_code != 0:
-        raise CaptureError(f"Perfetto failed ({return_code}): {stderr}")
 
     verify_active_title_id(args.serial, args.package, pid, expected_title_id)
     raw_latency = adb(
@@ -551,7 +617,16 @@ def capture(args: argparse.Namespace) -> int:
     )
     latency_samples.append(raw_latency)
     trace_path = output / "trace.pftrace"
-    adb(args.serial, "pull", REMOTE_TRACE, str(trace_path))
+    invalid_trace_name: str | None = None
+    if return_code == 0:
+        adb(args.serial, "pull", REMOTE_TRACE, str(trace_path))
+        perfetto_available, perfetto_reason = validate_perfetto_trace(trace_path, args.package)
+        if not perfetto_available:
+            invalid_trace_name = "trace.invalid.pftrace"
+            trace_path.rename(output / invalid_trace_name)
+    else:
+        perfetto_available = False
+        perfetto_reason = f"perfetto_failed_{return_code}: {stderr.strip()}"
     adb(args.serial, "shell", "rm", "-f", REMOTE_TRACE)
     (output / "surfaceflinger-latency.txt").write_text(raw_latency + "\n", encoding="utf-8")
     latency_samples_path = output / "surfaceflinger-latency-samples.json"
@@ -563,12 +638,47 @@ def capture(args: argparse.Namespace) -> int:
     if not frametimes:
         raise CaptureError("SurfaceFlinger returned no frame intervals for the selected layer")
     summary = summarize_frametimes(frametimes)
+    gpu_temperatures = [
+        float(sample["temperature_c"])
+        for sample in kgsl_samples
+        if "temperature_c" in sample
+    ]
+    busy_samples = [
+        (int(sample["busy_us"]), int(sample["total_us"]))
+        for sample in kgsl_samples
+        if "busy_us" in sample and "total_us" in sample
+    ]
+    busy_delta_percent = 0.0
+    if len(busy_samples) >= 2:
+        busy_delta = busy_samples[-1][0] - busy_samples[0][0]
+        total_delta = busy_samples[-1][1] - busy_samples[0][1]
+        if total_delta > 0:
+            busy_delta_percent = busy_delta / total_delta * 100.0
     summary.update(
         {
             "rss_max_kib": max(rss_samples, default=0),
-            "temperature_max_c": max(temperature_samples, default=0.0),
+            "temperature_max_c": max(gpu_temperatures, default=0.0),
+            "gpu_utilization_max_percent": max(
+                (float(sample.get("utilization_percent", 0)) for sample in kgsl_samples),
+                default=0.0,
+            ),
+            "gpu_frequency_max_hz": max(
+                (int(sample.get("frequency_hz", 0)) for sample in kgsl_samples), default=0
+            ),
+            "gpu_busy_delta_percent": busy_delta_percent,
+            "android_thermal_status_max": max(thermal_status_samples, default=-1),
         }
     )
+    if not gpu_temperatures:
+        raise CaptureError("KGSL GPU temperature is unavailable")
+    if not args.temperature_min_c <= gpu_temperatures[0] <= args.temperature_max_c:
+        raise CaptureError("Measured starting GPU temperature is outside the selected band")
+    if abs(gpu_temperatures[0] - args.initial_temperature_c) > 2.0:
+        raise CaptureError("Declared and measured starting GPU temperatures differ by over 2 C")
+    if max(gpu_temperatures) > args.temperature_max_c:
+        raise CaptureError("GPU temperature exceeded the selected promotion band")
+    if not thermal_status_samples or max(thermal_status_samples) != 0:
+        raise CaptureError("Android thermal status was unavailable or nonzero")
     timestamp_path = output / "surfaceflinger-present-timestamps-ns.txt"
     timestamp_path.write_text("\n".join(map(str, timestamps)) + "\n", encoding="utf-8")
 
@@ -614,8 +724,16 @@ def capture(args: argparse.Namespace) -> int:
         "device": device,
         "host": {"platform": platform.platform(), "python": platform.python_version()},
         "summary": summary,
+        "thermal_sources": temperature_samples,
+        "kgsl_samples": kgsl_samples,
+        "android_thermal_status_samples": thermal_status_samples,
+        "perfetto": {
+            "available": perfetto_available,
+            "unavailable_reason": perfetto_reason,
+        },
         "artifacts": {
-            "trace": trace_path.name,
+            "trace": trace_path.name if perfetto_available else None,
+            "invalid_trace": invalid_trace_name,
             "surfaceflinger_raw": "surfaceflinger-latency.txt",
             "surfaceflinger_raw_samples": latency_samples_path.name,
             "present_timestamps": timestamp_path.name,

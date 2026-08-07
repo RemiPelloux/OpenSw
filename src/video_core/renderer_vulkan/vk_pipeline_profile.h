@@ -36,6 +36,30 @@ public:
     }
 };
 
+class ProfileTimer {
+public:
+    ProfileTimer() {
+#ifdef OPENSW_PROFILE
+        start = std::chrono::steady_clock::now();
+#endif
+    }
+
+    [[nodiscard]] u64 ElapsedNs() const {
+#ifdef OPENSW_PROFILE
+        return static_cast<u64>(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                                    std::chrono::steady_clock::now() - start)
+                                    .count());
+#else
+        return 0;
+#endif
+    }
+
+private:
+#ifdef OPENSW_PROFILE
+    std::chrono::steady_clock::time_point start;
+#endif
+};
+
 enum class PipelineProfilePhase {
     MaxwellTranslation,
     SpirvEmission,
@@ -79,7 +103,7 @@ constexpr const char* PresentationProfileTraceName(PresentationProfilePhase phas
 }
 
 // The first 17 fields are the original session snapshot contract. New fields are append-only.
-constexpr size_t PipelineProfileSnapshotSize = 21;
+constexpr size_t PipelineProfileSnapshotSize = 46;
 using PipelineProfileSnapshot = std::array<u64, PipelineProfileSnapshotSize>;
 
 constexpr u64 RenderRuntimeSnapshotSchemaVersion = 1;
@@ -101,6 +125,20 @@ void ProfilePipelineWait(u64 nanoseconds, bool small_draw = false);
 void ProfilePipelinePhase(PipelineProfilePhase phase, u64 nanoseconds);
 void ProfilePresentationQueueDepth(size_t depth);
 void ProfilePresentationPhase(PresentationProfilePhase phase, u64 nanoseconds);
+void ProfilePipelineSelfHit();
+void ProfilePipelineTransitionLookup(size_t probes, bool hashed, bool hit);
+void ProfilePipelineSlowPath();
+void ProfileDescriptorDraw(bool descriptor_buffer, bool push_descriptor);
+void ProfileDescriptorPayloadReuse();
+void ProfileDescriptorBytesWritten(u64 bytes);
+void ProfileDescriptorChunkSwitch();
+void ProfileDescriptorRingStall(u64 nanoseconds);
+void ProfileDescriptorOffset(bool emitted);
+void ProfileVertexBufferBind(size_t slots);
+void ProfileVertexBufferSynchronized(u64 synchronized_bytes, u64 uploaded_bytes);
+void ProfileTextureUpload(u64 bytes, u64 nanoseconds);
+void ProfileTextureDecode(u64 bytes, u64 nanoseconds);
+void ProfileTextureUnswizzle(u64 bytes, u64 nanoseconds);
 void ResetPipelineProfile(u64 title_id);
 void StartPipelineProfileWindow();
 void ReportPipelineProfile();
@@ -115,6 +153,20 @@ inline void ProfilePipelineWait(u64, bool = false) {}
 inline void ProfilePipelinePhase(PipelineProfilePhase, u64) {}
 inline void ProfilePresentationQueueDepth(size_t) {}
 inline void ProfilePresentationPhase(PresentationProfilePhase, u64) {}
+inline void ProfilePipelineSelfHit() {}
+inline void ProfilePipelineTransitionLookup(size_t, bool, bool) {}
+inline void ProfilePipelineSlowPath() {}
+inline void ProfileDescriptorDraw(bool, bool) {}
+inline void ProfileDescriptorPayloadReuse() {}
+inline void ProfileDescriptorBytesWritten(u64) {}
+inline void ProfileDescriptorChunkSwitch() {}
+inline void ProfileDescriptorRingStall(u64) {}
+inline void ProfileDescriptorOffset(bool) {}
+inline void ProfileVertexBufferBind(size_t) {}
+inline void ProfileVertexBufferSynchronized(u64, u64) {}
+inline void ProfileTextureUpload(u64, u64) {}
+inline void ProfileTextureDecode(u64, u64) {}
+inline void ProfileTextureUnswizzle(u64, u64) {}
 inline void ResetPipelineProfile(u64) {}
 inline void StartPipelineProfileWindow() {}
 inline void ReportPipelineProfile() {}

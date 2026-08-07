@@ -92,7 +92,32 @@ data class PipelineProfileSnapshot(
     val captureMaxQueueDepth: Long = 0L,
     val captureMaxPresentQueueDepth: Long = 0L,
     val captureSmallDrawWaits: Long = 0L,
-    val captureSmallDrawWaitNs: Long = 0L
+    val captureSmallDrawWaitNs: Long = 0L,
+    val pipelineSelfHits: Long = 0L,
+    val pipelineTransitionHits: Long = 0L,
+    val pipelineTransitionProbes: Long = 0L,
+    val pipelineTransitionHashHits: Long = 0L,
+    val pipelineSlowPathLookups: Long = 0L,
+    val descriptorBufferDraws: Long = 0L,
+    val pushDescriptorDraws: Long = 0L,
+    val descriptorSetDraws: Long = 0L,
+    val descriptorPayloadReuses: Long = 0L,
+    val descriptorBytesWritten: Long = 0L,
+    val descriptorChunkSwitches: Long = 0L,
+    val descriptorRingStalls: Long = 0L,
+    val descriptorRingStallNs: Long = 0L,
+    val vertexBufferBindCalls: Long = 0L,
+    val vertexBufferSlotsBound: Long = 0L,
+    val vertexBufferSynchronizedBytes: Long = 0L,
+    val vertexBufferUploadedBytes: Long = 0L,
+    val textureUploadBytes: Long = 0L,
+    val textureUploadNs: Long = 0L,
+    val textureDecodeBytes: Long = 0L,
+    val textureDecodeNs: Long = 0L,
+    val textureUnswizzleBytes: Long = 0L,
+    val textureUnswizzleNs: Long = 0L,
+    val descriptorOffsetCalls: Long = 0L,
+    val descriptorOffsetSkips: Long = 0L
 ) {
     fun matches(titleId: String): Boolean {
         val normalized = titleId.uppercase(Locale.ROOT).filter(Char::isLetterOrDigit)
@@ -128,7 +153,32 @@ data class PipelineProfileSnapshot(
                 captureMaxQueueDepth = values.getOrElse(17) { 0L },
                 captureMaxPresentQueueDepth = values.getOrElse(18) { 0L },
                 captureSmallDrawWaits = values.getOrElse(19) { 0L },
-                captureSmallDrawWaitNs = values.getOrElse(20) { 0L }
+                captureSmallDrawWaitNs = values.getOrElse(20) { 0L },
+                pipelineSelfHits = values.getOrElse(21) { 0L },
+                pipelineTransitionHits = values.getOrElse(22) { 0L },
+                pipelineTransitionProbes = values.getOrElse(23) { 0L },
+                pipelineTransitionHashHits = values.getOrElse(24) { 0L },
+                pipelineSlowPathLookups = values.getOrElse(25) { 0L },
+                descriptorBufferDraws = values.getOrElse(26) { 0L },
+                pushDescriptorDraws = values.getOrElse(27) { 0L },
+                descriptorSetDraws = values.getOrElse(28) { 0L },
+                descriptorPayloadReuses = values.getOrElse(29) { 0L },
+                descriptorBytesWritten = values.getOrElse(30) { 0L },
+                descriptorChunkSwitches = values.getOrElse(31) { 0L },
+                descriptorRingStalls = values.getOrElse(32) { 0L },
+                descriptorRingStallNs = values.getOrElse(33) { 0L },
+                vertexBufferBindCalls = values.getOrElse(34) { 0L },
+                vertexBufferSlotsBound = values.getOrElse(35) { 0L },
+                vertexBufferSynchronizedBytes = values.getOrElse(36) { 0L },
+                vertexBufferUploadedBytes = values.getOrElse(37) { 0L },
+                textureUploadBytes = values.getOrElse(38) { 0L },
+                textureUploadNs = values.getOrElse(39) { 0L },
+                textureDecodeBytes = values.getOrElse(40) { 0L },
+                textureDecodeNs = values.getOrElse(41) { 0L },
+                textureUnswizzleBytes = values.getOrElse(42) { 0L },
+                textureUnswizzleNs = values.getOrElse(43) { 0L },
+                descriptorOffsetCalls = values.getOrElse(44) { 0L },
+                descriptorOffsetSkips = values.getOrElse(45) { 0L }
             )
         }
     }
@@ -505,6 +555,31 @@ object PerformanceSampler {
                             )
                             put("capture_small_draw_waits", profile.captureSmallDrawWaits)
                             put("capture_small_draw_wait_ns", profile.captureSmallDrawWaitNs)
+                            put("pipeline_self_hits", profile.pipelineSelfHits)
+                            put("pipeline_transition_hits", profile.pipelineTransitionHits)
+                            put("pipeline_transition_probes", profile.pipelineTransitionProbes)
+                            put("pipeline_transition_hash_hits", profile.pipelineTransitionHashHits)
+                            put("pipeline_slow_path_lookups", profile.pipelineSlowPathLookups)
+                            put("descriptor_buffer_draws", profile.descriptorBufferDraws)
+                            put("push_descriptor_draws", profile.pushDescriptorDraws)
+                            put("descriptor_set_draws", profile.descriptorSetDraws)
+                            put("descriptor_payload_reuses", profile.descriptorPayloadReuses)
+                            put("descriptor_bytes_written", profile.descriptorBytesWritten)
+                            put("descriptor_chunk_switches", profile.descriptorChunkSwitches)
+                            put("descriptor_ring_stalls", profile.descriptorRingStalls)
+                            put("descriptor_ring_stall_ns", profile.descriptorRingStallNs)
+                            put("vertex_buffer_bind_calls", profile.vertexBufferBindCalls)
+                            put("vertex_buffer_slots_bound", profile.vertexBufferSlotsBound)
+                            put("vertex_buffer_synchronized_bytes", profile.vertexBufferSynchronizedBytes)
+                            put("vertex_buffer_uploaded_bytes", profile.vertexBufferUploadedBytes)
+                            put("texture_upload_bytes", profile.textureUploadBytes)
+                            put("texture_upload_ns", profile.textureUploadNs)
+                            put("texture_decode_bytes", profile.textureDecodeBytes)
+                            put("texture_decode_ns", profile.textureDecodeNs)
+                            put("texture_unswizzle_bytes", profile.textureUnswizzleBytes)
+                            put("texture_unswizzle_ns", profile.textureUnswizzleNs)
+                            put("descriptor_offset_calls", profile.descriptorOffsetCalls)
+                            put("descriptor_offset_skips", profile.descriptorOffsetSkips)
                         }
                     }
             )

@@ -66,8 +66,9 @@ launch/pause/resume/capture/stop/restart cycles completed on the Thor without cr
 Title ID or continuous RSS growth after settling. The 30-cycle acceptance run, physical rotation
 coverage and the 45-60 minute Arceus session remain required before release certification.
 
-The Profile build exposes 17 compatible JNI counters, including presentation queue depth and time
-spent waiting for a free frame, the scheduler, swapchain acquisition and presentation. Release
+The Profile build preserves 17 compatible JNI counters and appends per-draw Vulkan diagnostics,
+including presentation queue depth and time spent waiting for a free frame, the scheduler,
+swapchain acquisition and presentation. Release
 builds hide those counters while retaining the compact Direct view on the Thor secondary display.
 
 ## Live cheats

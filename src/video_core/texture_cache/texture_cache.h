@@ -20,6 +20,7 @@
 #include "video_core/engines/kepler_compute.h"
 #include "video_core/guest_memory.h"
 #include "video_core/host1x/gpu_device_memory_manager.h"
+#include "video_core/renderer_vulkan/vk_pipeline_profile.h"
 #include "video_core/texture_cache/image_view_base.h"
 #include "video_core/texture_cache/samples_helper.h"
 #include "video_core/texture_cache/texture_cache_base.h"
@@ -1137,6 +1138,7 @@ void TextureCache<P>::RefreshContents(Image& image, ImageId image_id) {
 template <class P>
 template <typename StagingBuffer>
 void TextureCache<P>::UploadImageContents(Image& image, StagingBuffer& staging) {
+    Vulkan::ProfileTimer upload_timer;
     const std::span<u8> mapped_span = staging.mapped_span;
     const GPUVAddr gpu_addr = image.gpu_addr;
 
@@ -1145,6 +1147,7 @@ void TextureCache<P>::UploadImageContents(Image& image, StagingBuffer& staging) 
                               VideoCommon::CacheType::NoTextureCache);
         const auto uploads = FullUploadSwizzles(image.info);
         runtime.AccelerateImageUpload(image, staging, FixSmallVectorADL(uploads), 0, 0);
+        Vulkan::ProfileTextureUpload(mapped_span.size_bytes(), upload_timer.ElapsedNs());
         return;
     }
 
@@ -1152,13 +1155,20 @@ void TextureCache<P>::UploadImageContents(Image& image, StagingBuffer& staging) 
         *gpu_memory, gpu_addr, image.guest_size_bytes, &swizzle_data_buffer);
     if (True(image.flags & ImageFlagBits::Converted)) {
         unswizzle_data_buffer.resize_destructive(image.unswizzled_size_bytes);
+        Vulkan::ProfileTimer unswizzle_timer;
         auto copies = FixSmallVectorADL(UnswizzleImage(*gpu_memory, gpu_addr, image.info, swizzle_data, unswizzle_data_buffer));
+        Vulkan::ProfileTextureUnswizzle(image.guest_size_bytes, unswizzle_timer.ElapsedNs());
+        Vulkan::ProfileTimer decode_timer;
         ConvertImage(unswizzle_data_buffer, image.info, mapped_span, copies);
+        Vulkan::ProfileTextureDecode(mapped_span.size_bytes(), decode_timer.ElapsedNs());
         image.UploadMemory(staging, copies);
     } else {
+        Vulkan::ProfileTimer unswizzle_timer;
         const auto copies = FixSmallVectorADL(UnswizzleImage(*gpu_memory, gpu_addr, image.info, swizzle_data, mapped_span));
+        Vulkan::ProfileTextureUnswizzle(image.guest_size_bytes, unswizzle_timer.ElapsedNs());
         image.UploadMemory(staging, copies);
     }
+    Vulkan::ProfileTextureUpload(mapped_span.size_bytes(), upload_timer.ElapsedNs());
 }
 
 template <class P>
@@ -1338,15 +1348,19 @@ void TextureCache<P>::QueueAsyncDecode(Image& image, ImageId image_id) {
 
     std::vector<u8> local_unswizzle_data_buffer(image.unswizzled_size_bytes, 0);
     Tegra::Memory::GpuGuestMemory<u8, Tegra::Memory::GuestMemoryFlags::UnsafeRead> swizzle_data(*gpu_memory, image.gpu_addr, image.guest_size_bytes, &swizzle_data_buffer);
+    Vulkan::ProfileTimer unswizzle_timer;
     auto copies = UnswizzleImage(*gpu_memory, image.gpu_addr, image.info, swizzle_data, local_unswizzle_data_buffer);
+    Vulkan::ProfileTextureUnswizzle(image.guest_size_bytes, unswizzle_timer.ElapsedNs());
     const size_t out_size = MapSizeBytes(image);
 
     auto func = [out_size, copies, info = image.info,
                  input = std::move(local_unswizzle_data_buffer),
                  async_decode = decode_ptr]() mutable {
+        Vulkan::ProfileTimer decode_timer;
         async_decode->decoded_data.resize_destructive(out_size);
         std::span copies_span{copies.data(), copies.size()};
         ConvertImage(input, info, async_decode->decoded_data, copies_span);
+        Vulkan::ProfileTextureDecode(out_size, decode_timer.ElapsedNs());
 
         // TODO: Do we need this lock?
         std::unique_lock lock{async_decode->mutex};
@@ -1382,10 +1396,12 @@ void TextureCache<P>::TickAsyncDecode() {
             continue;
         }
         Image& image = slot_images[async_decode->image_id];
+        Vulkan::ProfileTimer upload_timer;
         auto staging = runtime.UploadStagingBuffer(MapSizeBytes(image));
         std::memcpy(staging.mapped_span.data(), async_decode->decoded_data.data(),
                     async_decode->decoded_data.size());
         image.UploadMemory(staging, FixSmallVectorADL(async_decode->copies));
+        Vulkan::ProfileTextureUpload(async_decode->decoded_data.size(), upload_timer.ElapsedNs());
         image.flags &= ~ImageFlagBits::IsDecoding;
         has_uploads = true;
         i = async_decodes.erase(i);
@@ -1452,8 +1468,12 @@ void TextureCache<P>::TickAsyncUnswizzle() {
         const u32 z_count = (std::min)(slices_to_process, image.info.size.depth - z_start);
 
         if (z_count > 0) {
+            Vulkan::ProfileTimer unswizzle_timer;
             const auto uploads = FullUploadSwizzles(task.info);
             runtime.AccelerateImageUpload(image, task.staging_buffer, FixSmallVectorADL(uploads), z_start, z_count);
+            Vulkan::ProfileTextureUnswizzle(
+                static_cast<u64>(z_count) * task.bytes_per_slice,
+                unswizzle_timer.ElapsedNs());
             task.last_submitted_offset += (static_cast<size_t>(z_count) * task.bytes_per_slice);
         }
     }

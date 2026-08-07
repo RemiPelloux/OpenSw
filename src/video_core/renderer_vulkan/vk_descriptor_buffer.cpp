@@ -8,6 +8,7 @@
 #include "common/logging.h"
 #include "video_core/renderer_vulkan/vk_descriptor_buffer.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
+#include "video_core/renderer_vulkan/vk_pipeline_profile.h"
 #include "video_core/vulkan_common/vulkan_device.h"
 
 namespace Vulkan {
@@ -106,11 +107,14 @@ DescriptorBufferRing::Allocation DescriptorBufferRing::Allocate(Scheduler& sched
         scheduler.Wait(frame_ticks[frame_index]);
     }
     if (cursor + needed > chunk_capacity) {
+        ProfileDescriptorChunkSwitch();
         if (chunk_cursor + 1 < chunks_per_frame) {
             ++chunk_cursor;
         } else {
             LOG_DEBUG(Render_Vulkan, "Descriptor buffer frame exhausted, stalling on the GPU");
+            ProfileTimer stall_timer;
             scheduler.Finish();
+            ProfileDescriptorRingStall(stall_timer.ElapsedNs());
             chunk_cursor = 0;
             ++generation;
         }
