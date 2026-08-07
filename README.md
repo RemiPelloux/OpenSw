@@ -16,15 +16,15 @@
 </h1>
 
 <h4 align="center">
-OpenSw is an Android Switch emulator fork with a general ARM64 build and a performance path
-measured on AYN Thor. It combines reversible per-game profiles, live cheats, a dual-screen cockpit
-and reproducible performance diagnostics.
+OpenSw is a standalone Android Switch emulator developed as its own complete project, with a general
+ARM64 build and an optional performance path measured on AYN Thor. It combines reversible per-game
+profiles, live cheats, a dual-screen cockpit and reproducible performance diagnostics.
 </h4>
 
 <p align="center">
   <a href="#features">Features</a> |
   <a href="#live-cheats">Live cheats</a> |
-  <a href="#isolation">Isolation</a> |
+  <a href="#app-identity-and-data">App identity and data</a> |
   <a href="#building">Building</a> |
   <a href="#testing">Testing</a> |
   <a href="#roadmap">Roadmap</a> |
@@ -34,11 +34,12 @@ and reproducible performance diagnostics.
 
 ## Features
 
-- A separate `OpenSw` Android package that can coexist with the official Eden nightly build.
+- A self-contained Android emulator with dedicated Release and Profile builds.
 - `Standard`, `Thor Balanced`, `Thor 60 stable` and experimental `Thor Max` modes.
 - A global default with optional per-Title-ID overrides that never rewrite game configuration files.
 - A release-like, locally signed and profileable APK for repeatable AYN Thor measurements.
-- A read-only Eden import assistant for keys, firmware, profiles, saves, settings, mods and cheats.
+- An optional read-only legacy import assistant for keys, firmware, profiles, saves, settings, mods
+  and cheats.
 - An in-game cheat overlay with controller and touch navigation.
 - A shared Performance Lab with rolling p95 frametime, memory, power, thermal warnings and
   versioned native diagnostics that are explicitly excluded from A/B promotion decisions.
@@ -49,12 +50,12 @@ and reproducible performance diagnostics.
 - Build-ID-aware cheat import from text files, Atmosphere/Eden trees and ZIP archives.
 - Optional cheat catalogues backed by `switch-cheats-db` and `NX-60FPS-RES-GFX-Cheats`.
 - Perfetto capture tooling and a documented AYN Thor performance baseline.
-- Eden's updater and publication configuration disabled in OpenSw builds.
+- A dedicated OpenSw build, update and publication configuration.
 
 ## Current status
 
-The maintained Android targets build as `openSwRelease` and `openSwProfile` and run independently
-from Eden on the AYN Thor. Pokemon Legends: Arceus 1.1.1 has been verified with Build ID
+The maintained Android targets build as `openSwRelease` and `openSwProfile`. Pokemon Legends:
+Arceus 1.1.1 has been verified on the AYN Thor with Build ID
 `AEE8F150DDA1B5A8`; the live cheat engine applied Mastercode plus the 60 FPS section and a stable
 presentation sample measured 59.96 FPS.
 
@@ -84,18 +85,18 @@ some codes can therefore still require a game restart.
 Catalogue installation is explicit and never silently replaces a locally modified file. Imports are
 validated, size-limited, protected against ZIP path traversal and installed atomically with backups.
 
-## Isolation
+## App identity and data
 
 OpenSw uses `com.remipelloux.opensw`; debug builds use `com.remipelloux.opensw.debug`. Neither
-package replaces or shares private app data with `dev.eden.eden_emulator.nightly`.
+variant shares private app data with another application.
 
 The OpenSw modes only affect OpenSw. No mode changes Android, CPU/GPU frequencies, unsafe memory
-settings or the official Eden installation. `Standard` restores the exact values captured before a
-Thor mode was enabled.
+settings or data owned by another application. `Standard` restores the exact values captured before
+a Thor mode was enabled.
 
-The Eden migration flow uses Android's document picker and a user-granted read-only source. It stages
-and verifies copied files before installing them into OpenSw; game files, caches, logs and temporary
-data are not copied.
+The optional legacy migration flow uses Android's document picker and a user-granted read-only
+source. It stages and verifies copied files before installing them into OpenSw; game files, caches,
+logs and temporary data are not copied.
 
 ## Building
 
