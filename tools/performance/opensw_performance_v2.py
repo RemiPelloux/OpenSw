@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import hashlib
 import json
 import math
@@ -25,6 +26,10 @@ RUNTIME_SCHEMA = "opensw-runtime-identity-v1"
 ALLOWED_PACKAGES = {"com.remipelloux.opensw", "com.remipelloux.opensw.profile"}
 REMOTE_TRACE = "/data/misc/perfetto-traces/opensw-performance-v2.pftrace"
 TITLE_ID_MARKER = re.compile(r"OpenSw performance active title_id=([0-9a-fA-F]{16})")
+LAB_RESULT_MARKER = "OPEN_SW_LAB_RESULT="
+LAB_INSTRUMENTATION = (
+    "com.remipelloux.opensw.lab.test/com.remipelloux.opensw.lab.OpenSwLabRunner"
+)
 
 PERFETTO_CONFIG = """
 buffers: { size_kb: 65536 fill_policy: RING_BUFFER }
@@ -66,6 +71,8 @@ REQUIRED_RUNTIME_FIELDS = {
     "pid",
     "package_version",
     "session_generation",
+    "session_state",
+    "surface_attached",
     "title_id",
     "requested_workers",
     "effective_workers",
@@ -299,8 +306,9 @@ def scenario_digest(scenario: dict[str, Any]) -> str:
     return sha256_bytes(payload)
 
 
-def load_runtime_identity(path: Path, *, pid: str, title_id: str, replay_sha256: str) -> dict[str, Any]:
-    identity = json.loads(path.read_text(encoding="utf-8"))
+def validate_runtime_identity(
+    identity: dict[str, Any], *, pid: str, title_id: str, replay_sha256: str
+) -> dict[str, Any]:
     if not isinstance(identity, dict) or identity.get("schema") != RUNTIME_SCHEMA:
         raise CaptureError(f"Runtime identity must use schema {RUNTIME_SCHEMA}")
     missing = sorted(REQUIRED_RUNTIME_FIELDS - identity.keys())
@@ -314,9 +322,65 @@ def load_runtime_identity(path: Path, *, pid: str, title_id: str, replay_sha256:
         raise CaptureError("Runtime identity replay does not match the declared replay")
     if identity["replay_state"] != "RUNNING":
         raise CaptureError("Runtime identity replay must be RUNNING at capture start")
+    if identity["session_state"] != "RUNNING" or not identity["surface_attached"]:
+        raise CaptureError("Runtime identity does not describe an active rendered session")
     if int(identity["effective_workers"]) < 1:
         raise CaptureError("Runtime identity reports an invalid effective worker count")
     return identity
+
+
+def load_runtime_identity(path: Path, *, pid: str, title_id: str, replay_sha256: str) -> dict[str, Any]:
+    identity = json.loads(path.read_text(encoding="utf-8"))
+    return validate_runtime_identity(
+        identity, pid=pid, title_id=title_id, replay_sha256=replay_sha256
+    )
+
+
+def parse_lab_result(output: str) -> dict[str, Any]:
+    marker_index = output.find(LAB_RESULT_MARKER)
+    if marker_index < 0:
+        raise CaptureError("OpenSw Lab instrumentation did not return a result")
+    encoded = output[marker_index + len(LAB_RESULT_MARKER) :].splitlines()[0].strip()
+    try:
+        result = json.loads(base64.b64decode(encoded, validate=True))
+    except (ValueError, json.JSONDecodeError) as error:
+        raise CaptureError("OpenSw Lab returned an invalid result") from error
+    if not isinstance(result, dict):
+        raise CaptureError("OpenSw Lab returned an invalid result")
+    if not result.get("ok"):
+        raise CaptureError(f"OpenSw Lab command failed: {result.get('error', 'rejected')}")
+    return result
+
+
+def run_lab_command(
+    serial: str | None, command: str, arguments: dict[str, str] | None = None
+) -> dict[str, Any]:
+    instrument_arguments = ["-e", "command", command]
+    for name, value in (arguments or {}).items():
+        instrument_arguments += ["-e", name, value]
+    output = adb(
+        serial,
+        "shell",
+        "am",
+        "instrument",
+        "-w",
+        "-r",
+        *instrument_arguments,
+        LAB_INSTRUMENTATION,
+    )
+    return parse_lab_result(output)
+
+
+def fetch_runtime_identity(
+    serial: str | None, *, pid: str, title_id: str, replay_sha256: str
+) -> dict[str, Any]:
+    result = run_lab_command(serial, "runtime-identity")
+    identity = result.get("value")
+    if not isinstance(identity, dict):
+        raise CaptureError("OpenSw Lab runtime identity is missing")
+    return validate_runtime_identity(
+        identity, pid=pid, title_id=title_id, replay_sha256=replay_sha256
+    )
 
 
 def resolve_surface(serial: str | None, package: str, requested: str | None) -> str:
@@ -405,11 +469,20 @@ def capture(args: argparse.Namespace) -> int:
     local_apk_sha256 = sha256_file(apk)
     if not installed_apk.get("sha256") or installed_apk["sha256"] != local_apk_sha256:
         raise CaptureError("Local and installed APK hashes must match before capture")
-    runtime_identity = load_runtime_identity(
-        Path(args.runtime_identity),
-        pid=pid,
-        title_id=expected_title_id,
-        replay_sha256=args.replay_sha256,
+    runtime_identity = (
+        load_runtime_identity(
+            Path(args.runtime_identity),
+            pid=pid,
+            title_id=expected_title_id,
+            replay_sha256=args.replay_sha256,
+        )
+        if args.runtime_identity
+        else fetch_runtime_identity(
+            args.serial,
+            pid=pid,
+            title_id=expected_title_id,
+            replay_sha256=args.replay_sha256,
+        )
     )
     verify_active_title_id(args.serial, args.package, pid, expected_title_id)
     surface = resolve_surface(args.serial, args.package, args.surface)
@@ -604,6 +677,8 @@ def validate_manifest(manifest: dict[str, Any]) -> None:
         raise CaptureError("Runtime identity APK version mismatch")
     if identity.get("replay_state") not in {"RUNNING", "COMPLETED"}:
         raise CaptureError("Runtime replay did not run to completion")
+    if identity.get("session_state") != "RUNNING" or not identity.get("surface_attached"):
+        raise CaptureError("Runtime identity does not describe an active rendered session")
     if int(identity.get("session_generation", 0)) <= 0 or int(identity.get("pid", 0)) <= 0:
         raise CaptureError("Runtime identity PID or generation is stale")
     experiment_key = manifest.get("experiment_key")
@@ -806,7 +881,10 @@ def build_parser() -> argparse.ArgumentParser:
     capture_parser.add_argument("--serial")
     capture_parser.add_argument("--surface")
     capture_parser.add_argument("--apk", required=True)
-    capture_parser.add_argument("--runtime-identity", required=True)
+    capture_parser.add_argument(
+        "--runtime-identity",
+        help="Existing identity JSON; defaults to the signed OpenSw Lab instrumentation bridge",
+    )
     capture_parser.add_argument("--replay-sha256", required=True)
     capture_parser.add_argument("--game-version", required=True)
     capture_parser.add_argument("--cache-state", choices=("cold", "warm"), required=True)

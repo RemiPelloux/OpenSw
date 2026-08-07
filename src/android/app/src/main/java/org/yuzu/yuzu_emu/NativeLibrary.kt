@@ -210,6 +210,9 @@ object NativeLibrary {
      */
     external fun isPaused(): Boolean
 
+    /** Returns schema, generation, lifecycle state, Title ID, and surface attachment. */
+    external fun getSessionSnapshot(): LongArray
+
     /**
      * Returns the performance stats for the current game
      */

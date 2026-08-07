@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <android/native_window_jni.h>
+#include <array>
 #include "common/android/applets/software_keyboard.h"
 #include "core/core.h"
 #include "core/file_sys/registered_cache.h"
@@ -18,6 +19,18 @@
 
 class EmulationSession final {
 public:
+    enum class State : u64 {
+        Stopped,
+        Starting,
+        Running,
+        Paused,
+        Stopping,
+    };
+
+    static constexpr u64 SessionSnapshotSchemaVersion = 1;
+    static constexpr size_t SessionSnapshotSize = 5;
+    using SessionSnapshot = std::array<u64, SessionSnapshotSize>;
+
     explicit EmulationSession();
     ~EmulationSession() = default;
 
@@ -62,6 +75,7 @@ public:
 
     void OnEmulationStarted(u64 generation);
     [[nodiscard]] u64 SessionGeneration() const;
+    [[nodiscard]] SessionSnapshot GetSessionSnapshot() const;
 
     static u64 GetProgramId(JNIEnv* env, jstring jprogramId);
 
@@ -85,6 +99,7 @@ private:
     std::atomic<bool> m_is_running = false;
     std::atomic<bool> m_is_paused = false;
     std::atomic<u64> m_session_generation = 0;
+    std::atomic<State> m_session_state = State::Stopped;
     Common::Android::SoftwareKeyboard::AndroidKeyboard* m_software_keyboard{};
     std::unique_ptr<FileSys::ManualContentProvider> m_manual_provider;
     int m_applet_id{1};

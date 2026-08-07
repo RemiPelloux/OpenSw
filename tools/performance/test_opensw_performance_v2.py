@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import base64
 import json
 import tempfile
 import unittest
@@ -12,10 +13,12 @@ from opensw_performance_v2 import (
     load_manifests,
     merge_surfaceflinger_latency,
     nearest_rank,
+    parse_lab_result,
     parse_surfaceflinger_latency,
     summarize_frametimes,
     validate_manifest,
 )
+from opensw_lab import canonical_replay_sha256
 
 
 class PerformanceV2Test(unittest.TestCase):
@@ -45,6 +48,36 @@ class PerformanceV2Test(unittest.TestCase):
         self.assertEqual(16666666, refresh)
         self.assertEqual([10000000, 26000000, 45000000, 65000000], timestamps)
         self.assertEqual([16.0, 19.0, 20.0], frametimes)
+
+    def test_lab_result_decodes_instrumentation_payload(self):
+        payload = base64.b64encode(json.dumps({"ok": True, "value": {"pid": 42}}).encode()).decode()
+        result = parse_lab_result(f"INSTRUMENTATION_RESULT: stream=OPEN_SW_LAB_RESULT={payload}\n")
+        self.assertEqual(42, result["value"]["pid"])
+
+    def test_lab_result_rejects_non_object_payload(self):
+        payload = base64.b64encode(json.dumps(["unexpected"]).encode()).decode()
+        with self.assertRaises(CaptureError):
+            parse_lab_result(f"OPEN_SW_LAB_RESULT={payload}\n")
+
+    def test_replay_hash_is_canonical(self):
+        replay = {
+            "schema": "opensw-input-replay-v1",
+            "title_id": "01001f5010dfa000",
+            "game_version": "1.1.1",
+            "controller_id": "A" * 32,
+            "controller_port": 0,
+            "duration_ns": 1_000,
+            "events": [
+                {"timestamp_ns": 0, "kind": "BUTTON", "control": 96, "value": 1.0}
+            ],
+        }
+        digest = canonical_replay_sha256(replay)
+        self.assertEqual(
+            "9a09a980fa6153263eb841ff5f5acfcf36eefc12525ceebed23e43b2b1675f6f",
+            digest,
+        )
+        replay["sha256"] = "ignored"
+        self.assertEqual(digest, canonical_replay_sha256(replay))
 
     def test_comparison_promotes_tail_improvement_without_regression(self):
         baseline = self.summary("a", fps=30.0, p95=40.0, p99=60.0)
@@ -126,6 +159,8 @@ class PerformanceV2Test(unittest.TestCase):
             "pid": 42,
             "package_version": "test",
             "session_generation": 7,
+            "session_state": "RUNNING",
+            "surface_attached": True,
             "title_id": "01001f5010dfa000",
             "requested_workers": 4,
             "effective_workers": 4,

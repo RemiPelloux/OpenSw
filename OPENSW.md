@@ -39,12 +39,21 @@ duration while preserving the original 17 native snapshot fields.
 include matching local and installed APK hashes, `opensw-runtime-identity-v1`, replay and cheat-set
 hashes, cache state, firmware, driver, display configuration, fan mode, and a calibrated starting
 temperature. A/B summaries may differ only in the declared `workers` or `build` experiment fields.
-Older manifests remain diagnostic artifacts and are not promotion eligible.
+The tool obtains runtime identity from the signed lab instrumentation by default; an explicit JSON
+file remains available for offline diagnostics. Older manifests remain diagnostic artifacts and are
+not promotion eligible.
 
 ## Lab packages
 
 The Android project contains a shared `:lab-protocol` module and a debug-only `:lab-agent` package,
 `com.remipelloux.opensw.lab`. OpenSw Profile alone declares the signature-protected automation
 bridge; OpenSw Release contains no bridge service or permission. The bridge accepts structured
-worker, exact-Title-ID cache, stop, status, and capture operations. It has no shell, package-manager,
-or arbitrary filesystem API and does not query or control the official Eden package.
+worker, exact-Title-ID cache, launch, pause, resume, acknowledged production shutdown, deterministic
+replay, status, and capture operations. Native status includes the real session generation, state,
+Title ID and surface attachment. It has no shell, package-manager, or arbitrary filesystem API and
+does not query or control the official Eden package.
+
+`tools/performance/opensw-lab` is the host entry point. Its `cycle` command refuses to start while
+the official Eden process is running, preserves a stable OpenSw PID, verifies foreground activities
+and native acknowledgements, and records memory at the requested checkpoints. Physical hinge and
+rotation coverage remains a manual acceptance step.

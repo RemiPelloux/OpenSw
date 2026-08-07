@@ -1314,6 +1314,32 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
         binding.inGameMenu.requestFocus()
     }
 
+    fun pauseForLab(): Boolean {
+        if (!BuildConfig.OPENSW_PROFILE || !this::emulationState.isInitialized ||
+            !emulationState.isRunning || emulationState.isPaused
+        ) {
+            return false
+        }
+        pauseEmulationAndCaptureFrame()
+        return true
+    }
+
+    fun resumeForLab(): Boolean {
+        if (!BuildConfig.OPENSW_PROFILE || !this::emulationState.isInitialized ||
+            !emulationState.isPaused
+        ) {
+            return false
+        }
+        resumeEmulationFromUi()
+        return true
+    }
+
+    fun stopForLab(): Boolean {
+        if (!BuildConfig.OPENSW_PROFILE || !this::emulationState.isInitialized) return false
+        stopEmulationFromUi()
+        return true
+    }
+
     private fun openCheatMenu() {
         performancePanel.hide()
         cheatPanel.showCheats()

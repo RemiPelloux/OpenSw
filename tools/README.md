@@ -38,6 +38,10 @@ It's recommended to run these scritps after almost any Android change, as they a
 - `stale-translations.sh`: Finds translated strings that aren't present in the source `strings.xml` file.
 - `performance/capture-ayn-thor.sh`: Captures a Thor device record, Perfetto trace and available Simpleperf data.
 - `performance/build-opensw-matrix.sh`: Builds and archives generic, ARMv9, ThinLTO and combined profile APKs.
+- `performance/opensw-lab`: Runs signed Profile status, lifecycle, replay, cache and worker commands;
+  its cycle mode records acknowledged lifecycle and memory evidence.
+- `performance/opensw-performance-v2`: Captures promotion-eligible SurfaceFlinger/Perfetto evidence
+  and obtains runtime identity from the signed lab instrumentation by default.
 
 ## Translations
 

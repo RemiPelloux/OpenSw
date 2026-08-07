@@ -204,6 +204,20 @@ u64 EmulationSession::SessionGeneration() const {
     return m_session_generation.load(std::memory_order_acquire);
 }
 
+EmulationSession::SessionSnapshot EmulationSession::GetSessionSnapshot() const {
+    std::scoped_lock lock(m_mutex);
+    const State state = m_session_state.load(std::memory_order_acquire);
+    const bool has_application_process =
+        state == State::Running || state == State::Paused || state == State::Stopping;
+    return {
+        SessionSnapshotSchemaVersion,
+        SessionGeneration(),
+        static_cast<u64>(state),
+        has_application_process ? m_system.GetApplicationProcessProgramID() : 0,
+        m_native_window != nullptr ? 1ULL : 0ULL,
+    };
+}
+
 const Core::PerfStatsResults& EmulationSession::PerfStats() {
     m_perf_stats = m_system.GetAndResetPerfStats();
     return m_perf_stats;
@@ -319,6 +333,7 @@ Core::SystemResultStatus EmulationSession::InitializeEmulation(const std::string
                                                                const std::size_t program_index,
                                                                const bool frontend_initiated) {
     std::scoped_lock lock(m_mutex);
+    m_session_state.store(State::Starting, std::memory_order_release);
 
     const u64 generation = m_session_generation.fetch_add(1, std::memory_order_acq_rel) + 1;
 
@@ -360,6 +375,7 @@ Core::SystemResultStatus EmulationSession::InitializeEmulation(const std::string
 
     m_load_result = m_system.Load(EmulationSession::GetInstance().Window(), filepath, params);
     if (m_load_result != Core::SystemResultStatus::Success) {
+        m_session_state.store(State::Stopped, std::memory_order_release);
         return m_load_result;
     }
 
@@ -387,6 +403,7 @@ Core::SystemResultStatus EmulationSession::InitializeEmulation(const std::string
 
 void EmulationSession::ShutdownEmulation() {
     std::scoped_lock lock(m_mutex);
+    m_session_state.store(State::Stopping, std::memory_order_release);
     const u64 generation = SessionGeneration();
 
     if (m_next_program_index != -1) {
@@ -418,28 +435,33 @@ void EmulationSession::ShutdownEmulation() {
         }
         OnEmulationStopped(Core::SystemResultStatus::Success, generation);
         m_session_generation.fetch_add(1, std::memory_order_release);
+        m_session_state.store(State::Stopped, std::memory_order_release);
         return;
     }
 
     // Tear down the render window.
     m_window.reset();
     m_session_generation.fetch_add(1, std::memory_order_release);
+    m_session_state.store(State::Stopped, std::memory_order_release);
 }
 
 void EmulationSession::PauseEmulation() {
     std::scoped_lock lock(m_mutex);
     m_system.Pause();
     m_is_paused = true;
+    m_session_state.store(State::Paused, std::memory_order_release);
 }
 
 void EmulationSession::UnPauseEmulation() {
     std::scoped_lock lock(m_mutex);
     m_system.Run();
     m_is_paused = false;
+    m_session_state.store(State::Running, std::memory_order_release);
 }
 
 void EmulationSession::HaltEmulation() {
     std::scoped_lock lock(m_mutex);
+    m_session_state.store(State::Stopping, std::memory_order_release);
     m_is_running = false;
     m_cv.notify_one();
 }
@@ -448,6 +470,7 @@ void EmulationSession::RunEmulation() {
     {
         std::scoped_lock lock(m_mutex);
         m_is_running = true;
+        m_session_state.store(State::Running, std::memory_order_release);
     }
 
     // Load the disk shader cache.
@@ -950,6 +973,17 @@ jboolean Java_org_yuzu_yuzu_1emu_NativeLibrary_isRunning(JNIEnv* env, jclass cla
 
 jboolean Java_org_yuzu_yuzu_1emu_NativeLibrary_isPaused(JNIEnv* env, jclass clazz) {
     return static_cast<jboolean>(EmulationSession::GetInstance().IsPaused());
+}
+
+jlongArray Java_org_yuzu_yuzu_1emu_NativeLibrary_getSessionSnapshot(JNIEnv* env, jclass clazz) {
+    const auto snapshot = EmulationSession::GetInstance().GetSessionSnapshot();
+    std::array<jlong, EmulationSession::SessionSnapshotSize> java_snapshot{};
+    std::transform(snapshot.begin(), snapshot.end(), java_snapshot.begin(),
+                   [](u64 value) { return static_cast<jlong>(value); });
+    jlongArray result = env->NewLongArray(static_cast<jsize>(java_snapshot.size()));
+    env->SetLongArrayRegion(result, 0, static_cast<jsize>(java_snapshot.size()),
+                            java_snapshot.data());
+    return result;
 }
 
 jbyteArray Java_org_yuzu_yuzu_1emu_NativeLibrary_getAppletCaptureBuffer(JNIEnv* env, jclass clazz) {

@@ -24,13 +24,18 @@ evidence; compilation alone is not a performance or stability result.
   actions and session controls without a hero or duplicated cover.
 - Favorites, compact selection, search and focus restoration are implemented with DiffUtil and
   bounded Coil caching.
+- The signed Profile lab bridge exposes real native session generation/state/surface identity and
+  acknowledged launch, pause, resume and production shutdown operations.
+- Deterministic controller replays use canonical cross-language hashes and report
+  `RUNNING/COMPLETED/FAILED`; the performance tool obtains identity through Android instrumentation.
+- The host cycle driver checks Eden inactivity, Profile PID stability, foreground activities and
+  10/30-second memory snapshots without exposing automation from OpenSw Release.
 
 ## P0: release stability
 
-1. Add a profile/debug-only Android instrumentation driver for launch, pause, resume and production
-   shutdown. It must wait for native acknowledgements and must not ship an externally callable
-   control surface in public release builds.
-2. The six-cycle gate for the main/idle kernel-thread ownership fix is complete. Run the 30-cycle
+1. Run the completed Profile instrumentation driver through the 30-cycle device gate. Retain its
+   native acknowledgement, PID, surface and foreground-activity checks.
+2. The earlier six-cycle manual gate for the main/idle kernel-thread ownership fix is complete. Run the 30-cycle
    gate next, recording 10-second and 30-second memory snapshots and physical rotation.
 3. Keep the kernel registry non-owning and diagnostic-only. Fix any remaining ownership issue at the
    creator; do not bulk-close unknown objects or suppress the shutdown warning.
@@ -46,9 +51,9 @@ evidence; compilation alone is not a performance or stability result.
 
 1. Keep Android-managed scheduling as the baseline now that unconditional `CPU 0-3` affinity has
    been removed. Evaluate topology-aware placement only as an optional measured experiment.
-2. Fix Vulkan worker selection so `0` has an explicit automatic meaning and values below four are
-   testable. Compare 2, 4 and 6 workers with cold/warm caches, measure compilation time, p95/p99 and
-   temperature, and make the displayed Thor Max worker count match the effective native count.
+2. Worker selection now gives `0` an explicit automatic meaning, accepts values below four and
+   reports requested/effective counts. Compare 2, 4 and 6 workers with cold/warm caches, measuring
+   compilation time, p95/p99 and temperature before changing a default.
 3. Complete the fixed Arceus and Monster Train 2 matrix for cold/warm caches and 0/5/20 cheats.
 4. Compare generic ARMv8-A, ARMv9, ThinLTO and ARMv9 plus ThinLTO with five warm runs per case.
 5. Profile CPU scheduling, Vulkan compilation/presentation, audio and I/O with Perfetto. Use

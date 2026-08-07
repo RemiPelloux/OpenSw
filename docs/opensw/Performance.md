@@ -36,3 +36,42 @@ ARMv8-A, ARMv9, ThinLTO and ARMv9 + ThinLTO. The script records a SHA-256 beside
 variants build successfully, but only the generic ARMv8-A APK is a public default. A successful
 build is not evidence of a speed-up; ARMv9 and ThinLTO remain A/B candidates until the baseline
 thresholds are met on the Thor.
+
+## Deterministic lab
+
+Build the Profile app, signed lab agent and instrumentation APK:
+
+```sh
+cd src/android
+./gradlew \
+  :app:assembleOpenSwProfile \
+  :lab-agent:assembleDebug \
+  :lab-agent:assembleDebugAndroidTest
+```
+
+`tools/performance/opensw-lab session-status` reads the real native generation, lifecycle state,
+Title ID and surface status. Lifecycle commands wait for the requested state instead of treating a
+submitted command as success.
+
+Replay JSON uses nanosecond timestamps and Android button/axis IDs. `start-replay` computes and
+inserts the canonical SHA-256 before handing the replay to the signed Profile bridge:
+
+```json
+{
+  "schema": "opensw-input-replay-v1",
+  "title_id": "01001F5010DFA000",
+  "game_version": "1.1.1",
+  "controller_id": "00112233445566778899aabbccddeeff",
+  "controller_port": 0,
+  "duration_ns": 1000000000,
+  "events": [
+    {"timestamp_ns": 0, "kind": "BUTTON", "control": 96, "value": 1.0},
+    {"timestamp_ns": 100000000, "kind": "BUTTON", "control": 96, "value": 0.0}
+  ]
+}
+```
+
+The controller ID and port must match the controller mapping active for the game. A promotion capture
+requires the replay to be `RUNNING`, the expected Title ID and Profile PID to match, and a render
+surface to be attached. `opensw-performance-v2 capture` queries this identity through the lab
+instrumentation unless `--runtime-identity` is explicitly supplied.

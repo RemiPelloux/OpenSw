@@ -48,6 +48,7 @@ import androidx.preference.PreferenceManager
 import org.yuzu.yuzu_emu.NativeLibrary
 import org.yuzu.yuzu_emu.R
 import org.yuzu.yuzu_emu.YuzuApplication
+import org.yuzu.yuzu_emu.BuildConfig
 import org.yuzu.yuzu_emu.databinding.ActivityEmulationBinding
 import org.yuzu.yuzu_emu.dialogs.NetPlayDialog
 import org.yuzu.yuzu_emu.features.input.NativeInput
@@ -461,6 +462,29 @@ class EmulationActivity : AppCompatActivity(), SensorEventListener, InputManager
         val emulationFragment =
             navHostFragment?.childFragmentManager?.fragments?.firstOrNull() as? org.yuzu.yuzu_emu.fragments.EmulationFragment
         emulationFragment?.onControllerInputDetected()
+    }
+
+    private fun currentEmulationFragment(): EmulationFragment? {
+        val navHostFragment =
+            supportFragmentManager.findFragmentById(R.id.fragment_container) as? NavHostFragment
+        return navHostFragment?.childFragmentManager?.fragments
+            ?.filterIsInstance<EmulationFragment>()
+            ?.firstOrNull { it.isAdded && it.view != null }
+    }
+
+    fun requestLabPause(): Boolean {
+        if (!BuildConfig.OPENSW_PROFILE) return false
+        return currentEmulationFragment()?.pauseForLab() == true
+    }
+
+    fun requestLabResume(): Boolean {
+        if (!BuildConfig.OPENSW_PROFILE) return false
+        return currentEmulationFragment()?.resumeForLab() == true
+    }
+
+    fun requestLabStop(): Boolean {
+        if (!BuildConfig.OPENSW_PROFILE) return false
+        return currentEmulationFragment()?.stopForLab() == true
     }
 
     private fun isGameController(deviceId: Int): Boolean {

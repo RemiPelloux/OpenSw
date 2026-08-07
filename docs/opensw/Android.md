@@ -15,7 +15,7 @@ From `src/android`, build the profileable release-like APK:
 
 The output is `app/build/outputs/apk/openSw/profile/app-openSw-profile.apk`. It is signed with the
 local debug key unless release signing variables are supplied, and installs as
-`com.remipelloux.opensw`.
+`com.remipelloux.opensw.profile`.
 
 Build a measurement variant explicitly:
 
@@ -25,3 +25,8 @@ Build a measurement variant explicitly:
 
 Supported values are `generic|armv9` and `off|thin`. The public default remains generic ARMv8-A.
 Use `tools/performance/build-opensw-matrix.sh` to archive all four combinations with SHA-256 files.
+
+The optional measurement controller is built with
+`:lab-agent:assembleDebug :lab-agent:assembleDebugAndroidTest`. Both APKs are debug-only and signed
+with the same local key as OpenSw Profile so Android can enforce the bridge's signature permission.
+OpenSw Release does not contain the service or permission.

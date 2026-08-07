@@ -51,8 +51,8 @@ being omitted from the record.
 
 ## Deterministic acceptance procedure
 
-Future automated cycles must drive a test-only session command or Android instrumentation action
-that invokes the same production shutdown path as the UI. Screen coordinates are not accepted.
+The Profile-only lab instrumentation drives the same fragment pause, resume and shutdown paths as
+the UI and waits for a versioned native session acknowledgement. Screen coordinates are not used.
 Every sample must first prove all of the following:
 
 - `MainActivity` is the top resumed OpenSw activity;
@@ -65,3 +65,17 @@ Record PSS, RSS, native heap, activity count and view count at 10 and 30 seconds
 a patch check, then 30 cycles for release acceptance. Reject the run on any assert, abort, ANR,
 failed shutdown acknowledgement or unexplained linear growth. A 60-minute gameplay session remains
 required after the cycle test passes.
+
+With the Profile, lab agent and lab instrumentation APKs installed, run:
+
+```sh
+tools/performance/opensw-lab cycle \
+  --game-uri 'content://USER_GRANTED_GAME_URI' \
+  --title-id 01001F5010DFA000 \
+  --cycles 6 \
+  --output captures/lifecycle-6.json
+```
+
+Use `--cycles 30` only after the six-cycle patch check passes. The report intentionally records
+`physical_rotation_covered=false`; complete and record that device action manually rather than
+changing Android rotation settings from automation.

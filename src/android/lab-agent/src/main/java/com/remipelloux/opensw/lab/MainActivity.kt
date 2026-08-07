@@ -56,7 +56,7 @@ class MainActivity : AppCompatActivity() {
             addView(Button(context).apply {
                 setText(R.string.stop_opensw)
                 setOnClickListener {
-                    bridge?.stopEmulation()
+                    bridge?.stopEmulation(30_000)
                     refreshStatus()
                 }
             })
