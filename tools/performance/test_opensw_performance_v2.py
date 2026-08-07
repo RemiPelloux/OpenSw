@@ -2,12 +2,15 @@
 
 import base64
 import json
+import shlex
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from opensw_performance_v2 import (
     CaptureError,
+    LAB_INSTRUMENTATION,
     SCHEMA,
     compare_summaries,
     load_manifests,
@@ -16,6 +19,7 @@ from opensw_performance_v2 import (
     parse_lab_result,
     parse_surfaceflinger_latency,
     render_perfetto_config,
+    run_lab_command,
     summarize_frametimes,
     validate_manifest,
 )
@@ -66,6 +70,39 @@ class PerformanceV2Test(unittest.TestCase):
         payload = base64.b64encode(json.dumps(["unexpected"]).encode()).decode()
         with self.assertRaises(CaptureError):
             parse_lab_result(f"OPEN_SW_LAB_RESULT={payload}\n")
+
+    @patch("opensw_performance_v2.adb")
+    def test_lab_command_shell_quotes_argument_values(self, mock_adb):
+        payload = base64.b64encode(json.dumps({"ok": True}).encode()).decode()
+        mock_adb.return_value = f"OPEN_SW_LAB_RESULT={payload}\n"
+
+        run_lab_command(
+            "device",
+            "set-cheat",
+            {"name": "60 FPS (WARNING)", "enabled": "true"},
+        )
+
+        remote_command = mock_adb.call_args.args[2]
+        self.assertEqual("shell", mock_adb.call_args.args[1])
+        self.assertEqual(
+            [
+                "am",
+                "instrument",
+                "-w",
+                "-r",
+                "-e",
+                "command",
+                "set-cheat",
+                "-e",
+                "name",
+                "60 FPS (WARNING)",
+                "-e",
+                "enabled",
+                "true",
+                LAB_INSTRUMENTATION,
+            ],
+            shlex.split(remote_command),
+        )
 
     def test_replay_hash_is_canonical(self):
         replay = {

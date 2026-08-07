@@ -365,16 +365,10 @@ def run_lab_command(
     instrument_arguments = ["-e", "command", command]
     for name, value in (arguments or {}).items():
         instrument_arguments += ["-e", name, value]
-    output = adb(
-        serial,
-        "shell",
-        "am",
-        "instrument",
-        "-w",
-        "-r",
-        *instrument_arguments,
-        LAB_INSTRUMENTATION,
+    remote_command = shlex.join(
+        ["am", "instrument", "-w", "-r", *instrument_arguments, LAB_INSTRUMENTATION]
     )
+    output = adb(serial, "shell", remote_command)
     return parse_lab_result(output)
 
 
