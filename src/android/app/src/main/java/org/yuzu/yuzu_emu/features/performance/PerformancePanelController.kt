@@ -7,6 +7,7 @@ import android.content.Intent
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.Lifecycle
@@ -19,6 +20,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.yuzu.yuzu_emu.R
+import org.yuzu.yuzu_emu.features.settings.model.BooleanSetting
+import org.yuzu.yuzu_emu.features.settings.model.IntSetting
 import org.yuzu.yuzu_emu.utils.OpenSwPerformanceModeManager
 import org.yuzu.yuzu_emu.utils.PerformanceMode
 
@@ -26,16 +29,25 @@ class PerformancePanelController(
     private val fragment: Fragment,
     private val panel: View,
     private val gameTitle: String,
-    private val titleId: String
+    private val titleId: String,
+    private val compact: Boolean = false
 ) {
     private val title = panel.findViewById<TextView>(R.id.performance_game_title)
     private val context = panel.findViewById<TextView>(R.id.performance_context)
+    private val status = panel.findViewById<TextView>(R.id.performance_status)
+    private val config = panel.findViewById<TextView>(R.id.performance_config)
     private val warning = panel.findViewById<TextView>(R.id.performance_warning)
     private val fps = panel.findViewById<TextView>(R.id.performance_fps)
     private val frameTime = panel.findViewById<TextView>(R.id.performance_frametime)
     private val speed = panel.findViewById<TextView>(R.id.performance_speed)
+    private val shaders = panel.findViewById<TextView>(R.id.performance_shaders)
     private val memory = panel.findViewById<TextView>(R.id.performance_memory)
     private val power = panel.findViewById<TextView>(R.id.performance_power)
+    private val graph = panel.findViewById<FrameTimeGraphView>(R.id.performance_graph)
+    private val pipelineGroup = panel.findViewById<View>(R.id.performance_pipeline_group)
+    private val pipelineCache = panel.findViewById<TextView>(R.id.performance_pipeline_cache)
+    private val pipelineWait = panel.findViewById<TextView>(R.id.performance_pipeline_wait)
+    private val pipelinePhases = panel.findViewById<TextView>(R.id.performance_pipeline_phases)
     private val capture = panel.findViewById<MaterialButton>(R.id.performance_capture)
     private val share = panel.findViewById<MaterialButton>(R.id.performance_share)
     private val samplerConsumer = Any()
@@ -43,6 +55,11 @@ class PerformancePanelController(
 
     init {
         title.text = gameTitle
+        if (compact) {
+            panel.findViewById<View>(R.id.performance_brand_rail).visibility = View.GONE
+            panel.findViewById<View>(R.id.performance_heading).visibility = View.GONE
+            title.visibility = View.GONE
+        }
         capture.setOnClickListener { toggleCapture() }
         share.setOnClickListener { shareLatestReport() }
         fragment.viewLifecycleOwner.lifecycleScope.launch {
@@ -59,11 +76,13 @@ class PerformancePanelController(
         }
         panel.visibility = View.VISIBLE
         val mode = OpenSwPerformanceModeManager.getResolvedMode(fragment.requireContext(), titleId)
-        context.text = fragment.getString(
+        val modeLabel = fragment.getString(mode.labelResource())
+        context.text = if (compact) modeLabel else fragment.getString(
             R.string.performance_context_format,
             titleId,
-            fragment.getString(mode.labelResource())
+            modeLabel
         )
+        config.text = currentConfiguration()
         capture.setText(
             if (PerformanceSampler.isCapturing()) {
                 R.string.performance_capture_stop
@@ -83,16 +102,25 @@ class PerformancePanelController(
     }
 
     private fun render(snapshot: PerformanceSnapshot) {
-        fps.text = fragment.getString(R.string.performance_fps_format, snapshot.fps)
+        fps.text = fragment.getString(R.string.performance_fps_value_format, snapshot.fps)
         frameTime.text = fragment.getString(
-            R.string.performance_frametime_format,
-            snapshot.frameTimeMs,
+            R.string.performance_frametime_value_format,
             snapshot.frameTimeP95Ms
         )
+        graph.addSample(snapshot.frameTimeMs)
         speed.text = fragment.getString(
             R.string.performance_speed_format,
             snapshot.emulationSpeed * 100.0
         )
+        shaders.text = if (snapshot.shadersBuilding == 0) {
+            fragment.getString(R.string.performance_shaders_idle)
+        } else {
+            fragment.resources.getQuantityString(
+                R.plurals.performance_shaders_building,
+                snapshot.shadersBuilding,
+                snapshot.shadersBuilding
+            )
+        }
         memory.text = fragment.getString(
             R.string.performance_memory_format,
             snapshot.appRssMb,
@@ -104,6 +132,8 @@ class PerformancePanelController(
             abs(snapshot.batteryCurrentA),
             snapshot.batteryCapacity
         )
+        renderHealth(performanceHealth(snapshot))
+        renderPipelineProfile(snapshot.pipelineProfile?.takeIf { it.matches(titleId) })
         when {
             snapshot.thermalWarning -> {
                 warning.setText(R.string.performance_thermal_warning)
@@ -115,6 +145,78 @@ class PerformancePanelController(
             }
             else -> warning.visibility = View.GONE
         }
+    }
+
+    private fun renderHealth(health: PerformanceHealth) {
+        val (label, color) = when (health) {
+            PerformanceHealth.WAITING ->
+                R.string.performance_health_waiting to R.color.opensw_outline
+            PerformanceHealth.STABLE ->
+                R.string.performance_health_stable to R.color.opensw_mint
+            PerformanceHealth.UNEVEN ->
+                R.string.performance_health_uneven to R.color.opensw_yellow
+            PerformanceHealth.SLOW ->
+                R.string.performance_health_slow to R.color.opensw_yellow
+            PerformanceHealth.THERMAL ->
+                R.string.performance_health_thermal to R.color.opensw_yellow
+        }
+        status.setText(label)
+        status.setTextColor(ContextCompat.getColor(fragment.requireContext(), color))
+    }
+
+    private fun renderPipelineProfile(profile: PipelineProfileSnapshot?) {
+        if (profile == null) {
+            pipelineGroup.visibility = View.GONE
+            return
+        }
+        pipelineGroup.visibility = View.VISIBLE
+        val cacheAccesses = profile.cacheHits + profile.cacheMisses
+        val hitRate = if (cacheAccesses == 0L) 0.0 else profile.cacheHits * 100.0 / cacheAccesses
+        pipelineCache.text = fragment.getString(
+            R.string.performance_pipeline_cache_format,
+            hitRate,
+            profile.compilations,
+            profile.maxQueueDepth
+        )
+        pipelineWait.text = fragment.getString(
+            R.string.performance_pipeline_wait_format,
+            profile.pipelineWaits,
+            profile.pipelineWaitNs / 1_000_000.0,
+            profile.smallDrawWaits
+        )
+        pipelinePhases.text = fragment.getString(
+            R.string.performance_pipeline_phases_format,
+            profile.translationNs / 1_000_000.0,
+            profile.spirvNs / 1_000_000.0,
+            profile.shaderModuleNs / 1_000_000.0,
+            profile.vulkanPipelineNs / 1_000_000.0
+        )
+    }
+
+    private fun currentConfiguration(): String {
+        val workers = IntSetting.ANDROID_PIPELINE_WORKERS.getInt(false)
+        val workerLabel = if (workers == 0) {
+            fragment.getString(R.string.performance_workers_auto)
+        } else {
+            fragment.resources.getQuantityString(R.plurals.performance_workers, workers, workers)
+        }
+        val displayTarget = IntSetting.ANDROID_PRESENTATION_FRAME_RATE.getInt(false)
+        val displayLabel = if (displayTarget == 0) {
+            fragment.getString(R.string.performance_display_auto)
+        } else {
+            fragment.getString(R.string.performance_display_target_format, displayTarget)
+        }
+        val presentation = if (BooleanSetting.RENDERER_ASYNC_PRESENTATION.getBoolean(false)) {
+            fragment.getString(R.string.performance_presentation_async)
+        } else {
+            fragment.getString(R.string.performance_presentation_sync)
+        }
+        return fragment.getString(
+            R.string.performance_config_format,
+            workerLabel,
+            displayLabel,
+            presentation
+        )
     }
 
     private fun toggleCapture() {

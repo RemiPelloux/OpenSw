@@ -184,15 +184,22 @@ android {
             signingConfig = signingConfigs.getByName("default")
             isDebuggable = false
             isJniDebuggable = false
-            isMinifyEnabled = true
+            isMinifyEnabled = false
+            applicationIdSuffix = ".profile"
+            versionNameSuffix = "-profile"
             manifestPlaceholders += mapOf(
-                "appNameSuffix" to "",
+                "appNameSuffix" to " Profile",
                 "profileableShell" to true
             )
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            externalNativeBuild {
+                cmake {
+                    arguments.add("-DOPENSW_PROFILE=ON")
+                }
+            }
         }
 
         // Signed by debug key disallowing distribution on Play Store.
@@ -206,6 +213,7 @@ android {
 
             manifestPlaceholders += mapOf("appNameSuffix" to " Debug")
         }
+
     }
 
     // appNameBase is used for the primary identifier
@@ -226,7 +234,6 @@ android {
 
         create("openSw") {
             dimension = "version"
-
             manifestPlaceholders += mapOf("appNameBase" to "OpenSw")
             resValue("string", "app_name_suffixed", "OpenSw")
             applicationId = "com.remipelloux.opensw"
@@ -245,6 +252,7 @@ android {
                         listOf(
                             "-DENABLE_UPDATE_CHECKER=OFF",
                             "-DNIGHTLY_BUILD=OFF",
+                            "-DOPEN_SW=ON",
                             "-DYUZU_BUILD_PRESET=$openSwCpuPreset",
                             "-DENABLE_LTO=${if (openSwLtoMode == "off") "OFF" else "ON"}",
                             "-DLTO_MODE=${if (openSwLtoMode == "off") "auto" else openSwLtoMode}"
@@ -397,6 +405,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-graphics-android:1.7.8")
     implementation("androidx.compose.ui:ui-text-android:1.7.8")
     implementation("net.swiftzer.semver:semver:2.0.0")
+    testImplementation("junit:junit:4.13.2")
 }
 
 fun runGitCommand(command: List<String>): String {

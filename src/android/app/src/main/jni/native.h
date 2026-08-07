@@ -32,6 +32,9 @@ public:
     ANativeWindow* NativeWindow() const;
     void SetNativeWindow(ANativeWindow* native_window);
     void SurfaceChanged();
+    void UpdateSurface(ANativeWindow* native_window);
+    void ClearSurface();
+    std::vector<u8> GetAppletCaptureBuffer();
 
     void InitializeGpuDriver(const std::string& hook_lib_dir, const std::string& custom_driver_dir,
                              const std::string& custom_driver_name,

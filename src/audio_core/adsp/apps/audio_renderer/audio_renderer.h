@@ -69,10 +69,10 @@ public:
     void Stop();
 
     void Signal();
-    void Wait();
+    bool Wait(std::stop_token stop_token = {});
 
     void Send(Direction dir, u32 message);
-    u32 Receive(Direction dir);
+    u32 Receive(Direction dir, std::stop_token stop_token = {});
 
     void SetCommandBuffer(s32 session_id, CpuAddr buffer, u64 size, u64 time_limit,
                           u64 applet_resource_user_id, Kernel::KProcess* process,

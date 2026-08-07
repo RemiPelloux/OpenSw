@@ -684,4 +684,34 @@
         <item>2</item>
         <item>3</item>
     </integer-array>
+
+    <string-array name="openswPipelineWorkerEntries">
+        <item>@string/performance_workers_auto</item>
+        <item>@string/pipeline_workers_2</item>
+        <item>@string/pipeline_workers_4</item>
+        <item>@string/pipeline_workers_6</item>
+        <item>@string/pipeline_workers_8</item>
+    </string-array>
+
+    <integer-array name="openswPipelineWorkerValues">
+        <item>0</item>
+        <item>2</item>
+        <item>4</item>
+        <item>6</item>
+        <item>8</item>
+    </integer-array>
+
+    <string-array name="openswPresentationRateEntries">
+        <item>@string/performance_display_auto</item>
+        <item>@string/presentation_rate_30</item>
+        <item>@string/presentation_rate_40</item>
+        <item>@string/presentation_rate_60</item>
+    </string-array>
+
+    <integer-array name="openswPresentationRateValues">
+        <item>0</item>
+        <item>30</item>
+        <item>40</item>
+        <item>60</item>
+    </integer-array>
 </resources>

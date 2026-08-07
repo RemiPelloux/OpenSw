@@ -152,6 +152,11 @@ namespace AndroidSettings {
                                  Settings::Specialization::Default,
                                  true,
                                  true};
+        Settings::Setting<s32> presentation_frame_rate{linkage, 0, "presentation_frame_rate",
+                                 Settings::Category::Android,
+                                 Settings::Specialization::Default,
+                                 true,
+                                 true};
 
 
         Settings::Setting<bool> show_input_overlay{linkage, true, "show_input_overlay",

@@ -216,22 +216,40 @@ void DeviceMemoryManager<Traits>::Free(DAddr start, size_t size) {
 template <typename Traits>
 void DeviceMemoryManager<Traits>::Map(DAddr address, VAddr virtual_address, size_t size, Asid asid,
                                       bool track) {
-    Core::Memory::Memory* process_memory = registered_processes[asid.id];
+    if (!IsDeviceRangeValid(address, size) || size > guest_as_size ||
+        virtual_address >= guest_as_size || size > guest_as_size - virtual_address) {
+        LOG_ERROR(HW_Memory, "Rejected invalid device map: daddr={:#x}, vaddr={:#x}, size={:#x}",
+                  address, virtual_address, size);
+        return;
+    }
+    if (size == 0) {
+        return;
+    }
     size_t start_page_d = address >> Memory::YUZU_PAGEBITS;
     size_t num_pages = Common::AlignUp(size, Memory::YUZU_PAGESIZE) >> Memory::YUZU_PAGEBITS;
     std::scoped_lock lk(mapping_guard);
+    if (!IsAsidValid(asid)) {
+        LOG_ERROR(HW_Memory, "Rejected device map for invalid ASID {}", asid.id);
+        return;
+    }
+    Core::Memory::Memory* process_memory = registered_processes[asid.id];
+    BreakContinuityBeforeNoLock(start_page_d);
     for (size_t i = 0; i < num_pages; i++) {
+        const size_t page_index = start_page_d + i;
+        RemoveDevicePageMappingNoLock(page_index);
+        tracked_entries[page_index].continuity_tracker = 1;
         const VAddr new_vaddress = virtual_address + i * Memory::YUZU_PAGESIZE;
         auto* ptr = process_memory->GetPointerSilent(Common::ProcessAddress(new_vaddress));
         if (ptr == nullptr) [[unlikely]] {
-            tracked_entries[start_page_d + i].compressed_physical_ptr = 0;
+            tracked_entries[page_index].compressed_physical_ptr = 0;
+            tracked_entries[page_index].cpu_backing_address = 0;
             continue;
         }
         auto phys_addr = static_cast<u32>(GetRawPhysicalAddr(ptr) >> Memory::YUZU_PAGEBITS) + 1U;
-        tracked_entries[start_page_d + i].compressed_physical_ptr = phys_addr;
-        InsertCPUBacking(start_page_d + i, new_vaddress, asid);
+        tracked_entries[page_index].compressed_physical_ptr = phys_addr;
+        InsertCPUBacking(page_index, new_vaddress, asid);
         const u32 base_dev = compressed_device_addr[phys_addr - 1U];
-        const u32 new_dev = static_cast<u32>(start_page_d + i);
+        const u32 new_dev = static_cast<u32>(page_index);
         if (base_dev == 0) [[likely]] {
             compressed_device_addr[phys_addr - 1U] = new_dev;
             continue;
@@ -251,31 +269,64 @@ void DeviceMemoryManager<Traits>::Map(DAddr address, VAddr virtual_address, size
 
 template <typename Traits>
 void DeviceMemoryManager<Traits>::Unmap(DAddr address, size_t size) {
+    if (!IsDeviceRangeValid(address, size)) {
+        LOG_ERROR(HW_Memory, "Rejected invalid device unmap: daddr={:#x}, size={:#x}", address,
+                  size);
+        return;
+    }
+    if (size == 0) {
+        return;
+    }
     size_t start_page_d = address >> Memory::YUZU_PAGEBITS;
     size_t num_pages = Common::AlignUp(size, Memory::YUZU_PAGESIZE) >> Memory::YUZU_PAGEBITS;
-    device_inter->InvalidateRegion(address, size);
+    if (device_inter) {
+        device_inter->InvalidateRegion(address, size);
+    }
     std::scoped_lock lk(mapping_guard);
+    BreakContinuityBeforeNoLock(start_page_d);
     for (size_t i = 0; i < num_pages; i++) {
-        auto phys_addr = tracked_entries[start_page_d + i].compressed_physical_ptr;
-        tracked_entries[start_page_d + i].compressed_physical_ptr = 0;
-        tracked_entries[start_page_d + i].cpu_backing_address = 0;
-        if (phys_addr != 0) [[likely]] {
-            const u32 base_dev = compressed_device_addr[phys_addr - 1U];
-            if ((base_dev >> MULTI_FLAG_BITS) == 0) [[likely]] {
-                compressed_device_addr[phys_addr - 1] = 0;
-                continue;
-            }
-            const auto [more_entries, new_start] = impl->multi_dev_address.Unregister(
-                static_cast<u32>(start_page_d + i), base_dev & MULTI_MASK);
-            if (!more_entries) {
-                compressed_device_addr[phys_addr - 1] =
-                    impl->multi_dev_address.ReleaseEntry(new_start);
-                continue;
-            }
-            compressed_device_addr[phys_addr - 1] = new_start | MULTI_FLAG;
-        }
+        const size_t page_index = start_page_d + i;
+        RemoveDevicePageMappingNoLock(page_index);
+        tracked_entries[page_index].continuity_tracker = 1;
     }
     t_slot = {};
+}
+
+template <typename Traits>
+void DeviceMemoryManager<Traits>::RemoveDevicePageMappingNoLock(size_t page_index) {
+    auto& entry = tracked_entries[page_index];
+    const u32 phys_addr = entry.compressed_physical_ptr;
+    entry.compressed_physical_ptr = 0;
+    entry.cpu_backing_address = 0;
+    if (phys_addr == 0) {
+        return;
+    }
+
+    const u32 device_page = static_cast<u32>(page_index);
+    const u32 base_dev = compressed_device_addr[phys_addr - 1U];
+    if ((base_dev >> MULTI_FLAG_BITS) == 0) [[likely]] {
+        if (base_dev == device_page) {
+            compressed_device_addr[phys_addr - 1U] = 0;
+        }
+        return;
+    }
+    const auto [more_entries, new_start] =
+        impl->multi_dev_address.Unregister(device_page, base_dev & MULTI_MASK);
+    compressed_device_addr[phys_addr - 1U] =
+        more_entries ? (new_start | MULTI_FLAG) : impl->multi_dev_address.ReleaseEntry(new_start);
+}
+
+template <typename Traits>
+void DeviceMemoryManager<Traits>::BreakContinuityBeforeNoLock(size_t page_index) {
+    size_t distance = 1;
+    while (page_index >= distance) {
+        auto& continuity = tracked_entries[page_index - distance].continuity_tracker;
+        if (continuity <= distance) {
+            break;
+        }
+        continuity = static_cast<u32>(distance);
+        ++distance;
+    }
 }
 template <typename Traits>
 void DeviceMemoryManager<Traits>::TrackContinuityImpl(DAddr address, VAddr virtual_address,
@@ -522,6 +573,7 @@ void DeviceMemoryManager<Traits>::WriteBlockUnsafe(DAddr address, const void* sr
 
 template <typename Traits>
 Asid DeviceMemoryManager<Traits>::RegisterProcess(Memory::Memory* memory_device_inter) {
+    std::scoped_lock lk(mapping_guard);
     size_t new_id{};
     if (!id_pool.empty()) {
         new_id = id_pool.front();
@@ -536,6 +588,23 @@ Asid DeviceMemoryManager<Traits>::RegisterProcess(Memory::Memory* memory_device_
 
 template <typename Traits>
 void DeviceMemoryManager<Traits>::UnregisterProcess(Asid asid) {
+    std::scoped_lock lk(mapping_guard);
+    if (!IsAsidValid(asid)) {
+        return;
+    }
+    const size_t total_virtual = device_as_size >> Memory::YUZU_PAGEBITS;
+    for (size_t page = 0; page < total_virtual; ++page) {
+        if (tracked_entries[page].compressed_physical_ptr == 0) {
+            continue;
+        }
+        const auto [owner, unused_address] = ExtractCPUBacking(page);
+        if (owner.id == asid.id) {
+            BreakContinuityBeforeNoLock(page);
+            RemoveDevicePageMappingNoLock(page);
+            tracked_entries[page].continuity_tracker = 1;
+        }
+    }
+    t_slot = {};
     registered_processes[asid.id] = nullptr;
     id_pool.push_front(asid.id);
 }

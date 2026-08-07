@@ -170,6 +170,7 @@ try
 
 RendererVulkan::~RendererVulkan() {
     scheduler.RegisterOnSubmit([] {});
+    present_manager.Drain();
     void(device.GetLogical().WaitIdle());
 }
 

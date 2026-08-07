@@ -1,0 +1,16 @@
+{
+  "camera": "fixed heading and pitch; do not touch the right stick during the route",
+  "device": "AYN Thor",
+  "game": "Pokemon Legends: Arceus",
+  "game_version": "1.1.1",
+  "notes": "Replace every RECORD_ME value before the first baseline run.",
+  "route": "RECORD_ME: exact start point, path, actions, and end point",
+  "save": "RECORD_ME: save slot and deterministic checkpoint",
+  "thermal": {
+    "ambient_c": "RECORD_ME",
+    "fan_mode": "RECORD_ME",
+    "minimum_start_temperature_c": "RECORD_ME",
+    "warmup_minutes": 10
+  },
+  "touch_and_controller_inputs": "RECORD_ME: deterministic input sequence"
+}

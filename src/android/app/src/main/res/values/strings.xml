@@ -1,6 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
+    <string name="opensw_search">Search games</string>
+    <string name="opensw_view_mode">Change library view</string>
+    <string name="opensw_sort">Sort library</string>
+    <string name="opensw_settings">Open settings</string>
+    <string name="opensw_launch">Play</string>
+    <string name="opensw_no_version">Version unknown</string>
+    <string name="opensw_never_played">Not played yet</string>
+    <string name="opensw_loading">Loading library</string>
+    <string name="opensw_library_error">The library could not be loaded.</string>
+    <string name="opensw_retry">Retry</string>
+    <string name="opensw_add_favorite">Add to favorites</string>
+    <string name="opensw_remove_favorite">Remove from favorites</string>
+
     <!-- General application strings -->
     <string name="app_name" translatable="false">Eden</string>
     <string name="app_disclaimer">This software will run games for the Nintendo Switch game console. No game titles or keys are included.&lt;br /&gt;&lt;br /&gt;Before you begin, please locate your <![CDATA[<b> prod.keys </b>]]> file on your device storage.&lt;br /&gt;&lt;br /&gt;<![CDATA[<a href=\"https://yuzu-mirror.github.io/help/quickstart\">Learn more</a>]]></string>
@@ -1878,9 +1891,48 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="performance_context_format">%1$s · %2$s</string>
     <string name="performance_fps_format">%1$.1f FPS</string>
     <string name="performance_frametime_format">%1$.1f ms · p95 %2$.1f ms</string>
+    <string name="performance_fps_value_format">%1$.1f</string>
+    <string name="performance_frametime_value_format">%1$.1f</string>
+    <string name="performance_fps_label">FPS</string>
+    <string name="performance_p95_label">p95 · ms</string>
+    <string name="performance_health_waiting">WAITING</string>
+    <string name="performance_health_stable">STABLE</string>
+    <string name="performance_health_uneven">UNEVEN</string>
+    <string name="performance_health_slow">SLOW</string>
+    <string name="performance_health_thermal">THERMAL</string>
     <string name="performance_speed_format">%1$.1f%% emulation speed</string>
+    <string name="performance_shaders_idle">Shaders ready</string>
+    <plurals name="performance_shaders_building">
+        <item quantity="one">%1$d shader building</item>
+        <item quantity="other">%1$d shaders building</item>
+    </plurals>
     <string name="performance_memory_format">%1$d MB OpenSw · %2$d MB system</string>
     <string name="performance_power_format">%1$.1f°C · %2$.1f A · %3$d%%</string>
+    <string name="performance_workers_auto">Auto workers</string>
+    <plurals name="performance_workers">
+        <item quantity="one">%1$d worker</item>
+        <item quantity="other">%1$d workers</item>
+    </plurals>
+    <string name="pipeline_workers_2">2 workers</string>
+    <string name="pipeline_workers_4">4 workers</string>
+    <string name="pipeline_workers_6">6 workers</string>
+    <string name="pipeline_workers_8">8 workers</string>
+    <string name="presentation_frame_rate">Presentation target</string>
+    <string name="presentation_frame_rate_description">Request a steady 30, 40 or 60 Hz presentation cadence from Android. This does not change game speed.</string>
+    <string name="presentation_rate_30">30 FPS</string>
+    <string name="presentation_rate_40">40 FPS</string>
+    <string name="presentation_rate_60">60 FPS</string>
+    <string name="performance_display_auto">Display auto</string>
+    <string name="performance_display_target_format">Display %1$d Hz</string>
+    <string name="performance_presentation_async">async</string>
+    <string name="performance_presentation_sync">sync</string>
+    <string name="performance_config_format">%1$s · %2$s · %3$s</string>
+    <string name="performance_graph_60fps_guide">16.7 ms · 60 FPS</string>
+    <string name="performance_graph_30fps_guide">33.3 ms · 30 FPS</string>
+    <string name="performance_pipeline_heading">Shader pipeline · Profile</string>
+    <string name="performance_pipeline_cache_format">%1$.0f%% cache · %2$d builds · queue %3$d</string>
+    <string name="performance_pipeline_wait_format">%1$d waits · %2$.1f ms · %3$d small draws</string>
+    <string name="performance_pipeline_phases_format">Maxwell %1$.1f · SPIR-V %2$.1f · module %3$.1f · Vulkan %4$.1f ms</string>
     <string name="performance_thermal_warning">Thermal pressure is high. Thor Balanced is recommended.</string>
     <string name="performance_speed_warning">Emulation speed has stayed below 95%%. Try Thor Balanced or review the game profile.</string>
     <string name="performance_capture_start">Start A/B capture</string>
@@ -1891,6 +1943,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="performance_report_missing">No performance report is available yet</string>
     <string name="performance_share_chooser">Share OpenSw performance report</string>
     <string name="cockpit_session">Session</string>
+    <string name="cockpit_running">Running</string>
+    <string name="cockpit_paused">Paused</string>
+    <string name="cockpit_session_controls">Session controls</string>
     <string name="opensw_cockpit_display">OpenSw cockpit enabled on display %1$d</string>
     <string name="opensw_diagnostic_bundle">Share OpenSw diagnostics</string>
     <string name="opensw_diagnostic_bundle_description">Export device, build and recent performance reports without keys, saves or game paths</string>

@@ -2,217 +2,288 @@
 <androidx.constraintlayout.widget.ConstraintLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/colorSurface"
-    android:clipChildren="false">
+    android:background="?attr/colorSurface">
 
-    <LinearLayout
+    <androidx.constraintlayout.widget.ConstraintLayout
         android:id="@+id/header"
         android:layout_width="0dp"
-        android:layout_height="48dp"
-        android:layout_marginHorizontal="16dp"
-        android:gravity="center_vertical"
-        android:orientation="horizontal"
+        android:layout_height="72dp"
+        android:paddingStart="28dp"
+        android:paddingEnd="24dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <ImageView
-            android:layout_width="36dp"
-            android:layout_height="36dp"
-            android:contentDescription="@string/app_name"
-            android:src="@drawable/ic_yuzu_splash" />
+        <View
+            android:id="@+id/header_brand_rail"
+            android:layout_width="4dp"
+            android:layout_height="34dp"
+            android:background="@color/opensw_cyan"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/title"
-            style="@style/SynthwaveText.Title"
-            android:layout_width="wrap_content"
+            style="@style/OpenSwFocusTitle"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="10dp"
+            android:layout_marginEnd="20dp"
+            android:maxLines="1"
             android:text="@string/app_name"
-            android:textSize="24sp" />
+            android:layout_marginStart="12dp"
+            android:textSize="27sp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/utility_dock"
+            app:layout_constraintStart_toEndOf="@id/header_brand_rail"
+            app:layout_constraintTop_toTopOf="parent" />
 
         <FrameLayout
             android:id="@+id/frame_search"
             android:layout_width="0dp"
-            android:layout_height="44dp"
-            android:layout_marginHorizontal="16dp"
-            android:layout_weight="1">
-
+            android:layout_height="48dp"
+            android:layout_marginEnd="20dp"
+            android:visibility="gone"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/utility_dock"
+            app:layout_constraintStart_toEndOf="@id/header_brand_rail"
+            app:layout_constraintTop_toTopOf="parent">
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/search_background"
-                style="@style/EdenCard"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
-                android:background="@android:color/transparent"
                 app:cardBackgroundColor="@android:color/transparent"
-                app:cardCornerRadius="6dp"
+                app:cardCornerRadius="8dp"
                 app:cardElevation="0dp"
-                app:strokeColor="?attr/colorOutline"
-                app:strokeWidth="1dp">
-
-                <LinearLayout
-                    android:id="@+id/search_container"
+                app:strokeColor="@color/opensw_cyan"
+                app:strokeWidth="2dp">
+                <EditText
+                    android:id="@+id/search_text"
+                    style="@style/OpenSwUiText"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
-                    android:layout_marginStart="12dp"
-                    android:layout_marginEnd="38dp"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal">
-
-                    <ImageView
-                        android:layout_width="20dp"
-                        android:layout_height="20dp"
-                        android:layout_marginEnd="10dp"
-                        android:src="@drawable/ic_search"
-                        app:tint="?attr/colorPrimary" />
-
-                    <EditText
-                        android:id="@+id/search_text"
-                        android:layout_width="match_parent"
-                        android:layout_height="match_parent"
-                        android:background="@android:color/transparent"
-                        android:fontFamily="sans-serif"
-                        android:hint="@string/home_search_games"
-                        android:imeOptions="flagNoFullscreen"
-                        android:inputType="text"
-                        android:maxLines="1"
-                        android:textColor="?attr/colorOnBackground"
-                        android:textColorHint="?attr/colorOnSurfaceVariant" />
-
-                </LinearLayout>
-
-                <ImageView
+                    android:background="@android:color/transparent"
+                    android:hint="@string/home_search_games"
+                    android:imeOptions="actionDone|flagNoExtractUi"
+                    android:inputType="text"
+                    android:maxLines="1"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="44dp" />
+                <ImageButton
                     android:id="@+id/clear_button"
-                    android:layout_width="20dp"
-                    android:layout_height="20dp"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
                     android:layout_gravity="center_vertical|end"
-                    android:layout_marginEnd="12dp"
-                    android:background="?attr/selectableItemBackground"
+                    android:background="?attr/selectableItemBackgroundBorderless"
                     android:contentDescription="@string/clear"
                     android:src="@drawable/ic_clear"
                     android:visibility="invisible"
                     app:tint="?attr/colorOnSurfaceVariant" />
-
             </com.google.android.material.card.MaterialCardView>
-
         </FrameLayout>
 
-        <com.google.android.material.button.MaterialButtonToggleGroup
-            android:id="@+id/view_mode_group"
+        <LinearLayout
+            android:id="@+id/utility_dock"
             android:layout_width="wrap_content"
-            android:layout_height="40dp"
-            android:layout_marginEnd="12dp"
-            app:checkedButton="@id/view_grid_compact"
-            app:selectionRequired="true"
-            app:singleSelection="true">
+            android:layout_height="52dp"
+            android:background="@drawable/opensw_utility_dock"
+            android:gravity="center"
+            android:orientation="horizontal"
+            android:padding="3dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent">
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/view_grid"
-                style="@style/OpenSwViewToggleButton"
-                android:contentDescription="@string/view_grid"
-                app:icon="@drawable/ic_view_grid" />
+            <ImageButton
+                android:id="@+id/search_button"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/opensw_search"
+                android:padding="10dp"
+                android:src="@drawable/ic_search"
+                app:tint="@color/opensw_cyan" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/view_grid_compact"
-                style="@style/OpenSwViewToggleButton"
-                android:contentDescription="@string/view_grid_compact"
-                app:icon="@drawable/ic_view_compact" />
+            <ImageButton
+                android:id="@+id/view_button"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/opensw_view_mode"
+                android:padding="10dp"
+                android:src="@drawable/ic_eye"
+                app:tint="?attr/colorOnSurface" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/view_list"
-                style="@style/OpenSwViewToggleButton"
-                android:contentDescription="@string/view_list"
-                app:icon="@drawable/ic_view_list" />
+            <ImageButton
+                android:id="@+id/filter_button"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/opensw_sort"
+                android:padding="10dp"
+                android:src="@drawable/ic_filter"
+                app:tint="?attr/colorOnSurface" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/view_carousel"
-                style="@style/OpenSwViewToggleButton"
-                android:contentDescription="@string/view_carousel"
-                app:icon="@drawable/ic_view_carousel" />
+            <ImageButton
+                android:id="@+id/settings_button"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/opensw_settings"
+                android:padding="10dp"
+                android:src="@drawable/ic_settings"
+                app:tint="?attr/colorOnSurface" />
 
-        </com.google.android.material.button.MaterialButtonToggleGroup>
+            <ImageButton
+                android:id="@+id/add_directory"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/folder"
+                android:padding="10dp"
+                android:src="@drawable/ic_folder_open"
+                app:tint="@color/opensw_mint" />
+        </LinearLayout>
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/filter_button"
-            style="@style/OpenSwViewToggleButton"
+        <View
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:alpha="0.55"
+            android:background="@color/opensw_cyan"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintStart_toStartOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/focus_scene"
+        android:layout_width="0dp"
+        android:layout_height="64dp"
+        android:paddingStart="40dp"
+        android:paddingEnd="40dp"
+        android:paddingVertical="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/header">
+
+        <View
+            android:id="@+id/focus_rail"
+            android:layout_width="3dp"
+            android:layout_height="32dp"
+            android:background="@color/opensw_cyan"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/selected_title"
+            style="@style/OpenSwFocusTitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginEnd="24dp"
+            android:ellipsize="end"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            android:textSize="22sp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/selected_version"
+            app:layout_constraintStart_toEndOf="@id/focus_rail"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="Pokémon Legends: Arceus" />
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/selected_version"
+            style="@style/OpenSwDataText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="20dp"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/selected_playtime"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="VERSION 1.1.1" />
+
+        <com.google.android.material.textview.MaterialTextView
+            android:id="@+id/selected_playtime"
+            style="@style/OpenSwDataText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="24dp"
+            android:includeFontPadding="false"
+            android:maxLines="1"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/selected_favorite"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="42 H 18 MIN" />
+
+        <ImageButton
+            android:id="@+id/selected_favorite"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
             android:layout_marginEnd="8dp"
-            android:contentDescription="@string/library_filter"
-            app:icon="@drawable/ic_filter" />
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/opensw_add_favorite"
+            android:padding="10dp"
+            android:src="@drawable/ic_star_outline"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/selected_launch"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="@color/opensw_outline" />
 
         <com.google.android.material.button.MaterialButton
-            android:id="@+id/settings_button"
-            style="@style/OpenSwViewToggleButton"
-            android:contentDescription="@string/preferences_settings"
-            app:icon="@drawable/ic_settings" />
-
-    </LinearLayout>
+            android:id="@+id/selected_launch"
+            android:layout_width="wrap_content"
+            android:layout_height="44dp"
+            android:text="@string/opensw_launch"
+            android:textAllCaps="false"
+            app:backgroundTint="@color/opensw_cyan"
+            app:cornerRadius="8dp"
+            app:icon="@drawable/ic_play"
+            app:iconTint="@color/opensw_ink"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
 
     <org.yuzu.yuzu_emu.ui.MidScreenSwipeRefreshLayout
         android:id="@+id/swipe_refresh"
-        android:layout_width="match_parent"
+        android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginTop="6dp"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/header">
-
-        <RelativeLayout
-            android:layout_width="match_parent"
-            android:layout_height="match_parent">
-
-            <com.google.android.material.textview.MaterialTextView
-                android:id="@+id/notice_text"
-                style="@style/TextAppearance.Material3.BodyLarge"
-                android:layout_width="match_parent"
-                android:layout_height="match_parent"
-                android:gravity="center"
-                android:padding="@dimen/spacing_large"
-                android:text="@string/empty_gamelist"
-                android:visibility="gone" />
-
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/focus_scene">
+        <FrameLayout android:layout_width="match_parent" android:layout_height="match_parent">
             <org.yuzu.yuzu_emu.ui.CarouselRecyclerView
                 android:id="@+id/grid_games"
                 android:layout_width="match_parent"
                 android:layout_height="match_parent"
                 android:clipChildren="false"
                 android:clipToPadding="false"
-                android:fadeScrollbars="true"
-                android:scrollbarStyle="outsideOverlay"
-                android:scrollbars="vertical" />
-
-        </RelativeLayout>
-
+                android:scrollbars="horizontal" />
+            <ProgressBar android:id="@+id/loading_indicator" android:layout_width="48dp" android:layout_height="48dp"
+                android:layout_gravity="center" android:contentDescription="@string/opensw_loading" android:visibility="gone" />
+            <com.google.android.material.textview.MaterialTextView android:id="@+id/notice_text" style="@style/OpenSwUiText"
+                android:layout_width="match_parent" android:layout_height="match_parent" android:gravity="center"
+                android:padding="24dp" android:text="@string/empty_gamelist" android:visibility="gone" />
+            <LinearLayout android:id="@+id/error_container" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                android:layout_gravity="center" android:gravity="center" android:orientation="vertical" android:visibility="gone">
+                <com.google.android.material.textview.MaterialTextView android:id="@+id/error_text" style="@style/OpenSwUiText"
+                    android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="@string/opensw_library_error" />
+                <com.google.android.material.button.MaterialButton android:id="@+id/retry_button" android:layout_width="wrap_content"
+                    android:layout_height="wrap_content" android:layout_marginTop="8dp" android:text="@string/opensw_retry"
+                    app:cornerRadius="8dp" app:icon="@drawable/ic_refresh" />
+            </LinearLayout>
+        </FrameLayout>
     </org.yuzu.yuzu_emu.ui.MidScreenSwipeRefreshLayout>
 
-    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-        android:id="@+id/add_directory"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:contentDescription="@string/folder"
-        android:text="@string/folder"
-        android:textColor="?attr/colorOnPrimary"
-        app:backgroundTint="?attr/colorPrimary"
-        app:icon="@drawable/ic_cartridge_outline"
-        app:iconTint="?attr/colorOnPrimary"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:rippleColor="#99FFFFFF" />
-
-    <com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton
-        android:id="@+id/launch_qlaunch"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_margin="16dp"
-        android:contentDescription="@string/qlaunch_applet"
-        android:text="@string/qlaunch_applet"
-        android:textColor="?attr/colorOnPrimary"
-        app:backgroundTint="?attr/colorPrimary"
-        app:icon="@drawable/ic_home"
-        app:iconTint="?attr/colorOnPrimary"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:rippleColor="#99FFFFFF" />
-
+    <com.google.android.material.floatingactionbutton.FloatingActionButton android:id="@+id/launch_qlaunch"
+        android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_margin="12dp"
+        android:contentDescription="@string/qlaunch_applet" android:src="@drawable/ic_home"
+        app:layout_constraintBottom_toBottomOf="parent" app:layout_constraintStart_toStartOf="parent" app:tint="?attr/colorOnPrimary" />
 </androidx.constraintlayout.widget.ConstraintLayout>

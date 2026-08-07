@@ -178,7 +178,6 @@ void CpuManager::RunThread(std::stop_token token, std::size_t core) {
     // Aimed specifically for Snapdragon 8 Elite devices
     // This kills performance on desktop, but boosts perf for UMA devices
     // like the S8E. Mediatek and Mali likely won't suffer.
-    Common::PinCurrentThreadToPerformanceCore(core);
 #endif
     auto& data = core_data[core];
     data.host_context = Common::Fiber::ThreadToFiber();

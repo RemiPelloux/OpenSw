@@ -102,6 +102,11 @@ public:
         });
     }
 
+    [[nodiscard]] size_t PendingRequests() const noexcept {
+        return work_scheduled.load(std::memory_order_relaxed) -
+               work_done.load(std::memory_order_relaxed);
+    }
+
 private:
     std::queue<Task> requests;
     std::mutex queue_mutex;

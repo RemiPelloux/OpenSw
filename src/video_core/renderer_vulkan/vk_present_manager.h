@@ -60,6 +60,9 @@ public:
     /// Waits for the present thread to finish presenting all queued frames.
     void WaitPresent();
 
+    /// Waits for scheduler callbacks and presentation work to complete.
+    void Drain();
+
 private:
     void PresentThread(std::stop_token token);
 

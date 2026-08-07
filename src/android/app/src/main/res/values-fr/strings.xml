@@ -1,6 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources xmlns:tools="http://schemas.android.com/tools" tools:ignore="MissingTranslation">
 
+    <string name="opensw_search">Rechercher un jeu</string>
+    <string name="opensw_view_mode">Changer la vue de la bibliothèque</string>
+    <string name="opensw_sort">Trier la bibliothèque</string>
+    <string name="opensw_settings">Ouvrir les paramètres</string>
+    <string name="opensw_launch">Lancer</string>
+    <string name="opensw_no_version">Version inconnue</string>
+    <string name="opensw_never_played">Jamais lancé</string>
+    <string name="opensw_loading">Chargement de la bibliothèque</string>
+    <string name="opensw_library_error">La bibliothèque n’a pas pu être chargée.</string>
+    <string name="opensw_retry">Réessayer</string>
+    <string name="opensw_add_favorite">Ajouter aux favoris</string>
+    <string name="opensw_remove_favorite">Retirer des favoris</string>
+
     <string name="app_disclaimer">Ce logiciel permet de jouer à des jeux de la console Nintendo Switch. Aucun titre ni clé de jeu n\'est inclus.<br /><br />Avant de commencer, veuillez localiser votre fichier <![CDATA[<b> prod.keys </b>]]> sur le stockage de votre appareil.<br /><br /><![CDATA[<a href=\"https://yuzu-mirror.github.io/help/quickstart\">En savoir plus</a>]]></string>
     <string name="notice_notification_channel_name">Avis et erreurs</string>
     <string name="notice_notification_channel_description">Affiche des notifications en cas de problème.</string>
@@ -1176,9 +1189,48 @@
     <string name="performance_context_format">%1$s · %2$s</string>
     <string name="performance_fps_format">%1$.1f FPS</string>
     <string name="performance_frametime_format">%1$.1f ms · p95 %2$.1f ms</string>
+    <string name="performance_fps_value_format">%1$.1f</string>
+    <string name="performance_frametime_value_format">%1$.1f</string>
+    <string name="performance_fps_label">FPS</string>
+    <string name="performance_p95_label">p95 · ms</string>
+    <string name="performance_health_waiting">ATTENTE</string>
+    <string name="performance_health_stable">STABLE</string>
+    <string name="performance_health_uneven">IRRÉGULIER</string>
+    <string name="performance_health_slow">RALENTI</string>
+    <string name="performance_health_thermal">THERMIQUE</string>
     <string name="performance_speed_format">Vitesse d’émulation %1$.1f%%</string>
+    <string name="performance_shaders_idle">Shaders prêts</string>
+    <plurals name="performance_shaders_building">
+        <item quantity="one">%1$d shader en cours</item>
+        <item quantity="other">%1$d shaders en cours</item>
+    </plurals>
     <string name="performance_memory_format">%1$d Mo OpenSw · %2$d Mo système</string>
     <string name="performance_power_format">%1$.1f°C · %2$.1f A · %3$d%%</string>
+    <string name="performance_workers_auto">Workers auto</string>
+    <plurals name="performance_workers">
+        <item quantity="one">%1$d worker</item>
+        <item quantity="other">%1$d workers</item>
+    </plurals>
+    <string name="pipeline_workers_2">2 workers</string>
+    <string name="pipeline_workers_4">4 workers</string>
+    <string name="pipeline_workers_6">6 workers</string>
+    <string name="pipeline_workers_8">8 workers</string>
+    <string name="presentation_frame_rate">Cible de présentation</string>
+    <string name="presentation_frame_rate_description">Demande à Android une cadence régulière de 30, 40 ou 60 Hz sans modifier la vitesse du jeu.</string>
+    <string name="presentation_rate_30">30 FPS</string>
+    <string name="presentation_rate_40">40 FPS</string>
+    <string name="presentation_rate_60">60 FPS</string>
+    <string name="performance_display_auto">Écran auto</string>
+    <string name="performance_display_target_format">Écran %1$d Hz</string>
+    <string name="performance_presentation_async">async</string>
+    <string name="performance_presentation_sync">sync</string>
+    <string name="performance_config_format">%1$s · %2$s · %3$s</string>
+    <string name="performance_graph_60fps_guide">16,7 ms · 60 FPS</string>
+    <string name="performance_graph_30fps_guide">33,3 ms · 30 FPS</string>
+    <string name="performance_pipeline_heading">Pipeline shaders · Profile</string>
+    <string name="performance_pipeline_cache_format">%1$.0f%% cache · %2$d builds · file %3$d</string>
+    <string name="performance_pipeline_wait_format">%1$d attentes · %2$.1f ms · %3$d petits draws</string>
+    <string name="performance_pipeline_phases_format">Maxwell %1$.1f · SPIR-V %2$.1f · module %3$.1f · Vulkan %4$.1f ms</string>
     <string name="performance_thermal_warning">La pression thermique est élevée. Thor Équilibré est recommandé.</string>
     <string name="performance_speed_warning">La vitesse d’émulation reste sous 95%%. Essayez Thor Équilibré ou vérifiez le profil du jeu.</string>
     <string name="performance_capture_start">Démarrer une mesure A/B</string>
@@ -1189,6 +1241,9 @@
     <string name="performance_report_missing">Aucun rapport de performance disponible</string>
     <string name="performance_share_chooser">Partager le rapport de performance OpenSw</string>
     <string name="cockpit_session">Session</string>
+    <string name="cockpit_running">En cours</string>
+    <string name="cockpit_paused">En pause</string>
+    <string name="cockpit_session_controls">Contrôles de session</string>
     <string name="opensw_cockpit_display">Cockpit OpenSw actif sur l’écran %1$d</string>
     <string name="opensw_diagnostic_bundle">Partager le diagnostic OpenSw</string>
     <string name="opensw_diagnostic_bundle_description">Exporter l’appareil, le build et les rapports de performance récents sans clés, sauvegardes ni chemins de jeux</string>

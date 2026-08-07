@@ -54,6 +54,8 @@ void AudioRenderer::Stop() {
     main_thread.request_stop();
     main_thread.join();
 
+    command_buffers.fill(CommandBuffer{});
+
     for (auto& stream : streams) {
         if (stream) {
             stream->Stop();
@@ -69,8 +71,11 @@ void AudioRenderer::Signal() {
     Send(Direction::DSP, Message::Render);
 }
 
-void AudioRenderer::Wait() {
-    auto msg = Receive(Direction::Host);
+bool AudioRenderer::Wait(std::stop_token stop_token) {
+    auto msg = Receive(Direction::Host, stop_token);
+    if (stop_token.stop_requested()) {
+        return false;
+    }
     if (msg != Message::RenderResponse) {
         LOG_ERROR(Service_Audio,
                   "Did not receive the expected render response from the AudioRenderer! Expected "
@@ -78,14 +83,15 @@ void AudioRenderer::Wait() {
                   Message::RenderResponse, msg);
     }
     PostDSPClearCommandBuffer();
+    return true;
 }
 
 void AudioRenderer::Send(Direction dir, u32 message) {
     mailbox.Send(dir, std::move(message));
 }
 
-u32 AudioRenderer::Receive(Direction dir) {
-    return mailbox.Receive(dir);
+u32 AudioRenderer::Receive(Direction dir, std::stop_token stop_token) {
+    return mailbox.Receive(dir, stop_token);
 }
 
 void AudioRenderer::SetCommandBuffer(s32 session_id, CpuAddr buffer, u64 size, u64 time_limit,

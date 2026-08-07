@@ -45,6 +45,9 @@ public:
      */
     double GetMeanFrametime() const;
 
+    /** Returns the nearest-rank p95 over the latest UI window, in seconds. */
+    double GetRollingP95Frametime() const;
+
     /**
      * Gets the ratio between walltime and the emulated time of the previous system frame. This is
      * useful for scaling inputs or outputs moving between the two time domains.
@@ -61,6 +64,11 @@ private:
     /// Stores an hour of historical frametime data useful for processing and tracking performance
     /// regressions with code changes.
     std::array<double, 216000> perf_history{};
+    static constexpr std::size_t RollingWindowSize = 120;
+    std::array<double, RollingWindowSize> rolling_frametimes{};
+    std::size_t rolling_index{};
+    std::size_t rolling_count{};
+    u64 lifetime_system_frames{};
 
     /// Point when the cumulative counters were reset
     Clock::time_point reset_point = Clock::now();

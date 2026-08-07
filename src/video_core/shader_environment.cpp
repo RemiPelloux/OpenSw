@@ -29,6 +29,54 @@
 
 namespace VideoCommon {
 
+namespace {
+constexpr u64 MaxSerializedShaderCodeSize = 16ULL * 1024ULL * 1024ULL;
+constexpr u64 MaxSerializedMapEntries = 65'536;
+constexpr u32 MaxEnvironmentsPerPipeline = 6;
+constexpr std::uintmax_t MaxPipelineCacheSize = 512ULL * 1024ULL * 1024ULL;
+
+bool RepairPipelineCache(const std::filesystem::path& filename, std::streamoff valid_size) {
+    const auto repair_path = filename.string() + ".repair";
+    std::error_code ec;
+    std::filesystem::remove(repair_path, ec);
+    std::ifstream input(filename, std::ios::binary);
+    std::ofstream output(repair_path, std::ios::binary | std::ios::trunc);
+    if (!input || !output || valid_size <= 0) {
+        output.close();
+        std::filesystem::remove(repair_path, ec);
+        return false;
+    }
+    std::array<char, 64 * 1024> buffer{};
+    auto remaining = valid_size;
+    while (remaining > 0) {
+        const auto chunk = static_cast<std::streamsize>(
+            std::min<std::streamoff>(remaining, static_cast<std::streamoff>(buffer.size())));
+        input.read(buffer.data(), chunk);
+        if (input.gcount() != chunk) {
+            output.close();
+            std::filesystem::remove(repair_path, ec);
+            return false;
+        }
+        output.write(buffer.data(), chunk);
+        if (!output) {
+            output.close();
+            std::filesystem::remove(repair_path, ec);
+            return false;
+        }
+        remaining -= chunk;
+    }
+    output.flush();
+    output.close();
+    ec.clear();
+    std::filesystem::rename(repair_path, filename, ec);
+    if (!ec) {
+        return true;
+    }
+    std::filesystem::remove(repair_path, ec);
+    return false;
+}
+} // namespace
+
 constexpr std::array<char, 8> MAGIC_NUMBER{'y', 'u', 'z', 'u', 'c', 'a', 'c', 'h'};
 
 constexpr size_t INST_SIZE = sizeof(u64);
@@ -478,6 +526,13 @@ void FileEnvironment::Deserialize(std::ifstream& file) {
         .read(reinterpret_cast<char*>(&read_highest), sizeof(read_highest))
         .read(reinterpret_cast<char*>(&viewport_transform_state), sizeof(viewport_transform_state))
         .read(reinterpret_cast<char*>(&stage), sizeof(stage));
+    if (code_size > MaxSerializedShaderCodeSize ||
+        num_texture_types > MaxSerializedMapEntries ||
+        num_texture_pixel_formats > MaxSerializedMapEntries ||
+        num_cbuf_values > MaxSerializedMapEntries ||
+        num_cbuf_replacement_values > MaxSerializedMapEntries) {
+        throw std::ios_base::failure("Pipeline cache entry exceeds allocation limits");
+    }
     code.resize(Common::DivCeil(code_size, sizeof(u64)));
     file.read(reinterpret_cast<char*>(code.data()), code_size);
     for (size_t i = 0; i < num_texture_types; ++i) {
@@ -634,6 +689,9 @@ void LoadPipelines(
     }
     file.exceptions(std::ifstream::failbit);
     const auto end{file.tellg()};
+    if (end < 0 || static_cast<std::uintmax_t>(end) > MaxPipelineCacheSize) {
+        throw std::ios_base::failure("Pipeline cache exceeds size limit");
+    }
     file.seekg(0, std::ios::beg);
 
     std::array<char, 8> magic_number;
@@ -656,20 +714,37 @@ void LoadPipelines(
         }
         return;
     }
+    std::streamoff last_valid_offset = static_cast<std::streamoff>(file.tellg());
     while (file.tellg() != end) {
         if (stop_loading.stop_requested()) {
             return;
         }
-        u32 num_envs{};
-        file.read(reinterpret_cast<char*>(&num_envs), sizeof(num_envs));
-        std::vector<FileEnvironment> envs(num_envs);
-        for (FileEnvironment& env : envs) {
-            env.Deserialize(file);
-        }
-        if (envs.front().ShaderStage() == Shader::Stage::Compute) {
-            load_compute(file, std::move(envs.front()));
-        } else {
-            load_graphics(file, std::move(envs));
+        try {
+            u32 num_envs{};
+            file.read(reinterpret_cast<char*>(&num_envs), sizeof(num_envs));
+            if (num_envs == 0 || num_envs > MaxEnvironmentsPerPipeline) {
+                throw std::ios_base::failure("Invalid environment count in pipeline cache");
+            }
+            std::vector<FileEnvironment> envs(num_envs);
+            for (FileEnvironment& env : envs) {
+                env.Deserialize(file);
+            }
+            if (envs.front().ShaderStage() == Shader::Stage::Compute) {
+                load_compute(file, std::move(envs.front()));
+            } else {
+                load_graphics(file, std::move(envs));
+            }
+            last_valid_offset = static_cast<std::streamoff>(file.tellg());
+        } catch (const std::ios_base::failure& e) {
+            file.close();
+            if (RepairPipelineCache(filename, last_valid_offset)) {
+                LOG_WARNING(Common_Filesystem,
+                            "Repaired truncated pipeline cache at byte {}: {}",
+                            last_valid_offset, e.what());
+            } else {
+                LOG_ERROR(Common_Filesystem, "Failed to repair pipeline cache: {}", e.what());
+            }
+            return;
         }
     }
 

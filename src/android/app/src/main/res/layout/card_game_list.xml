@@ -34,7 +34,7 @@
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/text_game_title"
-            style="@style/SynthwaveText.Body"
+            style="@style/OpenSwUiText"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"
@@ -52,7 +52,7 @@
 
         <com.google.android.material.textview.MaterialTextView
             android:id="@+id/text_game_developer"
-            style="@style/SynthwaveText.Body"
+            style="@style/OpenSwUiText"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="8dp"

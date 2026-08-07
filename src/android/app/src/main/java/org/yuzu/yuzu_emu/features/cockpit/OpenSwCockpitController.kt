@@ -27,7 +27,8 @@ class OpenSwCockpitController(
     private val isPaused: () -> Boolean,
     private val onPauseToggle: () -> Unit,
     private val onOverlayToggle: () -> Unit,
-    private val onQuickSettings: () -> Unit
+    private val onQuickSettings: () -> Unit,
+    private val onStopEmulation: () -> Unit
 ) : DisplayManager.DisplayListener {
     private val displayManager =
         fragment.requireContext().getSystemService(Context.DISPLAY_SERVICE) as DisplayManager
@@ -48,6 +49,12 @@ class OpenSwCockpitController(
 
     fun onEmulationStarted() {
         cheatPanel?.onEmulationStarted()
+    }
+
+    fun onPauseStateChanged() {
+        presentation
+            ?.findViewById<View>(android.R.id.content)
+            ?.let(::updatePauseButton)
     }
 
     override fun onDisplayAdded(displayId: Int) = attachToPreferredDisplay()
@@ -119,6 +126,7 @@ class OpenSwCockpitController(
 
     private fun configureCockpit(root: View) {
         root.findViewById<TextView>(R.id.cockpit_title).text = gameTitle
+        root.findViewById<TextView>(R.id.cockpit_context).text = titleId
         val performanceView = root.findViewById<View>(R.id.cockpit_performance_content)
         val cheatsView = root.findViewById<View>(R.id.cockpit_cheats_content)
         val sessionView = root.findViewById<View>(R.id.cockpit_session_content)
@@ -126,7 +134,8 @@ class OpenSwCockpitController(
             fragment = fragment,
             panel = performanceView,
             gameTitle = gameTitle,
-            titleId = titleId
+            titleId = titleId,
+            compact = true
         )
         performancePanel = performance
         val cheats = CheatPanelController(
@@ -135,7 +144,8 @@ class OpenSwCockpitController(
             quickSettings = sessionView,
             cheatsPanel = cheatsView,
             gameTitle = gameTitle,
-            resizeToDrawer = false
+            resizeToDrawer = false,
+            compact = true
         )
         cheatPanel = cheats
 
@@ -172,17 +182,26 @@ class OpenSwCockpitController(
         root.findViewById<MaterialButton>(R.id.cockpit_quick_settings).setOnClickListener {
             onQuickSettings()
         }
+        root.findViewById<MaterialButton>(R.id.cockpit_stop).setOnClickListener {
+            onStopEmulation()
+        }
+        updatePauseButton(root)
         performance.show()
     }
 
     private fun updatePauseButton(root: View) {
         val button = root.findViewById<MaterialButton>(R.id.cockpit_pause)
+        val state = root.findViewById<TextView>(R.id.cockpit_state)
         if (isPaused()) {
             button.setText(R.string.emulation_unpause)
             button.setIconResource(R.drawable.ic_play)
+            state.setText(R.string.cockpit_paused)
+            state.setTextColor(root.context.getColor(R.color.opensw_yellow))
         } else {
             button.setText(R.string.emulation_pause)
             button.setIconResource(R.drawable.ic_pause)
+            state.setText(R.string.cockpit_running)
+            state.setTextColor(root.context.getColor(R.color.opensw_mint))
         }
     }
 

@@ -1,1 +1,11 @@
-<?xml version='1.0' encoding='utf-8'?><resources><color name='ic_launcher_background'>#1F143C</color></resources>
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="ic_launcher_background">#101214</color>
+    <color name="opensw_ink">#101214</color>
+    <color name="opensw_surface">#202326</color>
+    <color name="opensw_paper">#F4F7F8</color>
+    <color name="opensw_cyan">#38BDE7</color>
+    <color name="opensw_mint">#55D6A5</color>
+    <color name="opensw_yellow">#F2C94C</color>
+    <color name="opensw_outline">#596168</color>
+</resources>

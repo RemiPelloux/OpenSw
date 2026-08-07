@@ -404,6 +404,7 @@ private:
 
 static void* ChooseVirtualBase(size_t virtual_size) {
     constexpr uintptr_t Map39BitSize = (1ULL << 39);
+    constexpr uintptr_t Map47BitSize = (1ULL << 47);
     constexpr uintptr_t Map36BitSize = (1ULL << 36);
 
     // This is not a cryptographic application, we just want something random.
@@ -411,8 +412,14 @@ static void* ChooseVirtualBase(size_t virtual_size) {
 
     // We want to ensure we are allocating at an address aligned to the L2 block size.
     // For Qualcomm devices, we must also allocate memory above 36 bits.
+    // NCE reserves 38 bits and keeps the established below-39-bit path. The non-NCE
+    // 39-bit arena includes alignment padding, so it must live in the wider userspace VA.
+    const uintptr_t address_limit = virtual_size > Map39BitSize ? Map47BitSize : Map39BitSize;
+    if (virtual_size >= address_limit - Map36BitSize) {
+        return MAP_FAILED;
+    }
     const size_t lower = Map36BitSize / HugePageSize;
-    const size_t upper = (Map39BitSize - virtual_size) / HugePageSize;
+    const size_t upper = (address_limit - virtual_size) / HugePageSize;
     const size_t range = upper - lower;
 
     // Try up to 64 times to allocate memory at random addresses in the range.

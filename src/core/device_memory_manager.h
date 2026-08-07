@@ -167,6 +167,16 @@ private:
                    auto increment);
 
     void InnerGatherDeviceAddresses(Common::ScratchBuffer<u32>& buffer, PAddr address);
+    void RemoveDevicePageMappingNoLock(size_t page_index);
+    void BreakContinuityBeforeNoLock(size_t page_index);
+
+    [[nodiscard]] bool IsDeviceRangeValid(DAddr address, size_t size) const {
+        return address <= device_as_size && size <= device_as_size - address;
+    }
+
+    [[nodiscard]] bool IsAsidValid(Asid asid) const {
+        return asid.id < registered_processes.size() && registered_processes[asid.id] != nullptr;
+    }
 
     std::unique_ptr<DeviceMemoryManagerAllocator<Traits>> impl;
 

@@ -26,7 +26,8 @@ class CheatPanelController(
     private val quickSettings: View,
     private val cheatsPanel: View,
     private val gameTitle: String,
-    private val resizeToDrawer: Boolean = true
+    private val resizeToDrawer: Boolean = true,
+    private val compact: Boolean = false
 ) {
     private val preferences = fragment.requireContext().getSharedPreferences(
         "opensw_cheat_states",
@@ -46,6 +47,10 @@ class CheatPanelController(
 
     init {
         title.text = gameTitle
+        if (compact) {
+            cheatsPanel.findViewById<View>(R.id.cheat_toolbar).visibility = View.GONE
+            title.visibility = View.GONE
+        }
         list.adapter = adapter
         search.doAfterTextChanged { applyFilter() }
         search.setOnEditorActionListener { view, actionId, _ ->

@@ -5,7 +5,9 @@ package org.yuzu.yuzu_emu.adapters
 
 import android.content.DialogInterface
 import android.text.Html
+import android.provider.Settings.Global
 import android.view.LayoutInflater
+import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.Toast
@@ -37,10 +39,11 @@ import androidx.core.content.edit
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import org.yuzu.yuzu_emu.NativeLibrary
 import org.yuzu.yuzu_emu.databinding.CardGameGridCompactBinding
-import org.yuzu.yuzu_emu.features.settings.model.BooleanSetting
-import org.yuzu.yuzu_emu.features.settings.model.Settings
 
-class GameAdapter(private val activity: AppCompatActivity) :
+class GameAdapter(
+    private val activity: AppCompatActivity,
+    private val onGameFocused: (Game?) -> Unit = {}
+) :
     AbstractDiffAdapter<Game, GameAdapter.GameViewHolder>(exact = false) {
 
     companion object {
@@ -48,13 +51,16 @@ class GameAdapter(private val activity: AppCompatActivity) :
         const val VIEW_TYPE_GRID_COMPACT = 1
         const val VIEW_TYPE_LIST = 2
         const val VIEW_TYPE_CAROUSEL = 3
+        private const val CARD_SIZE_PAYLOAD = "card-size"
+        private val TITLE_WHITESPACE = Regex("[\\t\\n\\r]+")
+
+        private fun cleanTitle(title: String): String = title.replace(TITLE_WHITESPACE, " ")
     }
 
     private var viewType = 0
 
     fun setViewType(type: Int) {
         viewType = type
-        notifyDataSetChanged()
     }
 
     public var cardSize: Int = 0
@@ -63,7 +69,7 @@ class GameAdapter(private val activity: AppCompatActivity) :
     fun setCardSize(size: Int) {
         if (cardSize != size && size > 0) {
             cardSize = size
-            notifyDataSetChanged()
+            notifyItemRangeChanged(0, itemCount, CARD_SIZE_PAYLOAD)
         }
     }
 
@@ -142,10 +148,40 @@ class GameAdapter(private val activity: AppCompatActivity) :
         return GameViewHolder(binding, viewType)
     }
 
+    override fun onViewRecycled(holder: GameViewHolder) {
+        holder.recycle()
+        super.onViewRecycled(holder)
+    }
+
+    private fun bindInteraction(card: View, model: Game) {
+        card.setOnClickListener { launchGame(model, card) }
+        card.setOnLongClickListener {
+            val action = HomeNavigationDirections.actionGlobalPerGamePropertiesFragment(model)
+            card.findNavController().navigate(action)
+            true
+        }
+        card.setOnFocusChangeListener { view, focused ->
+            if (focused) onGameFocused(model)
+            val animationsEnabled = Global.getFloat(
+                view.context.contentResolver,
+                Global.ANIMATOR_DURATION_SCALE,
+                1f
+            ) != 0f
+            view.animate().cancel()
+            if (animationsEnabled) {
+                view.animate().translationZ(if (focused) 8f else 0f).setDuration(140).start()
+            } else {
+                view.translationZ = if (focused) 8f else 0f
+            }
+        }
+    }
+
     inner class GameViewHolder(
         internal val binding: ViewBinding,
         private val viewType: Int
     ) : AbstractViewHolder<Game>(binding) {
+
+        private var iconRequest: coil.request.Disposable? = null
 
         override fun bind(model: Game) {
             when (viewType) {
@@ -160,14 +196,14 @@ class GameAdapter(private val activity: AppCompatActivity) :
             val listBinding = binding as CardGameListBinding
 
             listBinding.imageGameScreen.scaleType = ImageView.ScaleType.CENTER_CROP
-            GameIconUtils.loadGameIcon(model, listBinding.imageGameScreen)
+            iconRequest?.dispose()
+            iconRequest = GameIconUtils.loadGameIcon(model, listBinding.imageGameScreen)
 
-            listBinding.textGameTitle.text = model.title.replace("[\\t\\n\\r]+".toRegex(), " ")
+            listBinding.textGameTitle.text = cleanTitle(model.title)
             listBinding.textGameDeveloper.text = model.developer
 
             listBinding.textGameTitle.marquee()
-            listBinding.cardGameList.setOnClickListener { onClick(model) }
-            listBinding.cardGameList.setOnLongClickListener { onLongClick(model) }
+            bindInteraction(listBinding.cardGameList, model)
 
             // Reset layout params to XML defaults
             listBinding.root.layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
@@ -178,13 +214,12 @@ class GameAdapter(private val activity: AppCompatActivity) :
             val gridBinding = binding as CardGameGridBinding
 
             gridBinding.imageGameScreen.scaleType = ImageView.ScaleType.CENTER_CROP
-            GameIconUtils.loadGameIcon(model, gridBinding.imageGameScreen)
+            iconRequest?.dispose()
+            iconRequest = GameIconUtils.loadGameIcon(model, gridBinding.imageGameScreen)
 
-            gridBinding.textGameTitle.text = model.title.replace("[\\t\\n\\r]+".toRegex(), " ")
+            gridBinding.textGameTitle.text = cleanTitle(model.title)
 
-            gridBinding.textGameTitle.marquee()
-            gridBinding.cardGameGrid.setOnClickListener { onClick(model) }
-            gridBinding.cardGameGrid.setOnLongClickListener { onLongClick(model) }
+            bindInteraction(gridBinding.cardGameGrid, model)
 
             // Reset layout params to XML defaults
             gridBinding.root.layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
@@ -195,13 +230,15 @@ class GameAdapter(private val activity: AppCompatActivity) :
             val gridCompactBinding = binding as CardGameGridCompactBinding
 
             gridCompactBinding.imageGameScreenCompact.scaleType = ImageView.ScaleType.CENTER_CROP
-            GameIconUtils.loadGameIcon(model, gridCompactBinding.imageGameScreenCompact)
+            iconRequest?.dispose()
+            iconRequest = GameIconUtils.loadGameIcon(
+                model,
+                gridCompactBinding.imageGameScreenCompact
+            )
 
-            gridCompactBinding.textGameTitleCompact.text = model.title.replace("[\\t\\n\\r]+".toRegex(), " ")
+            gridCompactBinding.textGameTitleCompact.text = cleanTitle(model.title)
 
-            gridCompactBinding.textGameTitleCompact.marquee()
-            gridCompactBinding.cardGameGridCompact.setOnClickListener { onClick(model) }
-            gridCompactBinding.cardGameGridCompact.setOnLongClickListener { onLongClick(model) }
+            bindInteraction(gridCompactBinding.cardGameGridCompact, model)
 
             // Reset layout params to XML defaults (same as normal grid)
             gridCompactBinding.root.layoutParams.width = ViewGroup.LayoutParams.MATCH_PARENT
@@ -212,12 +249,11 @@ class GameAdapter(private val activity: AppCompatActivity) :
             val carouselBinding = binding as CardGameCarouselBinding
 
             carouselBinding.imageGameScreen.scaleType = ImageView.ScaleType.CENTER_CROP
-            GameIconUtils.loadGameIcon(model, carouselBinding.imageGameScreen)
+            iconRequest?.dispose()
+            iconRequest = GameIconUtils.loadGameIcon(model, carouselBinding.imageGameScreen)
 
-            carouselBinding.textGameTitle.text = model.title.replace("[\\t\\n\\r]+".toRegex(), " ")
-            carouselBinding.textGameTitle.marquee()
-            carouselBinding.cardGameCarousel.setOnClickListener { onClick(model) }
-            carouselBinding.cardGameCarousel.setOnLongClickListener { onLongClick(model) }
+            carouselBinding.textGameTitle.text = cleanTitle(model.title)
+            bindInteraction(carouselBinding.cardGameCarousel, model)
 
             carouselBinding.imageGameScreen.contentDescription =
                 binding.root.context.getString(R.string.game_image_desc, model.title)
@@ -226,75 +262,60 @@ class GameAdapter(private val activity: AppCompatActivity) :
             carouselBinding.root.layoutParams.width = cardSize
         }
 
-        fun onClick(game: Game) {
-            val gameExists = DocumentFile.fromSingleUri(
+        fun recycle() {
+            iconRequest?.dispose()
+            iconRequest = null
+        }
+    }
+
+    fun launchGame(game: Game, anchor: View) {
+        val gameExists = DocumentFile.fromSingleUri(
+            YuzuApplication.appContext,
+            game.path.toUri()
+        )?.exists() == true
+        if (!gameExists) {
+            Toast.makeText(
                 YuzuApplication.appContext,
-                game.path.toUri()
-            )?.exists() == true
-
-            if (!gameExists) {
-                Toast.makeText(
-                    YuzuApplication.appContext,
-                    R.string.loader_error_file_not_found,
-                    Toast.LENGTH_LONG
-                ).show()
-
-                ViewModelProvider(activity)[GamesViewModel::class.java].reloadGames(true)
-                return
-            }
-
-            val launch: () -> Unit = {
-                val preferences =
-                    PreferenceManager.getDefaultSharedPreferences(YuzuApplication.appContext)
-                preferences.edit {
-                    putLong(
-                        game.keyLastPlayedTime,
-                        System.currentTimeMillis()
-                    )
-                }
-
-                activity.lifecycleScope.launch {
-                    withContext(Dispatchers.IO) {
-                        val shortcut =
-                            ShortcutInfoCompat.Builder(YuzuApplication.appContext, game.path)
-                                .setShortLabel(game.title)
-                                .setIcon(GameIconUtils.getShortcutIcon(activity, game))
-                                .setIntent(game.launchIntent)
-                                .build()
-                        ShortcutManagerCompat.pushDynamicShortcut(
-                            YuzuApplication.appContext,
-                            shortcut
-                        )
-                    }
-                }
-
-                val action = HomeNavigationDirections.actionGlobalEmulationActivity(game, true)
-                binding.root.findNavController().navigate(action)
-            }
-
-            if (NativeLibrary.gameRequiresFirmware(game.programId) && !NativeLibrary.isFirmwareAvailable()) {
-                MaterialAlertDialogBuilder(activity)
-                    .setTitle(R.string.loader_requires_firmware)
-                    .setMessage(
-                        Html.fromHtml(
-                            activity.getString(R.string.loader_requires_firmware_description),
-                            Html.FROM_HTML_MODE_LEGACY
-                        )
-                    )
-                    .setPositiveButton(android.R.string.ok) { _: DialogInterface?, _: Int ->
-                        launch()
-                    }
-                    .setNegativeButton(android.R.string.cancel) { _, _ -> }
-                    .show()
-            } else {
-                launch()
-            }
+                R.string.loader_error_file_not_found,
+                Toast.LENGTH_LONG
+            ).show()
+            ViewModelProvider(activity)[GamesViewModel::class.java].reloadGames(true)
+            return
         }
 
-        fun onLongClick(game: Game): Boolean {
-            val action = HomeNavigationDirections.actionGlobalPerGamePropertiesFragment(game)
-            binding.root.findNavController().navigate(action)
-            return true
+        val launch = {
+            PreferenceManager.getDefaultSharedPreferences(YuzuApplication.appContext).edit {
+                putLong(game.keyLastPlayedTime, System.currentTimeMillis())
+            }
+            activity.lifecycleScope.launch {
+                withContext(Dispatchers.IO) {
+                    val shortcut = ShortcutInfoCompat.Builder(YuzuApplication.appContext, game.path)
+                        .setShortLabel(game.title)
+                        .setIcon(GameIconUtils.getShortcutIcon(activity, game))
+                        .setIntent(game.launchIntent)
+                        .build()
+                    ShortcutManagerCompat.pushDynamicShortcut(YuzuApplication.appContext, shortcut)
+                }
+            }
+            anchor.findNavController().navigate(
+                HomeNavigationDirections.actionGlobalEmulationActivity(game, true)
+            )
+        }
+
+        if (NativeLibrary.gameRequiresFirmware(game.programId) && !NativeLibrary.isFirmwareAvailable()) {
+            MaterialAlertDialogBuilder(activity)
+                .setTitle(R.string.loader_requires_firmware)
+                .setMessage(
+                    Html.fromHtml(
+                        activity.getString(R.string.loader_requires_firmware_description),
+                        Html.FROM_HTML_MODE_LEGACY
+                    )
+                )
+                .setPositiveButton(android.R.string.ok) { _: DialogInterface?, _: Int -> launch() }
+                .setNegativeButton(android.R.string.cancel) { _, _ -> }
+                .show()
+        } else {
+            launch()
         }
     }
 }
