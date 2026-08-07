@@ -1,252 +1,377 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fillViewport="true">
+    android:orientation="vertical">
 
-    <LinearLayout
+    <ScrollView
+        android:id="@+id/performance_scroll"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:paddingHorizontal="20dp"
-        android:paddingTop="16dp"
-        android:paddingBottom="24dp">
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true">
 
         <LinearLayout
-            android:id="@+id/performance_brand_rail"
-            android:layout_width="match_parent"
-            android:layout_height="3dp"
-            android:orientation="horizontal">
-
-            <View android:layout_width="0dp" android:layout_height="match_parent"
-                android:layout_weight="3" android:background="@color/opensw_cyan" />
-            <View android:layout_width="0dp" android:layout_height="match_parent"
-                android:layout_marginStart="4dp" android:layout_weight="1"
-                android:background="@color/opensw_mint" />
-            <View android:layout_width="0dp" android:layout_height="match_parent"
-                android:layout_marginStart="4dp" android:layout_weight="1"
-                android:background="@color/opensw_yellow" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/performance_heading"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:fontFamily="sans-serif-condensed"
-            android:letterSpacing="0"
-            android:text="@string/performance_lab"
-            android:textAppearance="?attr/textAppearanceHeadlineSmall"
-            android:textColor="?attr/colorOnSurface" />
-
-        <TextView
-            android:id="@+id/performance_game_title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="2dp"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textAppearance="?attr/textAppearanceTitleMedium"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            tools:text="Pokemon Legends: Arceus" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView
-                android:id="@+id/performance_status"
-                style="@style/OpenSwDataText"
-                android:layout_width="wrap_content"
-                android:layout_height="32dp"
-                android:gravity="center_vertical"
-                android:text="@string/performance_health_waiting"
-                android:textColor="@color/opensw_outline" />
-
-            <TextView
-                android:id="@+id/performance_context"
-                style="@style/OpenSwDataText"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_marginStart="16dp"
-                android:layout_weight="1"
-                android:ellipsize="end"
-                android:gravity="end"
-                android:maxLines="1"
-                android:textColor="@color/opensw_cyan"
-                tools:text="01001F5010DFA000 · Thor 60 stable" />
-        </LinearLayout>
-
-        <TextView
-            android:id="@+id/performance_config"
-            style="@style/OpenSwDataText"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:ellipsize="end"
-            android:gravity="end"
-            android:maxLines="1"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            tools:text="6 workers · écran auto · async" />
-
-        <TextView
-            android:id="@+id/performance_warning"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:background="@color/eden_card_background_elevated"
-            android:padding="10dp"
-            android:textColor="@color/opensw_yellow"
-            android:visibility="gone"
-            tools:text="Thermal pressure is high. Thor Balanced is recommended."
-            tools:visibility="visible" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="104dp"
-            android:layout_marginTop="12dp"
-            android:baselineAligned="false"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:gravity="center_vertical"
-                android:orientation="vertical">
-
-                <TextView android:id="@+id/performance_fps"
-                    style="@style/OpenSwPerformancePrimaryValue"
-                    android:textColor="@color/opensw_cyan" tools:text="59.9" />
-                <TextView style="@style/OpenSwPerformancePrimaryLabel"
-                    android:text="@string/performance_fps_label" />
-            </LinearLayout>
-
-            <View android:layout_width="1dp" android:layout_height="64dp"
-                android:background="@color/opensw_outline" />
-
-            <LinearLayout
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:gravity="center_vertical|end"
-                android:orientation="vertical">
-
-                <TextView android:id="@+id/performance_frametime"
-                    style="@style/OpenSwPerformancePrimaryValue"
-                    android:gravity="end" tools:text="18.4" />
-                <TextView style="@style/OpenSwPerformancePrimaryLabel"
-                    android:gravity="end" android:text="@string/performance_p95_label" />
-            </LinearLayout>
-        </LinearLayout>
-
-        <org.yuzu.yuzu_emu.features.performance.FrameTimeGraphView
-            android:id="@+id/performance_graph"
-            android:layout_width="match_parent"
-            android:layout_height="104dp"
-            android:background="@color/opensw_surface"
-            android:paddingHorizontal="8dp"
-            android:paddingVertical="8dp" />
-
-        <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="28dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal">
-
-            <TextView style="@style/OpenSwDataText"
-                android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="1" android:text="@string/performance_graph_60fps_guide"
-                android:textColor="@color/opensw_cyan" />
-            <TextView style="@style/OpenSwDataText"
-                android:layout_width="wrap_content" android:layout_height="wrap_content"
-                android:text="@string/performance_graph_30fps_guide"
-                android:textColor="@color/opensw_yellow" />
-        </LinearLayout>
-
-        <View android:layout_width="match_parent" android:layout_height="1dp"
-            android:background="@color/opensw_outline" />
-
-        <GridLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:columnCount="2"
-            android:rowCount="2">
-
-            <TextView android:id="@+id/performance_speed" style="@style/OpenSwPerformanceMetric"
-                android:layout_width="0dp" android:layout_columnWeight="1"
-                tools:text="Vitesse 100.0%" />
-            <TextView android:id="@+id/performance_shaders" style="@style/OpenSwPerformanceMetric"
-                android:layout_width="0dp" android:layout_columnWeight="1"
-                android:gravity="center_vertical|end" tools:text="Shaders prêts" />
-            <TextView android:id="@+id/performance_memory" style="@style/OpenSwPerformanceMetric"
-                android:layout_width="0dp" android:layout_columnWeight="1"
-                tools:text="4 821 Mo OpenSw" />
-            <TextView android:id="@+id/performance_power" style="@style/OpenSwPerformanceMetric"
-                android:layout_width="0dp" android:layout_columnWeight="1"
-                android:gravity="center_vertical|end" tools:text="54.0°C · 2.8 A · 78%" />
-        </GridLayout>
-
-        <LinearLayout
-            android:id="@+id/performance_pipeline_group"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:visibility="gone"
-            tools:visibility="visible">
+            android:paddingHorizontal="20dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="12dp">
 
-            <View android:layout_width="match_parent" android:layout_height="1dp"
-                android:background="@color/opensw_outline" />
-            <TextView style="@style/OpenSwPerformanceSectionLabel"
-                android:text="@string/performance_pipeline_heading" />
-            <TextView android:id="@+id/performance_pipeline_cache" style="@style/OpenSwDataText"
-                android:layout_width="match_parent" android:layout_height="36dp"
-                android:gravity="center_vertical" tools:text="96% cache · 18 builds · queue 3" />
-            <TextView android:id="@+id/performance_pipeline_wait" style="@style/OpenSwDataText"
-                android:layout_width="match_parent" android:layout_height="36dp"
-                android:gravity="center_vertical" tools:text="2 waits · 4.8 ms · 1 small draw" />
-            <TextView android:id="@+id/performance_pipeline_phases" style="@style/OpenSwDataText"
-                android:layout_width="match_parent" android:layout_height="wrap_content"
-                android:gravity="center_vertical" android:minHeight="36dp"
+            <LinearLayout
+                android:id="@+id/performance_brand_rail"
+                android:layout_width="match_parent"
+                android:layout_height="3dp"
+                android:orientation="horizontal">
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="3"
+                    android:background="@color/opensw_cyan" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:background="@color/opensw_mint" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_marginStart="4dp"
+                    android:layout_weight="1"
+                    android:background="@color/opensw_yellow" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/performance_heading"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:fontFamily="sans-serif-condensed"
+                android:letterSpacing="0"
+                android:text="@string/performance_lab"
+                android:textAppearance="?attr/textAppearanceHeadlineSmall"
+                android:textColor="?attr/colorOnSurface" />
+
+            <TextView
+                android:id="@+id/performance_game_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textAppearance="?attr/textAppearanceTitleMedium"
                 android:textColor="?attr/colorOnSurfaceVariant"
-                tools:text="Maxwell 2.1 · SPIR-V 3.7 · module 1.2 · Vulkan 8.4 ms" />
-        </LinearLayout>
+                tools:text="Pokemon Legends: Arceus" />
 
-        <LinearLayout
-            android:layout_width="match_parent"
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/performance_status"
+                    style="@style/OpenSwDataText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:gravity="center_vertical"
+                    android:text="@string/performance_health_waiting"
+                    android:textColor="@color/opensw_outline" />
+
+                <TextView
+                    android:id="@+id/performance_context"
+                    style="@style/OpenSwDataText"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="16dp"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:gravity="end"
+                    android:maxLines="1"
+                    android:textColor="@color/opensw_cyan"
+                    tools:text="01001F5010DFA000 · Thor 60 stable" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/performance_config"
+                style="@style/OpenSwDataText"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:gravity="end"
+                android:maxLines="1"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                tools:text="6 workers · screen auto · async" />
+
+            <com.google.android.material.button.MaterialButtonToggleGroup
+                android:id="@+id/performance_mode_toggle"
+                android:layout_width="match_parent"
+                android:layout_height="44dp"
+                android:layout_marginTop="10dp"
+                app:checkedButton="@id/performance_mode_direct"
+                app:selectionRequired="true"
+                app:singleSelection="true">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/performance_mode_direct"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:nextFocusDown="@id/performance_capture"
+                    android:text="@string/performance_view_direct"
+                    android:textAllCaps="false" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/performance_mode_details"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:nextFocusDown="@id/performance_capture"
+                    android:text="@string/performance_view_details"
+                    android:textAllCaps="false" />
+            </com.google.android.material.button.MaterialButtonToggleGroup>
+
+            <LinearLayout
+                android:id="@+id/performance_direct_group"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/performance_warning"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:background="@color/eden_card_background_elevated"
+                    android:padding="10dp"
+                    android:textColor="@color/opensw_yellow"
+                    android:visibility="gone"
+                    tools:text="Thermal pressure is high."
+                    tools:visibility="visible" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="88dp"
+                    android:baselineAligned="false"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:gravity="center_vertical"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/performance_fps"
+                            style="@style/OpenSwPerformancePrimaryValue"
+                            android:textColor="@color/opensw_cyan"
+                            tools:text="59.9" />
+
+                        <TextView
+                            style="@style/OpenSwPerformancePrimaryLabel"
+                            android:text="@string/performance_fps_label" />
+                    </LinearLayout>
+
+                    <View
+                        android:layout_width="1dp"
+                        android:layout_height="56dp"
+                        android:background="@color/opensw_outline" />
+
+                    <LinearLayout
+                        android:layout_width="0dp"
+                        android:layout_height="match_parent"
+                        android:layout_weight="1"
+                        android:gravity="center_vertical|end"
+                        android:orientation="vertical">
+
+                        <TextView
+                            android:id="@+id/performance_frametime"
+                            style="@style/OpenSwPerformancePrimaryValue"
+                            android:gravity="end"
+                            tools:text="18.4" />
+
+                        <TextView
+                            style="@style/OpenSwPerformancePrimaryLabel"
+                            android:gravity="end"
+                            android:text="@string/performance_p95_label" />
+                    </LinearLayout>
+                </LinearLayout>
+
+                <org.yuzu.yuzu_emu.features.performance.FrameTimeGraphView
+                    android:id="@+id/performance_graph"
+                    android:layout_width="match_parent"
+                    android:layout_height="80dp"
+                    android:background="@color/opensw_surface"
+                    android:paddingHorizontal="8dp"
+                    android:paddingVertical="8dp" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="24dp"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        style="@style/OpenSwDataText"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="@string/performance_graph_60fps_guide"
+                        android:textColor="@color/opensw_cyan" />
+
+                    <TextView
+                        style="@style/OpenSwDataText"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="@string/performance_graph_30fps_guide"
+                        android:textColor="@color/opensw_yellow" />
+                </LinearLayout>
+
+                <GridLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:columnCount="2"
+                    android:rowCount="2">
+
+                    <TextView
+                        android:id="@+id/performance_speed"
+                        style="@style/OpenSwPerformanceMetric"
+                        android:layout_width="0dp"
+                        android:layout_columnWeight="1"
+                        tools:text="Speed 100.0%" />
+
+                    <TextView
+                        android:id="@+id/performance_power"
+                        style="@style/OpenSwPerformanceMetric"
+                        android:layout_width="0dp"
+                        android:layout_columnWeight="1"
+                        android:gravity="center_vertical|end"
+                        tools:text="54.0°C · 2.8 A · 78%" />
+
+                    <TextView
+                        android:id="@+id/performance_shaders"
+                        style="@style/OpenSwPerformanceMetric"
+                        android:layout_width="0dp"
+                        android:layout_columnWeight="1"
+                        tools:text="Shaders ready" />
+
+                    <TextView
+                        android:id="@+id/performance_memory"
+                        style="@style/OpenSwPerformanceMetric"
+                        android:layout_width="0dp"
+                        android:layout_columnWeight="1"
+                        android:gravity="center_vertical|end"
+                        tools:text="4 821 MB OpenSw" />
+                </GridLayout>
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/performance_pipeline_group"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:visibility="gone"
+                tools:visibility="visible">
+
+                <TextView
+                    style="@style/OpenSwPerformanceSectionLabel"
+                    android:text="@string/performance_pipeline_heading" />
+
+                <TextView
+                    android:id="@+id/performance_pipeline_empty"
+                    style="@style/OpenSwDataText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="48dp"
+                    android:gravity="center_vertical"
+                    android:text="@string/performance_profile_waiting"
+                    android:textColor="?attr/colorOnSurfaceVariant" />
+
+                <TextView
+                    android:id="@+id/performance_pipeline_cache"
+                    style="@style/OpenSwDataText"
+                    android:layout_width="match_parent"
+                    android:layout_height="40dp"
+                    android:gravity="center_vertical"
+                    tools:text="96% cache · 18 builds · queue 3" />
+
+                <TextView
+                    android:id="@+id/performance_pipeline_wait"
+                    style="@style/OpenSwDataText"
+                    android:layout_width="match_parent"
+                    android:layout_height="40dp"
+                    android:gravity="center_vertical"
+                    tools:text="2 waits · 4.8 ms · 1 small draw" />
+
+                <TextView
+                    android:id="@+id/performance_pipeline_phases"
+                    style="@style/OpenSwDataText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="40dp"
+                    android:gravity="center_vertical"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    tools:text="Maxwell 2.1 · SPIR-V 3.7 · module 1.2 · Vulkan 8.4 ms" />
+
+                <TextView
+                    android:id="@+id/performance_presentation"
+                    style="@style/OpenSwDataText"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:minHeight="40dp"
+                    android:gravity="center_vertical"
+                    android:textColor="?attr/colorOnSurfaceVariant"
+                    tools:text="Present queue 2 · free 3.1 · scheduler 1.4 · acquire 2.0 · present 0.8 ms" />
+            </LinearLayout>
+        </LinearLayout>
+    </ScrollView>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="68dp"
+        android:background="?attr/colorSurface"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="20dp"
+        android:paddingVertical="8dp">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/performance_capture"
+            style="@style/Widget.Material3.Button"
+            android:layout_width="0dp"
             android:layout_height="52dp"
-            android:layout_marginTop="12dp"
-            android:orientation="horizontal">
+            android:layout_weight="1"
+            android:nextFocusUp="@id/performance_mode_direct"
+            android:nextFocusRight="@id/performance_share"
+            android:text="@string/performance_capture_start"
+            android:textAllCaps="false"
+            app:cornerRadius="6dp"
+            app:icon="@drawable/ic_frames" />
 
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/performance_capture"
-                style="@style/Widget.Material3.Button"
-                android:layout_width="0dp"
-                android:layout_height="match_parent"
-                android:layout_weight="1"
-                android:nextFocusRight="@id/performance_share"
-                android:text="@string/performance_capture_start"
-                android:textAllCaps="false"
-                app:cornerRadius="6dp"
-                app:icon="@drawable/ic_frames" />
-
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/performance_share"
-                style="@style/Widget.Material3.Button.OutlinedButton"
-                android:layout_width="52dp"
-                android:layout_height="match_parent"
-                android:layout_marginStart="8dp"
-                android:contentDescription="@string/performance_share_report"
-                android:nextFocusLeft="@id/performance_capture"
-                android:text=""
-                app:cornerRadius="6dp"
-                app:icon="@drawable/ic_share"
-                app:iconPadding="0dp" />
-        </LinearLayout>
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/performance_share"
+            style="@style/Widget.Material3.Button.OutlinedButton"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:layout_marginStart="8dp"
+            android:contentDescription="@string/performance_share_report"
+            android:nextFocusLeft="@id/performance_capture"
+            android:nextFocusUp="@id/performance_mode_details"
+            android:text=""
+            app:cornerRadius="6dp"
+            app:icon="@drawable/ic_share"
+            app:iconPadding="0dp" />
     </LinearLayout>
-</ScrollView>
+</LinearLayout>

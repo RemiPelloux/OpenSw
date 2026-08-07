@@ -1543,7 +1543,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
     override fun onDestroyView() {
         if (this::cockpitController.isInitialized) cockpitController.stop()
-        PerformanceSampler.stopAll()
+        PerformanceSampler.releaseUiConsumers()
         super.onDestroyView()
         amiiboLoadJob?.cancel()
         amiiboLoadJob = null

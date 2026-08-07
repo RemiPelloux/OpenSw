@@ -36,7 +36,8 @@ class EmuWindow_Android final : public Core::Frontend::EmuWindow {
 
 public:
     EmuWindow_Android(ANativeWindow* surface,
-                      std::shared_ptr<Common::DynamicLibrary> driver_library);
+                      std::shared_ptr<Common::DynamicLibrary> driver_library,
+                      std::uint64_t session_generation = 0);
 
     ~EmuWindow_Android() = default;
 
@@ -67,6 +68,7 @@ private:
     float m_window_height{};
 
     std::shared_ptr<Common::DynamicLibrary> m_driver_library;
+    std::uint64_t m_session_generation{};
 
     bool m_first_frame = false;
     float m_last_frame_rate_hint = -1.0f;

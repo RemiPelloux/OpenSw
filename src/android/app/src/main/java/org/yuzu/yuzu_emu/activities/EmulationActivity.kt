@@ -51,6 +51,7 @@ import org.yuzu.yuzu_emu.YuzuApplication
 import org.yuzu.yuzu_emu.databinding.ActivityEmulationBinding
 import org.yuzu.yuzu_emu.dialogs.NetPlayDialog
 import org.yuzu.yuzu_emu.features.input.NativeInput
+import org.yuzu.yuzu_emu.features.performance.PerformanceSampler
 import org.yuzu.yuzu_emu.features.settings.model.BooleanSetting
 import org.yuzu.yuzu_emu.features.settings.model.IntSetting
 import org.yuzu.yuzu_emu.features.settings.model.Settings
@@ -99,6 +100,8 @@ class EmulationActivity : AppCompatActivity(), SensorEventListener, InputManager
     private var romSwapThreadStopped = false
     private var romSwapGeneration = 0
     private var hasEmulationSession = processHasEmulationSession
+    private var activeNativeGeneration = processNativeGeneration
+    private var lastStoppedNativeGeneration = processLastStoppedNativeGeneration
     private val romSwapStopTimeoutRunnable = Runnable { onRomSwapStopTimeout() }
 
     private fun onRomSwapStopTimeout() {
@@ -760,25 +763,39 @@ class EmulationActivity : AppCompatActivity(), SensorEventListener, InputManager
         return super.dispatchTouchEvent(event)
     }
 
-    fun onEmulationStarted() {
+    fun onEmulationStarted(generation: Long) {
         if (Looper.myLooper() != Looper.getMainLooper()) {
-            mainHandler.post { onEmulationStarted() }
+            mainHandler.post { onEmulationStarted(generation) }
             return
         }
+        if (generation <= lastStoppedNativeGeneration || generation < activeNativeGeneration) return
+        if (generation == activeNativeGeneration && hasEmulationSession) return
+        activeNativeGeneration = generation
+        processNativeGeneration = generation
         hasEmulationSession = true
         processHasEmulationSession = true
         emulationViewModel.setEmulationStarted(true)
         emulationViewModel.setIsEmulationStopping(false)
         emulationViewModel.setEmulationStopped(false)
         NativeLibrary.playTimeManagerStart()
-
     }
 
-    fun onEmulationStopped(status: Int) {
+    fun onEmulationStopped(status: Int, generation: Long) {
         if (Looper.myLooper() != Looper.getMainLooper()) {
-            mainHandler.post { onEmulationStopped(status) }
+            mainHandler.post { onEmulationStopped(status, generation) }
             return
         }
+        if (
+            generation != activeNativeGeneration ||
+            generation <= lastStoppedNativeGeneration
+        ) {
+            return
+        }
+        lastStoppedNativeGeneration = generation
+        activeNativeGeneration = 0L
+        processLastStoppedNativeGeneration = generation
+        processNativeGeneration = 0L
+        PerformanceSampler.endSession(applicationContext, "emulation_stopped")
         hasEmulationSession = false
         processHasEmulationSession = false
         if (isWaitingForRomSwapStop) {
@@ -803,6 +820,7 @@ class EmulationActivity : AppCompatActivity(), SensorEventListener, InputManager
             mainHandler.post { onProgramChanged(programIndex) }
             return
         }
+        PerformanceSampler.invalidateCapture("title_id_changed")
         emulationViewModel.setProgramChanged(programIndex)
     }
 
@@ -827,10 +845,18 @@ class EmulationActivity : AppCompatActivity(), SensorEventListener, InputManager
         const val EXTRA_SELECTED_GAME = "SelectedGame"
         const val EXTRA_OVERLAY_GAMELESS_EDIT_MODE = "overlayGamelessEditMode"
         private const val ROM_SWAP_STOP_TIMEOUT_MS = 5000L
+
         @Volatile
         private var processHasEmulationSession = false
+
         @Volatile
         private var processSessionGame: Game? = null
+
+        @Volatile
+        private var processNativeGeneration = 0L
+
+        @Volatile
+        private var processLastStoppedNativeGeneration = 0L
 
         fun stopForegroundService(activity: Activity) {
             val startIntent = Intent(activity, ForegroundService::class.java)

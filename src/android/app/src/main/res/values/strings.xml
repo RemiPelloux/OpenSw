@@ -1933,10 +1933,14 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
     <string name="performance_pipeline_cache_format">%1$.0f%% cache · %2$d builds · queue %3$d</string>
     <string name="performance_pipeline_wait_format">%1$d waits · %2$.1f ms · %3$d small draws</string>
     <string name="performance_pipeline_phases_format">Maxwell %1$.1f · SPIR-V %2$.1f · module %3$.1f · Vulkan %4$.1f ms</string>
+    <string name="performance_presentation_format">Present queue %1$d · free %2$.1f · scheduler %3$.1f · acquire %4$.1f · present %5$.1f ms</string>
+    <string name="performance_view_direct">Direct</string>
+    <string name="performance_view_details">Details</string>
+    <string name="performance_profile_waiting">Waiting for Profile counters from the active game</string>
     <string name="performance_thermal_warning">Thermal pressure is high. Thor Balanced is recommended.</string>
     <string name="performance_speed_warning">Emulation speed has stayed below 95%%. Try Thor Balanced or review the game profile.</string>
-    <string name="performance_capture_start">Start A/B capture</string>
-    <string name="performance_capture_stop">Finish and save capture</string>
+    <string name="performance_capture_start">Start diagnostic capture</string>
+    <string name="performance_capture_stop">Finish and save diagnostic</string>
     <string name="performance_capture_saved">Performance report saved</string>
     <string name="performance_capture_empty">No performance samples were captured</string>
     <string name="performance_share_report">Share latest report</string>

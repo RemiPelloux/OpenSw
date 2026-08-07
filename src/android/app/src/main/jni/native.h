@@ -60,13 +60,14 @@ public:
 
     Common::Android::SoftwareKeyboard::AndroidKeyboard* SoftwareKeyboard();
 
-    static void OnEmulationStarted();
+    void OnEmulationStarted(u64 generation);
+    [[nodiscard]] u64 SessionGeneration() const;
 
     static u64 GetProgramId(JNIEnv* env, jstring jprogramId);
 
 private:
     static void LoadDiskCacheProgress(VideoCore::LoadCallbackStage stage, int progress, int max);
-    static void OnEmulationStopped(Core::SystemResultStatus result);
+    void OnEmulationStopped(Core::SystemResultStatus result, u64 generation);
     static void ChangeProgram(std::size_t program_index);
 
 private:
@@ -83,6 +84,7 @@ private:
     Core::SystemResultStatus m_load_result{Core::SystemResultStatus::ErrorNotInitialized};
     std::atomic<bool> m_is_running = false;
     std::atomic<bool> m_is_paused = false;
+    std::atomic<u64> m_session_generation = 0;
     Common::Android::SoftwareKeyboard::AndroidKeyboard* m_software_keyboard{};
     std::unique_ptr<FileSys::ManualContentProvider> m_manual_provider;
     int m_applet_id{1};

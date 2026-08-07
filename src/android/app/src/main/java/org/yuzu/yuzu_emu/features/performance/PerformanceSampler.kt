@@ -11,6 +11,7 @@ import android.content.IntentFilter
 import android.os.BatteryManager
 import android.os.Build
 import android.os.PowerManager
+import android.os.Process
 import android.os.SystemClock
 import android.system.Os
 import android.system.OsConstants
@@ -18,6 +19,7 @@ import androidx.core.content.ContextCompat
 import java.io.File
 import java.util.IdentityHashMap
 import java.util.Locale
+import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -36,11 +38,13 @@ import org.yuzu.yuzu_emu.BuildConfig
 import org.yuzu.yuzu_emu.features.settings.model.BooleanSetting
 import org.yuzu.yuzu_emu.features.settings.model.IntSetting
 import org.yuzu.yuzu_emu.utils.Log
+import org.yuzu.yuzu_emu.utils.OpenSwPerformanceModeManager
 import org.json.JSONArray
 import org.json.JSONObject
 
 data class PerformanceSnapshot(
     val timestampMs: Long = 0L,
+    val monotonicTimestampMs: Long = 0L,
     val fps: Double = 0.0,
     val systemFps: Double = 0.0,
     val frameTimeMs: Double = 0.0,
@@ -79,7 +83,12 @@ data class PipelineProfileSnapshot(
     val translationNs: Long,
     val spirvNs: Long,
     val shaderModuleNs: Long,
-    val vulkanPipelineNs: Long
+    val vulkanPipelineNs: Long,
+    val maxPresentQueueDepth: Long = 0L,
+    val freeFrameWaitNs: Long = 0L,
+    val schedulerWaitNs: Long = 0L,
+    val swapchainAcquireNs: Long = 0L,
+    val presentNs: Long = 0L
 ) {
     fun matches(titleId: String): Boolean {
         val normalized = titleId.uppercase(Locale.ROOT).filter(Char::isLetterOrDigit)
@@ -87,7 +96,9 @@ data class PipelineProfileSnapshot(
     }
 
     private val titleIdString: String
-        get() = java.lang.Long.toUnsignedString(titleId, 16).uppercase(Locale.ROOT).padStart(16, '0')
+        get() = java.lang.Long.toUnsignedString(titleId, 16)
+            .uppercase(Locale.ROOT)
+            .padStart(16, '0')
 
     companion object {
         fun from(values: LongArray): PipelineProfileSnapshot? {
@@ -104,7 +115,12 @@ data class PipelineProfileSnapshot(
                 translationNs = values[8],
                 spirvNs = values[9],
                 shaderModuleNs = values[10],
-                vulkanPipelineNs = values[11]
+                vulkanPipelineNs = values[11],
+                maxPresentQueueDepth = values.getOrElse(12) { 0L },
+                freeFrameWaitNs = values.getOrElse(13) { 0L },
+                schedulerWaitNs = values.getOrElse(14) { 0L },
+                swapchainAcquireNs = values.getOrElse(15) { 0L },
+                presentNs = values.getOrElse(16) { 0L }
             )
         }
     }
@@ -162,9 +178,11 @@ object PerformanceSampler {
     private val state = MutableStateFlow(PerformanceSnapshot())
     val snapshots: StateFlow<PerformanceSnapshot> = state.asStateFlow()
 
+    private val reportScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private var scope: CoroutineScope? = null
     private var samplingJob: Job? = null
     private var appContext: Context? = null
+
     @Volatile
     private var batteryState = BatteryState()
     private var batteryReceiverRegistered = false
@@ -173,7 +191,8 @@ object PerformanceSampler {
     private val thermalCondition = SustainedCondition(WARNING_DURATION_MS)
     private val performanceCondition = SustainedCondition(PERFORMANCE_WARNING_DURATION_MS)
     private val frameTimesMs = ArrayDeque<Double>(FRAME_WINDOW_SIZE)
-    private var capture: PerformanceCapture? = null
+    private var capture: PerformanceCaptureSession? = null
+    private var captureGeneration = 0L
 
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -219,8 +238,22 @@ object PerformanceSampler {
 
     @Synchronized
     fun stopAll() {
+        capture?.invalidate("sampler_stopped")
+        capture = null
+        captureGeneration++
         consumers.clear()
         stopSampling()
+    }
+
+    @Synchronized
+    fun releaseUiConsumers() {
+        consumers.keys.removeAll { it !== captureConsumer }
+        if (capture != null) {
+            consumers[captureConsumer] = PerformanceMetricRequirements.ALL
+            updateBatteryReceiver()
+        } else {
+            stopSampling()
+        }
     }
 
     private fun stopSampling() {
@@ -276,6 +309,7 @@ object PerformanceSampler {
 
             state.value = PerformanceSnapshot(
                 timestampMs = System.currentTimeMillis(),
+                monotonicTimestampMs = now,
                 systemFps = perf.getOrElse(0) { 0.0 },
                 fps = perf.getOrElse(1) { 0.0 },
                 frameTimeMs = frameTimeMs,
@@ -302,7 +336,10 @@ object PerformanceSampler {
                 }
             )
             synchronized(this@PerformanceSampler) {
-                capture?.samples?.add(state.value)
+                capture?.let { active ->
+                    val configuration = currentCaptureConfiguration(context, active.configuration)
+                    active.record(captureGeneration, configuration, state.value)
+                }
             }
             delay(if (requirements.needsFastSample) FAST_SAMPLE_MS else SLOW_SAMPLE_MS)
         }
@@ -315,24 +352,55 @@ object PerformanceSampler {
     fun startCapture(context: Context, titleId: String, mode: String) {
         if (capture != null) return
         acquire(context, captureConsumer)
-        capture = PerformanceCapture(
-            titleId = titleId.uppercase(Locale.ROOT).filter(Char::isLetterOrDigit),
-            mode = mode,
+        captureGeneration++
+        capture = PerformanceCaptureSession(
+            captureId = UUID.randomUUID().toString(),
+            generation = captureGeneration,
             startedAtMs = System.currentTimeMillis(),
-            pipelineWorkers = IntSetting.ANDROID_PIPELINE_WORKERS.getInt(false),
-            presentationRate = IntSetting.ANDROID_PRESENTATION_FRAME_RATE.getInt(false),
-            asyncPresentation = BooleanSetting.RENDERER_ASYNC_PRESENTATION.getBoolean(false)
+            startedAtMonotonicMs = SystemClock.elapsedRealtime(),
+            configuration = captureConfiguration(context, titleId, mode)
         )
     }
 
-    @Synchronized
     fun finishCapture(context: Context): File? {
-        val finished = capture ?: return null
-        capture = null
-        release(captureConsumer)
-        if (finished.samples.isEmpty()) return null
+        val finished = detachCapture() ?: return null
+        return writeDiagnosticReport(context, finished)
+    }
 
-        val summary = summarizeCapture(finished.samples)
+    fun endSession(context: Context, reason: String) {
+        val finished = detachCapture(reason) ?: return
+        val applicationContext = context.applicationContext
+        reportScope.launch {
+            writeDiagnosticReport(applicationContext, finished)
+        }
+    }
+
+    @Synchronized
+    fun invalidateCapture(reason: String) {
+        capture?.invalidate(reason)
+    }
+
+    private fun detachCapture(reason: String? = null): PerformanceCaptureSession? =
+        synchronized(this) {
+            val active = capture ?: return@synchronized null
+            reason?.let(active::invalidate)
+            active.finish(
+                captureGeneration,
+                System.currentTimeMillis(),
+                SystemClock.elapsedRealtime()
+            )
+            capture = null
+            captureGeneration++
+            consumers.remove(captureConsumer)
+            if (consumers.isEmpty()) stopSampling() else updateBatteryReceiver()
+            active
+        }
+
+    private fun writeDiagnosticReport(
+        context: Context,
+        finished: PerformanceCaptureSession
+    ): File? {
+        val summary = summarizeCapture(finished.samples, finished.configuration.titleId)
 
         val directory = File(context.filesDir, "reports")
         if (!directory.isDirectory && !directory.mkdirs()) return null
@@ -342,15 +410,27 @@ object PerformanceSampler {
             samples.put(
                 JSONObject()
                     .put("timestamp_ms", sample.timestampMs)
-                    .put("fps", sample.fps)
-                    .put("frametime_ms", sample.frameTimeMs)
-                    .put("frametime_p95_ms", sample.frameTimeP95Ms)
-                    .put("emulation_speed", sample.emulationSpeed)
+                    .put("monotonic_timestamp_ms", sample.monotonicTimestampMs)
+                    .put("fps", finiteMetricOrNull(sample.fps) ?: JSONObject.NULL)
+                    .put("frametime_ms", finiteMetricOrNull(sample.frameTimeMs) ?: JSONObject.NULL)
+                    .put(
+                        "frametime_p95_ms",
+                        finiteMetricOrNull(sample.frameTimeP95Ms) ?: JSONObject.NULL
+                    )
+                    .put(
+                        "emulation_speed",
+                        finiteMetricOrNull(sample.emulationSpeed) ?: JSONObject.NULL
+                    )
                     .put("rss_mb", sample.appRssMb)
                     .put("thermal_status", sample.thermalStatus)
-                    .put("battery_temperature_c", sample.batteryTemperatureC)
+                    .put(
+                        "battery_temperature_c",
+                        finiteMetricOrNull(sample.batteryTemperatureC) ?: JSONObject.NULL
+                    )
                     .apply {
-                        sample.pipelineProfile?.takeIf { it.matches(finished.titleId) }?.let { profile ->
+                        sample.pipelineProfile?.takeIf {
+                            it.matches(finished.configuration.titleId)
+                        }?.let { profile ->
                             put("pipeline_cache_hits", profile.cacheHits)
                             put("pipeline_cache_misses", profile.cacheMisses)
                             put("pipeline_compilations", profile.compilations)
@@ -362,36 +442,89 @@ object PerformanceSampler {
                             put("spirv_emit_ns", profile.spirvNs)
                             put("shader_module_ns", profile.shaderModuleNs)
                             put("vulkan_pipeline_ns", profile.vulkanPipelineNs)
+                            put("presentation_max_queue", profile.maxPresentQueueDepth)
+                            put("free_frame_wait_ns", profile.freeFrameWaitNs)
+                            put("scheduler_wait_ns", profile.schedulerWaitNs)
+                            put("swapchain_acquire_ns", profile.swapchainAcquireNs)
+                            put("present_ns", profile.presentNs)
                         }
                     }
             )
         }
+        val configuration = finished.configuration
         val report = JSONObject()
-            .put("format", "opensw-performance-v2")
-            .put("title_id", finished.titleId)
+            .put("format", "opensw-native-diagnostic-v1")
+            .put("measurement_source", "native_render_frame")
+            .put("promotion_eligible", false)
+            .put("capture_id", finished.captureId)
+            .put("generation", finished.generation)
+            .put("state", finished.state.name)
+            .put("invalidation_reason", finished.invalidationReason ?: JSONObject.NULL)
+            .put("title_id", configuration.titleId)
             .put("started_at_ms", finished.startedAtMs)
-            .put("finished_at_ms", System.currentTimeMillis())
-            .put("frametime_p50_ms", summary.frameTimeP50Ms)
-            .put("frametime_p95_ms", summary.frameTimeP95Ms)
-            .put("frametime_p99_ms", summary.frameTimeP99Ms)
-            .put("median_fps", summary.medianFps)
-            .put("frametime_sample_count", summary.sampleCount)
+            .put("started_at_monotonic_ms", finished.startedAtMonotonicMs)
+            .put("finished_at_ms", finished.finishedAtMs)
+            .put("finished_at_monotonic_ms", finished.finishedAtMonotonicMs)
+            .put("sample_count", summary.sampleCount)
             .put("max_rss_mb", summary.maxRssMb)
             .put("max_temperature_c", summary.maxTemperatureC)
+            .put("pipeline_summary", summary.pipeline?.toJson() ?: JSONObject.NULL)
             .put(
-                "scenario",
+                "configuration",
                 JSONObject()
-                    .put("mode", finished.mode)
-                    .put("pipeline_workers", finished.pipelineWorkers)
-                    .put("presentation_rate_hz", finished.presentationRate)
-                    .put("async_presentation", finished.asyncPresentation)
+                    .put("mode", configuration.mode)
+                    .put("pipeline_workers", configuration.pipelineWorkers)
+                    .put("presentation_rate_hz", configuration.presentationRate)
+                    .put("async_presentation", configuration.asyncPresentation)
+                    .put("pid", configuration.processId)
+                    .put("package_name", configuration.packageName)
+                    .put("apk_version", configuration.apkVersion)
                     .put("device", "${Build.MANUFACTURER} ${Build.MODEL}")
-                    .put("build", BuildConfig.VERSION_NAME)
             )
             .put("samples", samples)
         file.writeText(report.toString(2))
         return file
     }
+
+    private fun captureConfiguration(context: Context, titleId: String, mode: String) =
+        CaptureConfiguration(
+            titleId = titleId.uppercase(Locale.ROOT).filter(Char::isLetterOrDigit),
+            processId = Process.myPid(),
+            packageName = context.packageName,
+            apkVersion = BuildConfig.VERSION_NAME,
+            mode = mode,
+            pipelineWorkers = IntSetting.ANDROID_PIPELINE_WORKERS.getInt(false),
+            presentationRate = IntSetting.ANDROID_PRESENTATION_FRAME_RATE.getInt(false)
+                .takeIf { it in setOf(0, 30, 40, 60) } ?: 0,
+            asyncPresentation = BooleanSetting.RENDERER_ASYNC_PRESENTATION.getBoolean(false)
+        )
+
+    private fun currentCaptureConfiguration(
+        context: Context,
+        original: CaptureConfiguration
+    ) = captureConfiguration(
+        context,
+        original.titleId,
+        OpenSwPerformanceModeManager.getResolvedMode(context, original.titleId).name
+    )
+
+    private fun PipelineProfileSummary.toJson() = JSONObject()
+        .put("pipeline_max_queue", maxPipelineQueueDepth)
+        .put("presentation_max_queue", maxPresentQueueDepth)
+        .put("pipeline_cache_hits_delta", cacheHits)
+        .put("pipeline_cache_misses_delta", cacheMisses)
+        .put("pipeline_compilations_delta", compilations)
+        .put("pipeline_small_draw_waits_delta", smallDrawWaits)
+        .put("pipeline_waits_delta", pipelineWaits)
+        .put("pipeline_wait_ns_delta", pipelineWaitNs)
+        .put("maxwell_translate_ns_delta", translationNs)
+        .put("spirv_emit_ns_delta", spirvNs)
+        .put("shader_module_ns_delta", shaderModuleNs)
+        .put("vulkan_pipeline_ns_delta", vulkanPipelineNs)
+        .put("free_frame_wait_ns_delta", freeFrameWaitNs)
+        .put("scheduler_wait_ns_delta", schedulerWaitNs)
+        .put("swapchain_acquire_ns_delta", swapchainAcquireNs)
+        .put("present_ns_delta", presentNs)
 
     private suspend fun readSlowMetrics(
         context: Context,
@@ -509,15 +642,5 @@ object PerformanceSampler {
         val batteryCapacity: Int = 0,
         val charging: Boolean = false,
         val thermalStatus: Int = PowerManager.THERMAL_STATUS_NONE
-    )
-
-    private data class PerformanceCapture(
-        val titleId: String,
-        val mode: String,
-        val startedAtMs: Long,
-        val pipelineWorkers: Int,
-        val presentationRate: Int,
-        val asyncPresentation: Boolean,
-        val samples: MutableList<PerformanceSnapshot> = mutableListOf()
     )
 }

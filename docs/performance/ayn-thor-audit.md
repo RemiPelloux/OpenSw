@@ -21,7 +21,9 @@ La bibliothèque réelle, les insets paysage et la navigation D-pad ont été co
 | Tests `opensw-performance-v2` | vérifié | 8 tests Python réussis |
 | APK Release/Profile | vérifié sur l'hôte | chemins, identifiants et SHA-256 dans la section Livrables |
 | UI paysage Thor | vérifié sur appareil | bibliothèque réelle, barre compacte, focus D-pad et changement de sélection |
-| Captures UI multi-format | validation partielle | paysage Thor vérifié; portrait, thèmes et tailles de police restent à couvrir |
+| UI secondaire Thor | vérifié en Release | vues Performance/Session 1240x1080, pause/reprise, capture et partage sans collision |
+| 6 cycles courts Foretales | validation partielle | 6 launch/pause/resume/capture/stop/restart réussis; rotation physique non exécutée |
+| Captures UI multi-format | validation partielle | paysage Thor et écran secondaire vérifiés; portrait, thèmes et tailles de police restent à couvrir |
 | Runs A/B courts sur Thor | validation utilisateur en attente | cinq runs par variante requis |
 | Session longue Arceus 1.1.1 | **validation utilisateur en attente** | logs, trace et manifeste requis |
 | Monster Train 2 | non exécuté | uniquement s'il est déjà légalement disponible dans OpenSw |
@@ -35,6 +37,9 @@ La bibliothèque réelle, les insets paysage et la navigation D-pad ont été co
   remap, supprime le backing CPU obsolète et nettoie les mappings possédés avant réutilisation
   d'un ASID.
 - Le verrou de session JNI couvre les changements/destructions de surface et la capture GPU.
+- Chaque démarrage natif reçoit une génération monotone transmise aux callbacks Kotlin. Les callbacks
+  de démarrage ou d'arrêt qui ne correspondent plus à la session active sont ignorés après un
+  stop/restart.
 - L'arrêt Vulkan draine le scheduler et la présentation, arrête et joint le thread de présentation,
   puis exécute `vkDeviceWaitIdle` dans la séquence sérialisée.
 - L'arène HostMemory ARM64 non-NCE peut utiliser l'espace VA 47-bit pour la réservation 39-bit.
@@ -58,6 +63,10 @@ La bibliothèque réelle, les insets paysage et la navigation D-pad ont été co
   maximale de queue, demandes d'attente des petits draws, attentes réelles et durées cumulées de
   traduction Maxwell, émission SPIR-V, module shader et pipeline Vulkan. Les compteurs sont remis
   à zéro au chargement d'un Title ID et le log inclut cet identifiant.
+- Le snapshot JNI Profile conserve ses 12 champs historiques puis ajoute, dans cet ordre, la
+  profondeur maximale de queue de présentation, l'attente d'une frame libre, l'attente scheduler,
+  l'acquisition swapchain et la durée de présentation. Les durées sont cumulatives et les résumés
+  calculent des deltas début/fin; les profondeurs utilisent le maximum de la fenêtre.
 - Le nombre de workers, la présentation asynchrone, les shaders asynchrones et l'heuristique
   `<= 6` sont inchangés.
 
@@ -69,6 +78,13 @@ La bibliothèque réelle, les insets paysage et la navigation D-pad ont été co
 - Le contrôleur Kotlin testé isole les Title IDs et sérialise annulation et publication. L'outil
   opérationnel vérifie le marqueur du Title ID actif au début, pendant et à la fin de la capture;
   un changement de jeu ou de PID invalide le run.
+- Les captures du panneau sont des diagnostics `opensw-native-diagnostic-v1`, explicitement marqués
+  `measurement_source=native_render_frame` et `promotion_eligible=false`. Elles portent un UUID,
+  une génération, des timestamps monotones, un état `ACTIVE/INVALIDATED/FINISHED` et un motif
+  d'invalidation. Elles ne publient aucun percentile A/B issu des échantillons à 250 ms.
+- La rotation détruit uniquement les consommateurs UI du sampler; une capture application-scoped
+  reste active. La fin de l'émulation ou un changement de Title ID invalide la capture avant le
+  teardown, et une publication dont la génération ou la configuration a changé est rejetée.
 - `opensw-performance-v2` échantillonne le tampon borné de SurfaceFlinger chaque seconde,
   conserve toutes les réponses brutes, déduplique leurs timestamps `actualPresentTime` et calcule
   p50/p95/p99 nearest-rank, FPS médian, nombre de frames, RSS max et température max sur la fenêtre.
@@ -103,10 +119,18 @@ La bibliothèque réelle, les insets paysage et la navigation D-pad ont été co
 - L'écran secondaire n'affiche ni hero ni jaquette. Une barre compacte conserve le titre, le Title
   ID et l'état `En cours`/`En pause` au-dessus des vues Performance, Cheats et Session.
 - Les en-têtes jeu/performance dupliqués sont masqués dans ce contexte compact.
+- Performance garde FPS, p95 roulant, vitesse, température et un graphe de 80 dp dans la vue
+  `Direct`. Le variant Profile ajoute le contrôle `Direct/Détails` et expose cache, compilations,
+  queues, attentes et durées; une Release masque complètement ce contrôle et ces compteurs.
+- Les actions Capture et Partager restent fixées en bas. Capture conserve texte et icône; Partager
+  est une icône avec description accessible. Une capture Release a été terminée, enregistrée et
+  présentée correctement à la feuille de partage Android, avec `ClipData` et permission de lecture
+  propagée au chooser sans refus du `FileProvider`.
 - Session expose Pause/Reprise, overlay, réglages rapides et arrêt de l'émulation. L'ordre de focus
   vertical est explicite pour la manette et le clavier.
-- Le rendu 1080x1240, les thèmes, les langues et la taille de police maximale restent à valider sur
-  appareil.
+- Le panneau a été contrôlé sur le second écran physique 1080x1240 tourné en 1240x1080, en français
+  et thème sombre. Les autres orientations, le thème clair, l'anglais et la taille de police
+  maximale restent à valider sur appareil.
 
 ## Synchronisation Eden du 6 août 2026
 
@@ -197,6 +221,14 @@ Exécuter d'abord 6 cycles, puis 30 cycles:
 La rotation conserve la capture; la fin de session doit l'annuler. Un manifeste contenant deux
 Title IDs est invalide.
 
+Le 7 août 2026, six cycles courts ont été exécutés sur Foretales `010026801939E000` avec la Release:
+capture, passage à Session, pause, reprise, arrêt avec capture active, retour bibliothèque et
+relance. Aucun crash, ANR, callback tardif ni mélange de Title ID n'a été observé. Le RSS bibliothèque
+mesuré après chaque teardown était 343, 353, 360, 363, 368 et 374 MiB, puis 355 MiB après 30 secondes
+au repos; cette série courte ne montre pas une croissance RSS continue. La rotation physique n'a pas
+été exécutée: la simuler aurait nécessité de modifier l'état système du Thor. Elle reste donc à
+couvrir manuellement pendant les 30 cycles utilisateur.
+
 ### UI
 
 Mesurer avec des bibliothèques synthétiques ou légales de 10, 100 et 500 jeux:
@@ -239,7 +271,7 @@ supérieure à 2 %.
 
 ## Livrables
 
-Build final effectué depuis `5dae3d78c64e0996eb36e6c0ce2b4bd92028f753`, Android SDK
+Build final effectué depuis le worktree basé sur `64d9a9cb8eda530ff64461771aaf3d1e9b922706`, Android SDK
 `/Users/remipelloux/Library/Android/sdk` et les tâches suivantes:
 
 ```sh
@@ -253,27 +285,31 @@ cd src/android
 
 | Variant | Application ID | APK | SHA-256 |
 | --- | --- | --- | --- |
-| `openSwRelease` | `com.remipelloux.opensw` | `src/android/app/build/outputs/apk/openSw/release/app-openSw-release.apk` | `a60531f30b1cb76a234ca8517c1ddce009d8ba253f33dc499998269d155b9880` |
-| `openSwProfile` | `com.remipelloux.opensw.profile` | `src/android/app/build/outputs/apk/openSw/profile/app-openSw-profile.apk` | `fde09a2a0030ea3b5396276d2257e86f17e5bef87c30ac0a1a35f412359903aa` |
+| `openSwRelease` | `com.remipelloux.opensw` | `src/android/app/build/outputs/apk/openSw/release/app-openSw-release.apk` | `7dd06d284a900047fc4121d0705e24f0425ac8574e48ee190a1cde7e4747bb4a` |
+| `openSwProfile` | `com.remipelloux.opensw.profile` | `src/android/app/build/outputs/apk/openSw/profile/app-openSw-profile.apk` | `1dc2c1acc2ea6f2afe793b22e5478147c3ba8248fceefb0d2882f4aa6dd25ae5` |
 
-Le build Release final `opensw-5dae3d78c64e` a été installé avec succès sur le Thor. Les captures
+Le build Release final a été installé en mise à jour avec succès sur le Thor. Les captures
 1920x1080 confirment l'absence de hero/jaquette dupliquée, la barre de sélection compacte, le bouton
 favori et le dock sans collision. Le contrôle a aussi détecté puis corrigé l'éditeur de recherche
 plein écran Android: le clavier paysage conserve maintenant la bibliothèque visible. Le variant
 Profile est le livrable de mesure; chaque campagne doit l'accompagner de son SHA-256, du manifeste
 exact du scénario et du protocole de session longue ci-dessus.
 
-Le lint vital, R8 et les suites Release/Profile passent. Le lint complet conserve 94 erreurs
-préexistantes, principalement des usages `NewApi` avec `minSdk 24`; les deux erreurs de contraintes
-de la bibliothèque signalées pendant cette refonte sont corrigées. Aucune baseline n'a été ajoutée.
+Le lint vital, R8 et les suites Release/Profile passent. `ktlintCheck` conserve des violations
+préexistantes dans des fichiers historiques hors de cette modification; les fichiers performance
+et leur test modifiés dans cette passe sont formatés. Aucune baseline n'a été ajoutée.
 
 ## Risques résiduels
 
-- Aucun test appareil ne couvre encore le teardown Vulkan, l'annulation audio ou les pages gardes.
+- Six teardowns Vulkan complets ont été exercés indirectement avec Foretales, sans injection de
+  panne; l'annulation audio et les pages gardes ne disposent toujours pas d'un test appareil isolé.
 - Les tests natifs unitaires ajoutés ne sont pas exécutés par le build Android (`BUILD_TESTING=OFF`).
 - La réparation par rename atomique est validée par compilation, pas par injection de panne réelle.
 - Le rendu du Focus Shelf n'a pas encore été contrôlé par screenshots aux dimensions cibles.
-- Les compteurs Profile sont remis à zéro au chargement d'un Title ID, mais leur attribution doit
-  encore être confirmée sur appareil pendant les cycles stop/restart.
+- Les compteurs Profile sont remis à zéro au chargement d'un Title ID, mais leur attribution et les
+  cinq nouvelles durées doivent encore être confirmées avec le variant Profile sur Arceus.
+- Le JSON Release a été créé et transmis au sélecteur de partage, mais son contenu privé n'est pas
+  lisible par `adb` sur un APK non débogable; son schéma et ses invalidations sont vérifiés par les
+  tests Kotlin.
 - Le Focus Shelf et sa logique restent dans le source set Android principal; les autres flavors
   héritent donc actuellement de la refonte. Leur non-régression n'a pas été validée.

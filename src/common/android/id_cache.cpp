@@ -463,9 +463,9 @@ namespace Common::Android {
         s_file_extension = env->GetStaticMethodID(s_native_library_class, "getFileExtension",
                                                "(Ljava/lang/String;)Ljava/lang/String;");
         s_on_emulation_started =
-                env->GetStaticMethodID(s_native_library_class, "onEmulationStarted", "()V");
+                env->GetStaticMethodID(s_native_library_class, "onEmulationStarted", "(J)V");
         s_on_emulation_stopped =
-                env->GetStaticMethodID(s_native_library_class, "onEmulationStopped", "(I)V");
+                env->GetStaticMethodID(s_native_library_class, "onEmulationStopped", "(IJ)V");
         s_on_program_changed =
                 env->GetStaticMethodID(s_native_library_class, "onProgramChanged", "(I)V");
 

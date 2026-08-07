@@ -25,6 +25,11 @@ struct PipelineProfileCounters {
     std::atomic<u64> spirv_ns{};
     std::atomic<u64> shader_module_ns{};
     std::atomic<u64> vulkan_pipeline_ns{};
+    std::atomic<u64> max_present_queue_depth{};
+    std::atomic<u64> free_frame_wait_ns{};
+    std::atomic<u64> scheduler_wait_ns{};
+    std::atomic<u64> swapchain_acquire_ns{};
+    std::atomic<u64> present_ns{};
 };
 
 PipelineProfileCounters counters;
@@ -80,6 +85,30 @@ void ProfilePipelinePhase(PipelineProfilePhase phase, u64 nanoseconds) {
     }
 }
 
+void ProfilePresentationQueueDepth(size_t depth) {
+    u64 observed = counters.max_present_queue_depth.load(std::memory_order_relaxed);
+    while (observed < depth && !counters.max_present_queue_depth.compare_exchange_weak(
+                                   observed, depth, std::memory_order_relaxed)) {
+    }
+}
+
+void ProfilePresentationPhase(PresentationProfilePhase phase, u64 nanoseconds) {
+    switch (phase) {
+    case PresentationProfilePhase::FreeFrameWait:
+        Add(counters.free_frame_wait_ns, nanoseconds);
+        break;
+    case PresentationProfilePhase::SchedulerWait:
+        Add(counters.scheduler_wait_ns, nanoseconds);
+        break;
+    case PresentationProfilePhase::SwapchainAcquire:
+        Add(counters.swapchain_acquire_ns, nanoseconds);
+        break;
+    case PresentationProfilePhase::Present:
+        Add(counters.present_ns, nanoseconds);
+        break;
+    }
+}
+
 void ResetPipelineProfile(u64 title_id) {
     counters.title_id.store(0, std::memory_order_release);
     counters.cache_hits.store(0, std::memory_order_relaxed);
@@ -93,6 +122,11 @@ void ResetPipelineProfile(u64 title_id) {
     counters.spirv_ns.store(0, std::memory_order_relaxed);
     counters.shader_module_ns.store(0, std::memory_order_relaxed);
     counters.vulkan_pipeline_ns.store(0, std::memory_order_relaxed);
+    counters.max_present_queue_depth.store(0, std::memory_order_relaxed);
+    counters.free_frame_wait_ns.store(0, std::memory_order_relaxed);
+    counters.scheduler_wait_ns.store(0, std::memory_order_relaxed);
+    counters.swapchain_acquire_ns.store(0, std::memory_order_relaxed);
+    counters.present_ns.store(0, std::memory_order_relaxed);
     counters.title_id.store(title_id, std::memory_order_release);
 }
 
@@ -114,6 +148,11 @@ PipelineProfileSnapshot GetPipelineProfileSnapshot() {
         counters.spirv_ns.load(std::memory_order_relaxed),
         counters.shader_module_ns.load(std::memory_order_relaxed),
         counters.vulkan_pipeline_ns.load(std::memory_order_relaxed),
+        counters.max_present_queue_depth.load(std::memory_order_relaxed),
+        counters.free_frame_wait_ns.load(std::memory_order_relaxed),
+        counters.scheduler_wait_ns.load(std::memory_order_relaxed),
+        counters.swapchain_acquire_ns.load(std::memory_order_relaxed),
+        counters.present_ns.load(std::memory_order_relaxed),
     };
     if (counters.title_id.load(std::memory_order_acquire) != title_id) {
         return {};
@@ -125,7 +164,8 @@ void ReportPipelineProfile() {
     LOG_INFO(Render_Vulkan,
              "OpenSw pipeline profile: title_id={:016X} hits={} misses={} compilations={} max_queue={} "
              "small_draw_waits={} waits={} wait_ns={} translate_ns={} spirv_ns={} "
-             "module_ns={} vulkan_pipeline_ns={}",
+             "module_ns={} vulkan_pipeline_ns={} present_max_queue={} free_frame_wait_ns={} "
+             "scheduler_wait_ns={} swapchain_acquire_ns={} present_ns={}",
              counters.title_id.load(std::memory_order_relaxed),
              counters.cache_hits.load(std::memory_order_relaxed),
              counters.cache_misses.load(std::memory_order_relaxed),
@@ -137,7 +177,12 @@ void ReportPipelineProfile() {
              counters.translation_ns.load(std::memory_order_relaxed),
              counters.spirv_ns.load(std::memory_order_relaxed),
              counters.shader_module_ns.load(std::memory_order_relaxed),
-             counters.vulkan_pipeline_ns.load(std::memory_order_relaxed));
+             counters.vulkan_pipeline_ns.load(std::memory_order_relaxed),
+             counters.max_present_queue_depth.load(std::memory_order_relaxed),
+             counters.free_frame_wait_ns.load(std::memory_order_relaxed),
+             counters.scheduler_wait_ns.load(std::memory_order_relaxed),
+             counters.swapchain_acquire_ns.load(std::memory_order_relaxed),
+             counters.present_ns.load(std::memory_order_relaxed));
 }
 
 } // namespace Vulkan

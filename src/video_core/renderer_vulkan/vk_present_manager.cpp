@@ -8,6 +8,7 @@
 #include "common/thread.h"
 #include "core/frontend/emu_window.h"
 #include "video_core/renderer_vulkan/vk_present_manager.h"
+#include "video_core/renderer_vulkan/vk_pipeline_profile.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_swapchain.h"
 #include "video_core/vulkan_common/vulkan_device.h"
@@ -156,20 +157,20 @@ PresentManager::~PresentManager() {
 }
 
 Frame* PresentManager::GetRenderFrame() {
+    return MeasurePresentationPhase(PresentationProfilePhase::FreeFrameWait, [this] {
+        // Wait for free presentation frames
+        std::unique_lock lock{free_mutex};
+        free_cv.wait(lock, [this] { return !free_queue.empty(); });
 
-    // Wait for free presentation frames
-    std::unique_lock lock{free_mutex};
-    free_cv.wait(lock, [this] { return !free_queue.empty(); });
+        // Take the frame from the queue
+        Frame* frame = free_queue.front();
+        free_queue.pop_front();
 
-    // Take the frame from the queue
-    Frame* frame = free_queue.front();
-    free_queue.pop_front();
-
-    // Wait for the presentation to be finished so all frame resources are free
-    frame->present_done.Wait();
-    frame->present_done.Reset();
-
-    return frame;
+        // Wait for the presentation to be finished so all frame resources are free
+        frame->present_done.Wait();
+        frame->present_done.Reset();
+        return frame;
+    });
 }
 
 void PresentManager::Present(Frame* frame) {
@@ -177,10 +178,12 @@ void PresentManager::Present(Frame* frame) {
         scheduler.Record([this, frame](vk::CommandBuffer) {
             std::unique_lock lock{queue_mutex};
             present_queue.push_back(frame);
+            ProfilePresentationQueueDepth(present_queue.size());
             frame_cv.notify_one();
         });
     } else {
-        scheduler.WaitWorker();
+        MeasurePresentationPhase(PresentationProfilePhase::SchedulerWait,
+                                 [this] { scheduler.WaitWorker(); });
         CopyToSwapchain(frame);
         free_queue.push_back(frame);
     }
@@ -272,7 +275,8 @@ void PresentManager::WaitPresent() {
 }
 
 void PresentManager::Drain() {
-    scheduler.WaitWorker();
+    MeasurePresentationPhase(PresentationProfilePhase::SchedulerWait,
+                             [this] { scheduler.WaitWorker(); });
     WaitPresent();
 }
 
@@ -350,9 +354,11 @@ void PresentManager::CopyToSwapchainImpl(Frame* frame) {
         RecreateSwapchain(frame);
     }
 
-    while (swapchain.AcquireNextImage()) {
-        RecreateSwapchain(frame);
-    }
+    MeasurePresentationPhase(PresentationProfilePhase::SwapchainAcquire, [this, frame] {
+        while (swapchain.AcquireNextImage()) {
+            RecreateSwapchain(frame);
+        }
+    });
 
     const vk::CommandBuffer cmdbuf{frame->cmdbuf};
     cmdbuf.Begin({
@@ -498,7 +504,8 @@ void PresentManager::CopyToSwapchainImpl(Frame* frame) {
     }
 
     // Present
-    swapchain.Present(render_semaphore);
+    MeasurePresentationPhase(PresentationProfilePhase::Present,
+                             [this, render_semaphore] { swapchain.Present(render_semaphore); });
 }
 
 } // namespace Vulkan

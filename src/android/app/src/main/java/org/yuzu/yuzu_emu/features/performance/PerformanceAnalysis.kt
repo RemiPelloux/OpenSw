@@ -27,36 +27,152 @@ internal fun percentile95(samples: Collection<Double>): Double {
 }
 
 internal fun nearestRankPercentile(samples: Collection<Double>, percentile: Double): Double {
-    if (samples.isEmpty()) return 0.0
-    val sorted = samples.sorted()
+    val sorted = samples.filter(Double::isFinite).sorted()
+    if (sorted.isEmpty()) return 0.0
     val rank = percentile.coerceIn(0.0, 1.0)
     val index = (ceil(sorted.size * rank).toInt() - 1).coerceIn(sorted.indices)
     return sorted[index]
 }
 
+internal fun finiteMetricOrNull(value: Double): Double? = value.takeIf(Double::isFinite)
+
+internal fun finiteMetricOrNull(value: Float): Float? = value.takeIf(Float::isFinite)
+
 internal data class PerformanceCaptureSummary(
-    val frameTimeP50Ms: Double,
-    val frameTimeP95Ms: Double,
-    val frameTimeP99Ms: Double,
-    val medianFps: Double,
     val sampleCount: Int,
     val maxRssMb: Long,
-    val maxTemperatureC: Float
+    val maxTemperatureC: Float,
+    val pipeline: PipelineProfileSummary?
 )
 
-internal fun summarizeCapture(samples: Collection<PerformanceSnapshot>): PerformanceCaptureSummary {
-    val frameTimes = samples.map(PerformanceSnapshot::frameTimeMs)
-        .filter { it.isFinite() && it > 0.0 }
-    val fps = samples.map(PerformanceSnapshot::fps).filter { it.isFinite() && it > 0.0 }
+internal data class PipelineProfileSummary(
+    val maxPipelineQueueDepth: Long,
+    val maxPresentQueueDepth: Long,
+    val cacheHits: Long,
+    val cacheMisses: Long,
+    val compilations: Long,
+    val smallDrawWaits: Long,
+    val pipelineWaits: Long,
+    val pipelineWaitNs: Long,
+    val translationNs: Long,
+    val spirvNs: Long,
+    val shaderModuleNs: Long,
+    val vulkanPipelineNs: Long,
+    val freeFrameWaitNs: Long,
+    val schedulerWaitNs: Long,
+    val swapchainAcquireNs: Long,
+    val presentNs: Long
+)
+
+internal fun summarizeCapture(
+    samples: Collection<PerformanceSnapshot>,
+    titleId: String
+): PerformanceCaptureSummary {
     return PerformanceCaptureSummary(
-        frameTimeP50Ms = nearestRankPercentile(frameTimes, 0.50),
-        frameTimeP95Ms = nearestRankPercentile(frameTimes, 0.95),
-        frameTimeP99Ms = nearestRankPercentile(frameTimes, 0.99),
-        medianFps = nearestRankPercentile(fps, 0.50),
-        sampleCount = frameTimes.size,
+        sampleCount = samples.size,
         maxRssMb = samples.maxOfOrNull(PerformanceSnapshot::appRssMb) ?: 0L,
-        maxTemperatureC = samples.maxOfOrNull(PerformanceSnapshot::batteryTemperatureC) ?: 0f
+        maxTemperatureC = samples.map(PerformanceSnapshot::batteryTemperatureC)
+            .filter(Float::isFinite)
+            .maxOrNull() ?: 0f,
+        pipeline = summarizePipelineProfiles(
+            samples.mapNotNull(PerformanceSnapshot::pipelineProfile),
+            titleId
+        )
     )
+}
+
+internal fun summarizePipelineProfiles(
+    profiles: Collection<PipelineProfileSnapshot>,
+    titleId: String
+): PipelineProfileSummary? {
+    val matching = profiles.filter { it.matches(titleId) }
+    val first = matching.firstOrNull() ?: return null
+    val last = matching.last()
+    fun delta(start: Long, end: Long): Long? = if (end >= start) end - start else null
+    return PipelineProfileSummary(
+        maxPipelineQueueDepth = matching.maxOf(PipelineProfileSnapshot::maxQueueDepth),
+        maxPresentQueueDepth = matching.maxOf(PipelineProfileSnapshot::maxPresentQueueDepth),
+        cacheHits = delta(first.cacheHits, last.cacheHits) ?: return null,
+        cacheMisses = delta(first.cacheMisses, last.cacheMisses) ?: return null,
+        compilations = delta(first.compilations, last.compilations) ?: return null,
+        smallDrawWaits = delta(first.smallDrawWaits, last.smallDrawWaits) ?: return null,
+        pipelineWaits = delta(first.pipelineWaits, last.pipelineWaits) ?: return null,
+        pipelineWaitNs = delta(first.pipelineWaitNs, last.pipelineWaitNs) ?: return null,
+        translationNs = delta(first.translationNs, last.translationNs) ?: return null,
+        spirvNs = delta(first.spirvNs, last.spirvNs) ?: return null,
+        shaderModuleNs = delta(first.shaderModuleNs, last.shaderModuleNs) ?: return null,
+        vulkanPipelineNs = delta(first.vulkanPipelineNs, last.vulkanPipelineNs) ?: return null,
+        freeFrameWaitNs = delta(first.freeFrameWaitNs, last.freeFrameWaitNs) ?: return null,
+        schedulerWaitNs = delta(first.schedulerWaitNs, last.schedulerWaitNs) ?: return null,
+        swapchainAcquireNs = delta(
+            first.swapchainAcquireNs,
+            last.swapchainAcquireNs
+        ) ?: return null,
+        presentNs = delta(first.presentNs, last.presentNs) ?: return null
+    )
+}
+
+internal enum class CaptureState {
+    ACTIVE,
+    INVALIDATED,
+    FINISHED
+}
+
+internal data class CaptureConfiguration(
+    val titleId: String,
+    val processId: Int,
+    val packageName: String,
+    val apkVersion: String,
+    val mode: String,
+    val pipelineWorkers: Int,
+    val presentationRate: Int,
+    val asyncPresentation: Boolean
+)
+
+internal data class PerformanceCaptureSession(
+    val captureId: String,
+    val generation: Long,
+    val startedAtMs: Long,
+    val startedAtMonotonicMs: Long,
+    val configuration: CaptureConfiguration,
+    val samples: MutableList<PerformanceSnapshot> = mutableListOf(),
+    var state: CaptureState = CaptureState.ACTIVE,
+    var invalidationReason: String? = null,
+    var finishedAtMs: Long? = null,
+    var finishedAtMonotonicMs: Long? = null
+) {
+    fun record(
+        activeGeneration: Long,
+        currentConfiguration: CaptureConfiguration,
+        snapshot: PerformanceSnapshot
+    ): Boolean {
+        if (state != CaptureState.ACTIVE || generation != activeGeneration) return false
+        if (currentConfiguration != configuration) {
+            invalidate("configuration_changed")
+            return false
+        }
+        val profile = snapshot.pipelineProfile
+        if (profile != null && !profile.matches(configuration.titleId)) {
+            invalidate("title_id_changed")
+            return false
+        }
+        samples += snapshot
+        return true
+    }
+
+    fun invalidate(reason: String) {
+        if (state != CaptureState.ACTIVE) return
+        state = CaptureState.INVALIDATED
+        invalidationReason = reason
+    }
+
+    fun finish(activeGeneration: Long, wallTimeMs: Long, monotonicTimeMs: Long): Boolean {
+        if (generation != activeGeneration || state == CaptureState.FINISHED) return false
+        if (state == CaptureState.ACTIVE) state = CaptureState.FINISHED
+        finishedAtMs = wallTimeMs
+        finishedAtMonotonicMs = monotonicTimeMs
+        return true
+    }
 }
 
 internal enum class PerformanceHealth {

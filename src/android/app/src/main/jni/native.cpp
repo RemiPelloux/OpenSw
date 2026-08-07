@@ -200,6 +200,10 @@ bool EmulationSession::IsPaused() const {
     return m_is_running && m_is_paused;
 }
 
+u64 EmulationSession::SessionGeneration() const {
+    return m_session_generation.load(std::memory_order_acquire);
+}
+
 const Core::PerfStatsResults& EmulationSession::PerfStats() {
     m_perf_stats = m_system.GetAndResetPerfStats();
     return m_perf_stats;
@@ -316,8 +320,11 @@ Core::SystemResultStatus EmulationSession::InitializeEmulation(const std::string
                                                                const bool frontend_initiated) {
     std::scoped_lock lock(m_mutex);
 
+    const u64 generation = m_session_generation.fetch_add(1, std::memory_order_acq_rel) + 1;
+
     // Create the render window.
-    m_window = std::make_unique<EmuWindow_Android>(m_native_window, m_vulkan_library);
+    m_window =
+        std::make_unique<EmuWindow_Android>(m_native_window, m_vulkan_library, generation);
 
     // Initialize system.
     jauto android_keyboard = std::make_unique<Common::Android::SoftwareKeyboard::AndroidKeyboard>();
@@ -359,20 +366,28 @@ Core::SystemResultStatus EmulationSession::InitializeEmulation(const std::string
     // Complete initialization.
     m_system.GPU().Start();
     m_system.GetCpuManager().OnGpuReady();
-    m_system.RegisterExitCallback([&] { HaltEmulation(); });
-
-    // Register an ExecuteProgram callback such that Core can execute a sub-program
-    m_system.RegisterExecuteProgramCallback([&](std::size_t program_index_) {
-        m_next_program_index = program_index_;
-        EmulationSession::GetInstance().HaltEmulation();
+    m_system.RegisterExitCallback([this, generation] {
+        if (SessionGeneration() == generation) {
+            HaltEmulation();
+        }
     });
 
-    OnEmulationStarted();
+    // Register an ExecuteProgram callback such that Core can execute a sub-program
+    m_system.RegisterExecuteProgramCallback([this, generation](std::size_t program_index_) {
+        if (SessionGeneration() != generation) {
+            return;
+        }
+        m_next_program_index = program_index_;
+        HaltEmulation();
+    });
+
+    OnEmulationStarted(generation);
     return Core::SystemResultStatus::Success;
 }
 
 void EmulationSession::ShutdownEmulation() {
     std::scoped_lock lock(m_mutex);
+    const u64 generation = SessionGeneration();
 
     if (m_next_program_index != -1) {
         ChangeProgram(m_next_program_index);
@@ -401,12 +416,14 @@ void EmulationSession::ShutdownEmulation() {
                 (void)mallopt_function(M_PURGE, 0);
             }
         }
-        OnEmulationStopped(Core::SystemResultStatus::Success);
+        OnEmulationStopped(Core::SystemResultStatus::Success, generation);
+        m_session_generation.fetch_add(1, std::memory_order_release);
         return;
     }
 
     // Tear down the render window.
     m_window.reset();
+    m_session_generation.fetch_add(1, std::memory_order_release);
 }
 
 void EmulationSession::PauseEmulation() {
@@ -474,16 +491,23 @@ void EmulationSession::LoadDiskCacheProgress(VideoCore::LoadCallbackStage stage,
                               static_cast<jint>(progress), static_cast<jint>(max));
 }
 
-void EmulationSession::OnEmulationStarted() {
+void EmulationSession::OnEmulationStarted(u64 generation) {
+    if (SessionGeneration() != generation) {
+        return;
+    }
     JNIEnv* env = Common::Android::GetEnvForThread();
     env->CallStaticVoidMethod(Common::Android::GetNativeLibraryClass(),
-                              Common::Android::GetOnEmulationStarted());
+                              Common::Android::GetOnEmulationStarted(), static_cast<jlong>(generation));
 }
 
-void EmulationSession::OnEmulationStopped(Core::SystemResultStatus result) {
+void EmulationSession::OnEmulationStopped(Core::SystemResultStatus result, u64 generation) {
+    if (SessionGeneration() != generation) {
+        return;
+    }
     JNIEnv* env = Common::Android::GetEnvForThread();
     env->CallStaticVoidMethod(Common::Android::GetNativeLibraryClass(),
-                              Common::Android::GetOnEmulationStopped(), static_cast<jint>(result));
+                              Common::Android::GetOnEmulationStopped(), static_cast<jint>(result),
+                              static_cast<jlong>(generation));
 }
 
 void EmulationSession::ChangeProgram(std::size_t program_index) {
@@ -997,7 +1021,7 @@ jint Java_org_yuzu_yuzu_1emu_NativeLibrary_getShadersBuilding(JNIEnv* env, jclas
 jlongArray Java_org_yuzu_yuzu_1emu_NativeLibrary_getPipelineProfileStats(JNIEnv* env,
                                                                           jclass clazz) {
     const auto snapshot = Vulkan::GetPipelineProfileSnapshot();
-    std::array<jlong, 12> java_snapshot{};
+    std::array<jlong, Vulkan::PipelineProfileSnapshotSize> java_snapshot{};
     std::transform(snapshot.begin(), snapshot.end(), java_snapshot.begin(),
                    [](u64 value) { return static_cast<jlong>(value); });
     auto result = env->NewLongArray(static_cast<jsize>(snapshot.size()));
