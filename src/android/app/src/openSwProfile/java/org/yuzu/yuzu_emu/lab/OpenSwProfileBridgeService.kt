@@ -17,6 +17,7 @@ import com.remipelloux.opensw.lab.protocol.RUNTIME_IDENTITY_SCHEMA
 import com.remipelloux.opensw.lab.protocol.ReplayValidator
 import java.io.File
 import java.io.FileOutputStream
+import java.security.MessageDigest
 import java.util.Locale
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -187,8 +188,12 @@ class OpenSwProfileBridgeService : Service() {
             return PerformanceSampler.isCapturing()
         }
 
-        override fun finishCapture(): String =
-            PerformanceSampler.finishCapture(applicationContext)?.readText().orEmpty()
+        override fun finishCapture(): String {
+            val report = PerformanceSampler.finishCapture(applicationContext)
+                ?: latestPendingCaptureReport()
+                ?: return ""
+            return exportCaptureReport(report)
+        }
 
         override fun getCheats(): String {
             val context = NativeLibrary.getCheatContext() ?: return ""
@@ -230,6 +235,54 @@ class OpenSwProfileBridgeService : Service() {
     override fun onDestroy() {
         replayController.shutdown()
         super.onDestroy()
+    }
+
+    private fun latestPendingCaptureReport(): File? =
+        File(filesDir, "reports")
+            .listFiles { file ->
+                file.isFile &&
+                    file.name.startsWith("opensw-performance-") &&
+                    file.extension == "json"
+            }
+            ?.maxByOrNull(File::lastModified)
+
+    private fun exportCaptureReport(report: File): String {
+        val root = checkNotNull(getExternalFilesDir(null)) {
+            "Profile external files directory is unavailable"
+        }
+        val directory = File(root, LAB_CAPTURE_EXPORT_DIRECTORY)
+        check(directory.isDirectory || directory.mkdirs()) {
+            "Could not create the lab capture export directory"
+        }
+        val exported = File(directory, report.name)
+        val sourceSha256 = sha256(report)
+        report.copyTo(exported, overwrite = true)
+        check(exported.length() == report.length() && sha256(exported) == sourceSha256) {
+            exported.delete()
+            "Lab capture export verification failed"
+        }
+        report.delete()
+        return JSONObject()
+            .put("schema", LAB_CAPTURE_EXPORT_SCHEMA)
+            .put("path", exported.absolutePath)
+            .put("byte_size", exported.length())
+            .put("sha256", sourceSha256)
+            .toString()
+    }
+
+    private fun sha256(file: File): String {
+        val digest = MessageDigest.getInstance("SHA-256")
+        file.inputStream().buffered().use { input ->
+            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+            while (true) {
+                val count = input.read(buffer)
+                if (count < 0) break
+                digest.update(buffer, 0, count)
+            }
+        }
+        return digest.digest().joinToString("") { byte ->
+            (byte.toInt() and 0xff).toString(16).padStart(2, '0')
+        }
     }
 
     private fun sessionSnapshot(): OpenSwSessionSnapshot? =
@@ -285,6 +338,8 @@ class OpenSwProfileBridgeService : Service() {
     }
 
     companion object {
+        private const val LAB_CAPTURE_EXPORT_SCHEMA = "opensw-lab-capture-export-v1"
+        private const val LAB_CAPTURE_EXPORT_DIRECTORY = "opensw-lab-captures"
         private const val STATE_POLL_MS = 25L
         private const val MAIN_THREAD_TIMEOUT_MS = 2_000L
         private const val MAX_TIMEOUT_MS = 120_000L

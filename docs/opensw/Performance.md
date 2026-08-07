@@ -75,3 +75,8 @@ The controller ID and port must match the controller mapping active for the game
 requires the replay to be `RUNNING`, the expected Title ID and Profile PID to match, and a render
 surface to be attached. `opensw-performance-v2 capture` queries this identity through the lab
 instrumentation unless `--runtime-identity` is explicitly supplied.
+
+Native reports can exceed Android's Binder transaction limit during a 60-second capture. The
+Profile bridge therefore exports the report to its app-specific external directory and returns a
+small path, size and SHA-256 descriptor. `opensw-lab finish-capture` verifies the descriptor, pulls
+the report, verifies its bytes and removes that exact temporary device export.
