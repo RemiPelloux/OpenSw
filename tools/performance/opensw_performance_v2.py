@@ -674,7 +674,11 @@ def capture(args: argparse.Namespace) -> int:
     if not args.temperature_min_c <= gpu_temperatures[0] <= args.temperature_max_c:
         raise CaptureError("Measured starting GPU temperature is outside the selected band")
     if abs(gpu_temperatures[0] - args.initial_temperature_c) > 2.0:
-        raise CaptureError("Declared and measured starting GPU temperatures differ by over 2 C")
+        raise CaptureError(
+            "Declared and measured starting GPU temperatures differ by over 2 C "
+            f"({args.initial_temperature_c:.1f} C declared, "
+            f"{gpu_temperatures[0]:.1f} C measured)"
+        )
     if max(gpu_temperatures) > args.temperature_max_c:
         raise CaptureError("GPU temperature exceeded the selected promotion band")
     if not thermal_status_samples or max(thermal_status_samples) != 0:

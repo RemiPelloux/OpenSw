@@ -118,13 +118,6 @@ class PerformanceAnalysisTest {
         assertEquals(35L, instrumentation.vertexBufferBindCalls)
         assertEquals(39L, instrumentation.textureUploadBytes)
         assertEquals(46L, instrumentation.descriptorOffsetSkips)
-
-        val adaptive = PipelineProfileSnapshot.from(LongArray(51) { (it + 1).toLong() })!!
-        assertEquals(47L, adaptive.adaptiveDescriptorLookups)
-        assertEquals(48L, adaptive.adaptiveDescriptorHotHits)
-        assertEquals(49L, adaptive.adaptiveDescriptorDeepHits)
-        assertEquals(50L, adaptive.adaptiveDescriptorGrows)
-        assertEquals(51L, adaptive.adaptiveDescriptorShrinks)
     }
 
     @Test

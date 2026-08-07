@@ -17,7 +17,6 @@
 #include "common/thread_worker.h"
 #include "shader_recompiler/shader_info.h"
 #include "video_core/engines/maxwell_3d.h"
-#include "video_core/renderer_vulkan/vk_adaptive_payload_cache.h"
 #include "video_core/renderer_vulkan/fixed_pipeline_state.h"
 #include "video_core/renderer_vulkan/pipeline_helper.h"
 #include "video_core/renderer_vulkan/vk_buffer_cache.h"
@@ -153,11 +152,6 @@ public:
     }
 
 private:
-    struct DescriptorBufferLocation {
-        VkDeviceSize offset{};
-        u32 chunk{};
-    };
-
     template <typename Spec>
     bool ConfigureImpl(bool is_indexed);
 
@@ -200,8 +194,10 @@ private:
     vk::Pipeline pipeline;
 
     DescriptorBufferLayout descriptor_buffer_layout;
-    AdaptivePayloadCache<DescriptorUpdateEntry, DescriptorBufferLocation> descriptor_payload_cache;
     std::vector<DescriptorUpdateEntry> last_descriptor_payload;
+    VkDeviceSize last_descriptor_buffer_offset{};
+    u32 last_descriptor_buffer_chunk{};
+    u64 last_descriptor_buffer_generation{};
 
     std::condition_variable build_condvar;
     std::mutex build_mutex;
