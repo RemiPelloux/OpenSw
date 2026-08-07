@@ -25,11 +25,14 @@ object GameHelper {
     private const val KEY_OLD_GAME_PATH = "game_path"
     const val KEY_GAMES = "Games"
 
-    var cachedGameList = mutableListOf<Game>()
+    @Volatile
+    var cachedGameList: List<Game> = emptyList()
 
     private lateinit var preferences: SharedPreferences
+    private val metadataFingerprints = mutableMapOf<String, MetadataFingerprint>()
 
-    fun getGames(): List<Game> {
+    @Synchronized
+    fun getGames(forceMetadataRefresh: Boolean = false): List<Game> {
         val games = mutableListOf<Game>()
         val context = YuzuApplication.appContext
         preferences = PreferenceManager.getDefaultSharedPreferences(context)
@@ -45,17 +48,16 @@ object GameHelper {
         // Ensure keys are loaded so that ROM metadata can be decrypted.
         NativeLibrary.reloadKeys()
 
-        // Reset metadata so we don't use stale information
-        GameMetadata.resetMetadata()
-
         // Remove previous filesystem provider information so we can get up to date version info
         NativeLibrary.clearFilesystemProvider()
 
+        val directoryListings = mutableMapOf<String, Array<MinimalDocumentFile>>()
         val mountedContainerUris = mutableSetOf<String>()
-        mountExternalContentDirectories(mountedContainerUris)
+        mountExternalContentDirectories(mountedContainerUris, directoryListings)
 
         val badDirs = mutableListOf<Int>()
-        val gameFiles = mutableListOf<MinimalDocumentFile>()
+        val gameFiles = linkedMapOf<String, MinimalDocumentFile>()
+        val visitedGameDirectories = mutableSetOf<String>()
         gameDirs.forEachIndexed { index: Int, gameDir: GameDir ->
             val gameDirUri = gameDir.uriString.toUri()
             val isValid = FileUtil.isTreeUriValid(gameDirUri)
@@ -63,8 +65,10 @@ object GameHelper {
                 val scanDepth = if (gameDir.deepScan) 3 else 1
                 collectFilesRecursive(
                     gameFiles,
-                    FileUtil.listFiles(gameDirUri),
-                    scanDepth
+                    listFilesCached(gameDirUri, directoryListings),
+                    scanDepth,
+                    directoryListings,
+                    visitedGameDirectories
                 )
             } else {
                 badDirs.add(index)
@@ -73,19 +77,19 @@ object GameHelper {
 
         // Register every container before reading metadata so updates are visible regardless of
         // the directory iteration order. The collected list also avoids a second SAF traversal.
-        gameFiles.forEach { file ->
-            val extension = FileUtil.getExtension(file.uri).lowercase()
+        gameFiles.values.forEach { file ->
+            val extension = file.extension
             val filePath = file.uri.toString()
             if (externalContentExtensions.contains(extension) &&
-                mountedContainerUris.add(filePath)) {
+                mountedContainerUris.add(filePath)
+            ) {
                 NativeLibrary.addGameFolderFileToFilesystemProvider(filePath)
             }
         }
-        gameFiles.forEach { file ->
-            val extension = FileUtil.getExtension(file.uri).lowercase()
-            if (Game.extensions.contains(extension)) {
-                getGame(file.uri, true, false)?.let(games::add)
-            }
+        val launchableFiles = gameFiles.values.filter { Game.extensions.contains(it.extension) }
+        updateMetadataCache(launchableFiles, forceMetadataRefresh)
+        launchableFiles.forEach { file ->
+            getGame(file.uri, false, file.filename)?.let(games::add)
         }
 
         // Remove all game dirs with insufficient permissions from config
@@ -97,6 +101,7 @@ object GameHelper {
             }
         }
         NativeConfig.setGameDirs(gameDirs.toTypedArray())
+        storeAddedTimes(games)
 
         // Cache list of games found on disk
         val serializedGames = mutableSetOf<String>()
@@ -108,16 +113,18 @@ object GameHelper {
                 .putStringSet(KEY_GAMES, serializedGames)
         }
 
-        cachedGameList = games.toMutableList()
+        cachedGameList = games.toList()
         return games.toList()
     }
 
+    @Synchronized
     fun restoreContentForGame(game: Game) {
         NativeLibrary.reloadKeys()
 
         val mountedContainerUris = mutableSetOf<String>()
-        mountExternalContentDirectories(mountedContainerUris)
-        mountGameFolderContent(Uri.parse(game.path), mountedContainerUris)
+        val directoryListings = mutableMapOf<String, Array<MinimalDocumentFile>>()
+        mountExternalContentDirectories(mountedContainerUris, directoryListings)
+        mountGameFolderContent(Uri.parse(game.path), mountedContainerUris, directoryListings)
         NativeLibrary.addFileToFilesystemProvider(game.path)
     }
 
@@ -128,6 +135,8 @@ object GameHelper {
     private fun scanContentContainersRecursive(
         files: Array<MinimalDocumentFile>,
         depth: Int,
+        directoryListings: MutableMap<String, Array<MinimalDocumentFile>>,
+        visitedDirectories: MutableSet<String>,
         onContainerFound: (MinimalDocumentFile) -> Unit
     ) {
         if (depth <= 0) {
@@ -136,14 +145,17 @@ object GameHelper {
 
         files.forEach {
             if (it.isDirectory) {
-                scanContentContainersRecursive(
-                    FileUtil.listFiles(it.uri),
-                    depth - 1,
-                    onContainerFound
-                )
+                if (visitedDirectories.add(it.uri.toString())) {
+                    scanContentContainersRecursive(
+                        listFilesCached(it.uri, directoryListings),
+                        depth - 1,
+                        directoryListings,
+                        visitedDirectories,
+                        onContainerFound
+                    )
+                }
             } else {
-                val extension = FileUtil.getExtension(it.uri).lowercase()
-                if (externalContentExtensions.contains(extension)) {
+                if (externalContentExtensions.contains(it.extension)) {
                     onContainerFound(it)
                 }
             }
@@ -151,9 +163,11 @@ object GameHelper {
     }
 
     private fun collectFilesRecursive(
-        output: MutableList<MinimalDocumentFile>,
+        output: MutableMap<String, MinimalDocumentFile>,
         files: Array<MinimalDocumentFile>,
-        depth: Int
+        depth: Int,
+        directoryListings: MutableMap<String, Array<MinimalDocumentFile>>,
+        visitedDirectories: MutableSet<String>
     ) {
         if (depth <= 0) {
             return
@@ -161,14 +175,25 @@ object GameHelper {
 
         files.forEach { file ->
             if (file.isDirectory) {
-                collectFilesRecursive(output, FileUtil.listFiles(file.uri), depth - 1)
+                if (visitedDirectories.add(file.uri.toString())) {
+                    collectFilesRecursive(
+                        output,
+                        listFilesCached(file.uri, directoryListings),
+                        depth - 1,
+                        directoryListings,
+                        visitedDirectories
+                    )
+                }
             } else {
-                output.add(file)
+                output.putIfAbsent(file.uri.toString(), file)
             }
         }
     }
 
-    private fun mountExternalContentDirectories(mountedContainerUris: MutableSet<String>) {
+    private fun mountExternalContentDirectories(
+        mountedContainerUris: MutableSet<String>,
+        directoryListings: MutableMap<String, Array<MinimalDocumentFile>>
+    ) {
         val uniqueExternalContentDirs = linkedSetOf<String>()
         NativeConfig.getExternalContentDirs().forEach { externalDir ->
             if (externalDir.isNotEmpty()) {
@@ -176,10 +201,19 @@ object GameHelper {
             }
         }
 
+        val visitedDirectories = mutableSetOf<String>()
         for (externalDir in uniqueExternalContentDirs) {
             val externalDirUri = externalDir.toUri()
             if (FileUtil.isTreeUriValid(externalDirUri)) {
-                scanContentContainersRecursive(FileUtil.listFiles(externalDirUri), 3) {
+                if (!visitedDirectories.add(externalDir)) {
+                    continue
+                }
+                scanContentContainersRecursive(
+                    listFilesCached(externalDirUri, directoryListings),
+                    3,
+                    directoryListings,
+                    visitedDirectories
+                ) {
                     val containerUri = it.uri.toString()
                     if (mountedContainerUris.add(containerUri)) {
                         NativeLibrary.addFileToFilesystemProvider(containerUri)
@@ -189,10 +223,19 @@ object GameHelper {
         }
     }
 
-    private fun mountGameFolderContent(gameUri: Uri, mountedContainerUris: MutableSet<String>) {
+    private fun mountGameFolderContent(
+        gameUri: Uri,
+        mountedContainerUris: MutableSet<String>,
+        directoryListings: MutableMap<String, Array<MinimalDocumentFile>>
+    ) {
         if (gameUri.scheme == "content") {
             val parentUri = getParentDocumentUri(gameUri) ?: return
-            scanContentContainersRecursive(FileUtil.listFiles(parentUri), 1) {
+            scanContentContainersRecursive(
+                listFilesCached(parentUri, directoryListings),
+                1,
+                directoryListings,
+                mutableSetOf(parentUri.toString())
+            ) {
                 val containerUri = it.uri.toString()
                 if (mountedContainerUris.add(containerUri)) {
                     NativeLibrary.addGameFolderFileToFilesystemProvider(containerUri)
@@ -233,28 +276,26 @@ object GameHelper {
         }
     }
 
+    @Synchronized
     fun getGame(
         uri: Uri,
-        addedToLibrary: Boolean,
-        registerFilesystemProvider: Boolean = true
+        registerFilesystemProvider: Boolean = true,
+        knownFilename: String? = null
     ): Game? {
         val filePath = uri.toString()
-        if (!GameMetadata.getIsValid(filePath)) {
-            return null
-        }
-
         if (registerFilesystemProvider) {
             // Needed to update installed content information
             NativeLibrary.addFileToFilesystemProvider(filePath)
         }
 
-        var name = GameMetadata.getTitle(filePath)
+        val metadata = GameMetadata.getGame(filePath) ?: return null
+        var name = metadata.title
 
         // If the game's title field is empty, use the filename.
         if (name.isEmpty()) {
-            name = FileUtil.getFilename(uri)
+            name = knownFilename ?: FileUtil.getFilename(uri)
         }
-        var programId = GameMetadata.getProgramId(filePath)
+        var programId = metadata.programId
 
         // If the game's ID field is empty, use the filename without extension.
         if (programId.isEmpty()) {
@@ -265,21 +306,61 @@ object GameHelper {
             name,
             filePath,
             programId,
-            GameMetadata.getDeveloper(filePath),
-            GameMetadata.getVersion(filePath, false),
-            GameMetadata.getIsHomebrew(filePath)
+            metadata.developer,
+            metadata.version,
+            metadata.isHomebrew
         )
         Log.info("[GameHelper] Metadata ${newGame.programIdHex} version=${newGame.version}")
 
-        if (addedToLibrary) {
-            val addedTime = preferences.getLong(newGame.keyAddedToLibraryTime, 0L)
-            if (addedTime == 0L) {
-                preferences.edit()
-                    .putLong(newGame.keyAddedToLibraryTime, System.currentTimeMillis())
-                    .apply()
+        return newGame
+    }
+
+    private fun listFilesCached(
+        uri: Uri,
+        directoryListings: MutableMap<String, Array<MinimalDocumentFile>>
+    ): Array<MinimalDocumentFile> =
+        directoryListings.getOrPut(uri.toString()) { FileUtil.listFiles(uri) }
+
+    private fun updateMetadataCache(
+        files: List<MinimalDocumentFile>,
+        forceMetadataRefresh: Boolean
+    ) {
+        if (forceMetadataRefresh) {
+            GameMetadata.resetMetadata()
+        } else {
+            val currentPaths = files.mapTo(mutableSetOf()) { it.uri.toString() }
+            metadataFingerprints.keys
+                .filterNot(currentPaths::contains)
+                .forEach(GameMetadata::removeMetadata)
+            files.forEach { file ->
+                val path = file.uri.toString()
+                val fingerprint = MetadataFingerprint(file.size, file.lastModified)
+                if (!fingerprint.isReliable || metadataFingerprints[path] != fingerprint) {
+                    GameMetadata.removeMetadata(path)
+                }
             }
         }
 
-        return newGame
+        metadataFingerprints.clear()
+        files.associateTo(metadataFingerprints) { file ->
+            file.uri.toString() to MetadataFingerprint(file.size, file.lastModified)
+        }
     }
+
+    private fun storeAddedTimes(games: List<Game>) {
+        val newGames = games.filter { preferences.getLong(it.keyAddedToLibraryTime, 0L) == 0L }
+        if (newGames.isEmpty()) return
+
+        val addedTime = System.currentTimeMillis()
+        preferences.edit {
+            newGames.forEach { game -> putLong(game.keyAddedToLibraryTime, addedTime) }
+        }
+    }
+
+    private data class MetadataFingerprint(val size: Long?, val lastModified: Long?) {
+        val isReliable: Boolean = size != null && lastModified != null && lastModified > 0L
+    }
+
+    private val MinimalDocumentFile.extension: String
+        get() = filename.substringAfterLast('.', "").lowercase()
 }

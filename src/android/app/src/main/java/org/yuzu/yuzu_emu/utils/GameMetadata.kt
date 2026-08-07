@@ -3,8 +3,10 @@
 
 package org.yuzu.yuzu_emu.utils
 
+import org.yuzu.yuzu_emu.model.Game
+
 object GameMetadata {
-    external fun getIsValid(path: String): Boolean
+    external fun getGame(path: String): Game?
 
     external fun getTitle(path: String): String
 
@@ -17,6 +19,8 @@ object GameMetadata {
     external fun getIcon(path: String): ByteArray
 
     external fun getIsHomebrew(path: String): Boolean
+
+    external fun removeMetadata(path: String)
 
     external fun resetMetadata()
 }

@@ -238,6 +238,18 @@ bool Scheduler::UpdateGraphicsPipeline(GraphicsPipeline* pipeline) {
     return true;
 }
 
+bool Scheduler::UpdateComputePipeline(ComputePipeline* pipeline) {
+    if (state.compute_pipeline == pipeline) {
+        return false;
+    }
+    state.compute_pipeline = pipeline;
+    return true;
+}
+
+void Scheduler::InvalidateComputePipeline() {
+    state.compute_pipeline = nullptr;
+}
+
 bool Scheduler::UpdateRescaling(bool is_rescaling) {
     if (state.rescaling_defined && is_rescaling == state.is_rescaling) {
         return false;
@@ -383,6 +395,7 @@ void Scheduler::AllocateNewContext() {
 
 void Scheduler::InvalidateState() {
     state.graphics_pipeline = nullptr;
+    state.compute_pipeline = nullptr;
     state.rescaling_defined = false;
     state.descriptor_buffer_bound = false;
     state.descriptor_buffer_offset.Reset();

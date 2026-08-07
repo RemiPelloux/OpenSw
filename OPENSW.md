@@ -55,10 +55,20 @@ native counters and SurfaceFlinger timestamps remain available without presentin
 
 The descriptor-offset cache skips `vkCmdSetDescriptorBufferOffsetsEXT` only when bind point,
 pipeline layout, descriptor chunk, and offset are unchanged in the active command buffer. The
+push-descriptor path similarly skips identical consecutive payloads only while the same graphics or
+guest compute pipeline remains active; pipeline switches, internal compute passes, and command-buffer
+invalidation force the command to be emitted again. Vertex synchronization uses the memory tracker's
+CPU-dirty hierarchy before constructing upload ranges, while the
 optimized vertex-buffer setting binds dirty enabled slots as contiguous sparse ranges and clears
 dirty null slots; it remains a compatibility-controlled Android setting until repeated device A/B
 captures justify changing the default. Descriptor-ring spill chunks are likewise deferred until the
 Profile exhaustion counter proves that the current fallback occurs in the target workload.
+
+Android library refreshes cache directory listings within a scan, deduplicate files reached through
+overlapping roots, and retain native metadata for files whose provider size and modification time are
+unchanged. Refreshes that follow key, content, or directory changes still force metadata invalidation.
+Native metadata entries use synchronized stable ownership so background icon decoding cannot race a
+library refresh, and newly discovered library timestamps are persisted in one preference transaction.
 
 ## Lab packages
 

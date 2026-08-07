@@ -54,12 +54,13 @@ class FrameTimeGraphView @JvmOverloads constructor(
         drawGuide(canvas, 33.33f, maxFrameTime, contentWidth, contentHeight)
         if (samples.size < 2) return
 
-        val values = samples.toList()
         val step = contentWidth.toFloat() / (MAX_SAMPLES - 1)
-        val startX = paddingLeft + (MAX_SAMPLES - values.size) * step
-        for (index in 1 until values.size) {
-            val previous = values[index - 1]
-            val current = values[index]
+        val startX = paddingLeft + (MAX_SAMPLES - samples.size) * step
+        val iterator = samples.iterator()
+        var previous = iterator.next()
+        var index = 1
+        while (iterator.hasNext()) {
+            val current = iterator.next()
             canvas.drawLine(
                 startX + (index - 1) * step,
                 valueToY(previous, maxFrameTime, contentHeight),
@@ -67,6 +68,8 @@ class FrameTimeGraphView @JvmOverloads constructor(
                 valueToY(current, maxFrameTime, contentHeight),
                 if (current > 33.33f) spikePaint else stablePaint
             )
+            previous = current
+            index++
         }
     }
 
@@ -78,7 +81,13 @@ class FrameTimeGraphView @JvmOverloads constructor(
         contentHeight: Int
     ) {
         val y = valueToY(value, maxValue, contentHeight)
-        canvas.drawLine(paddingLeft.toFloat(), y, (paddingLeft + contentWidth).toFloat(), y, guidePaint)
+        canvas.drawLine(
+            paddingLeft.toFloat(),
+            y,
+            (paddingLeft + contentWidth).toFloat(),
+            y,
+            guidePaint
+        )
     }
 
     private fun valueToY(value: Float, maxValue: Float, contentHeight: Int): Float {

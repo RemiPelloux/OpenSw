@@ -23,6 +23,7 @@ add_executable(tests
     core/memory/cheat_parser.cpp
     core/internal_network/network.cpp
     video_core/memory_tracker.cpp
+    video_core/descriptor_payload_state.cpp
     video_core/pipeline_workers.cpp
     video_core/pipeline_transition_cache.cpp
     video_core/vertex_buffer_ranges.cpp

@@ -56,6 +56,7 @@ private:
 };
 
 class CommandPool;
+class ComputePipeline;
 class Device;
 class Framebuffer;
 class GraphicsPipeline;
@@ -103,6 +104,12 @@ public:
 
     /// Update the pipeline to the current execution context.
     bool UpdateGraphicsPipeline(GraphicsPipeline* pipeline);
+
+    /// Update the guest compute pipeline to the current execution context.
+    bool UpdateComputePipeline(ComputePipeline* pipeline);
+
+    /// Invalidates guest compute state before an internal compute pass binds its own pipeline.
+    void InvalidateComputePipeline();
 
     /// Update the rescaling state. Returns true if the state has to be updated.
     bool UpdateRescaling(bool is_rescaling);
@@ -286,6 +293,7 @@ private:
         VkFramebuffer framebuffer{};
         VkExtent2D render_area = {0, 0};
         GraphicsPipeline* graphics_pipeline = nullptr;
+        ComputePipeline* compute_pipeline = nullptr;
         bool is_rescaling = false;
         bool rescaling_defined = false;
         bool needs_state_enable_refresh = false;

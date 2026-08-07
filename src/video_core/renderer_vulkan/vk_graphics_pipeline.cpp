@@ -19,6 +19,7 @@
 #include "video_core/renderer_vulkan/maxwell_to_vk.h"
 #include "video_core/renderer_vulkan/pipeline_statistics.h"
 #include "video_core/renderer_vulkan/vk_buffer_cache.h"
+#include "video_core/renderer_vulkan/vk_descriptor_payload_state.h"
 #include "video_core/renderer_vulkan/vk_graphics_pipeline.h"
 #include "video_core/renderer_vulkan/vk_pipeline_profile.h"
 #include "video_core/renderer_vulkan/vk_render_pass_cache.h"
@@ -651,14 +652,12 @@ bool GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
     }
 
     bool update_descriptors = true;
-    if (descriptor_set_layout && !uses_push_descriptor && !uses_descriptor_buffer) {
+    if (descriptor_set_layout && !uses_descriptor_buffer) {
         const auto* const entries = static_cast<const DescriptorUpdateEntry*>(descriptor_data);
-        update_descriptors =
-            bind_pipeline || last_descriptor_payload.size() != num_descriptor_entries ||
-            std::memcmp(last_descriptor_payload.data(), entries,
-                        num_descriptor_entries * sizeof(DescriptorUpdateEntry)) != 0;
-        if (update_descriptors) {
-            last_descriptor_payload.assign(entries, entries + num_descriptor_entries);
+        update_descriptors = UpdateDescriptorPayload(last_descriptor_payload, entries,
+                                                     num_descriptor_entries, bind_pipeline);
+        if (!update_descriptors && uses_push_descriptor) {
+            ProfileDescriptorPayloadReuse();
         }
     }
     scheduler.Record([this, descriptor_data, bind_pipeline, update_descriptors,
@@ -704,8 +703,10 @@ bool GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
             cmdbuf.SetDescriptorBufferOffsetsEXT(VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline_layout,
                                                  0, buffer_index, descriptor_buffer_offset);
         } else if (uses_push_descriptor) {
-            cmdbuf.PushDescriptorSetWithTemplateKHR(*descriptor_update_template, *pipeline_layout,
-                                                    0, descriptor_data);
+            if (update_descriptors) {
+                cmdbuf.PushDescriptorSetWithTemplateKHR(*descriptor_update_template,
+                                                        *pipeline_layout, 0, descriptor_data);
+            }
         } else if (update_descriptors) {
             const VkDescriptorSet descriptor_set{descriptor_allocator.Commit()};
             const vk::Device& dev{device.GetLogical()};

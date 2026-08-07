@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 
 #include <algorithm>
+#include <cstring>
 #include <vector>
 
 #include <boost/container/small_vector.hpp>
@@ -14,6 +15,7 @@
 #include "video_core/renderer_vulkan/pipeline_statistics.h"
 #include "video_core/renderer_vulkan/vk_buffer_cache.h"
 #include "video_core/renderer_vulkan/vk_compute_pipeline.h"
+#include "video_core/renderer_vulkan/vk_descriptor_payload_state.h"
 #include "video_core/renderer_vulkan/vk_descriptor_pool.h"
 #include "video_core/renderer_vulkan/vk_pipeline_cache.h"
 #include "video_core/renderer_vulkan/vk_pipeline_profile.h"
@@ -67,7 +69,8 @@ ComputePipeline::ComputePipeline(const Device& device_, Scheduler& scheduler, vk
                         shader_hash, descriptor_buffer_layout.size);
             uses_descriptor_buffer = false;
             descriptor_buffer_layout = {};
-            descriptor_set_layout = builder.CreateDescriptorSetLayout(false);
+            uses_push_descriptor = builder.CanUsePushDescriptor();
+            descriptor_set_layout = builder.CreateDescriptorSetLayout(uses_push_descriptor);
         }
     }
     pipeline_layout = builder.CreatePipelineLayout(*descriptor_set_layout);
@@ -116,7 +119,7 @@ ComputePipeline::ComputePipeline(const Device& device_, Scheduler& scheduler, vk
                 return device.GetLogical().CreateComputePipeline(compute_ci, *pipeline_cache);
             });
         } catch (const vk::Exception& exception) {
-            LOG_CRITICAL(Render_Vulkan, "Adreno rejected compute shader {:016X}: {}", shader_hash,
+            LOG_CRITICAL(Render_Vulkan, "Driver rejected compute shader {:016X}: {}", shader_hash,
                          exception.what());
             std::scoped_lock lock{build_mutex};
             is_built = true;
@@ -280,28 +283,44 @@ bool ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
         });
     }
 
-    // Log compute pipeline binding
-    if (GPU::Logging::IsActive() &&
-        Settings::values.gpu_log_vulkan_calls.GetValue()) {
-        GPU::Logging::GPULogger::GetInstance().LogPipelineBind(true, "compute pipeline");
-    }
-
     const DescriptorUpdateEntry* const descriptor_data{guest_descriptor_queue.UpdateData()};
     VkDeviceSize descriptor_buffer_offset{};
     u32 descriptor_buffer_chunk{};
     if (uses_descriptor_buffer) {
-        const DescriptorBufferRing::Allocation alloc{
-            descriptor_buffer_ring.Allocate(scheduler, descriptor_buffer_layout.size)};
-        if (!alloc.host) {
-            LOG_DEBUG(Render_Vulkan, "Failed to reserve descriptor memory, skipping dispatch");
-            return false;
+        const bool reuse_allocation =
+            last_descriptor_buffer_generation == descriptor_buffer_ring.CurrentGeneration() &&
+            last_descriptor_payload.size() == num_descriptor_entries &&
+            std::memcmp(last_descriptor_payload.data(), descriptor_data,
+                        num_descriptor_entries * sizeof(DescriptorUpdateEntry)) == 0;
+        if (reuse_allocation) {
+            ProfileDescriptorPayloadReuse();
+            descriptor_buffer_offset = last_descriptor_buffer_offset;
+            descriptor_buffer_chunk = last_descriptor_buffer_chunk;
+            descriptor_buffer_ring.TouchFrame(scheduler);
+        } else {
+            const DescriptorBufferRing::Allocation alloc{
+                descriptor_buffer_ring.Allocate(scheduler, descriptor_buffer_layout.size)};
+            if (!alloc.host) {
+                LOG_DEBUG(Render_Vulkan, "Failed to reserve descriptor memory, skipping dispatch");
+                return false;
+            }
+            WriteDescriptorBuffer(device, descriptor_buffer_layout, descriptor_data, alloc.host);
+            ProfileDescriptorBytesWritten(descriptor_buffer_layout.size);
+            descriptor_buffer_offset = alloc.offset;
+            descriptor_buffer_chunk = alloc.chunk;
+            last_descriptor_buffer_offset = alloc.offset;
+            last_descriptor_buffer_chunk = alloc.chunk;
+            last_descriptor_buffer_generation = alloc.generation;
+            last_descriptor_payload.assign(descriptor_data,
+                                           descriptor_data + num_descriptor_entries);
         }
-        WriteDescriptorBuffer(device, descriptor_buffer_layout, descriptor_data, alloc.host);
-        ProfileDescriptorBytesWritten(descriptor_buffer_layout.size);
-        descriptor_buffer_offset = alloc.offset;
-        descriptor_buffer_chunk = alloc.chunk;
     }
 
+    const bool bind_pipeline = scheduler.UpdateComputePipeline(this);
+    if (bind_pipeline && GPU::Logging::IsActive() &&
+        Settings::values.gpu_log_vulkan_calls.GetValue()) {
+        GPU::Logging::GPULogger::GetInstance().LogPipelineBind(true, "compute pipeline");
+    }
     const bool bind_descriptor_buffer{
         uses_descriptor_buffer && scheduler.UpdateDescriptorBufferChunk(descriptor_buffer_chunk)};
     if (descriptor_set_layout) {
@@ -314,9 +333,18 @@ bool ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
     if (uses_descriptor_buffer) {
         ProfileDescriptorOffset(update_descriptor_buffer_offset);
     }
+    bool update_descriptors = true;
+    if (descriptor_set_layout && uses_push_descriptor) {
+        update_descriptors = UpdateDescriptorPayload(last_descriptor_payload, descriptor_data,
+                                                     num_descriptor_entries, bind_pipeline);
+        if (!update_descriptors) {
+            ProfileDescriptorPayloadReuse();
+        }
+    }
 
     const bool is_rescaling = !info.texture_descriptors.empty() || !info.image_descriptors.empty();
-    scheduler.Record([this, descriptor_data, is_rescaling, descriptor_buffer_offset,
+    scheduler.Record([this, descriptor_data, is_rescaling, bind_pipeline, update_descriptors,
+                      descriptor_buffer_offset,
                       descriptor_buffer_chunk, bind_descriptor_buffer,
                       update_descriptor_buffer_offset,
                       rescaling_data = rescaling.Data()](vk::CommandBuffer cmdbuf) {
@@ -328,7 +356,9 @@ bool ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
         if (!pipeline) {
             return;
         }
-        cmdbuf.BindPipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline);
+        if (bind_pipeline) {
+            cmdbuf.BindPipeline(VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline);
+        }
         if (!descriptor_set_layout) {
             return;
         }
@@ -345,8 +375,10 @@ bool ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
             cmdbuf.SetDescriptorBufferOffsetsEXT(VK_PIPELINE_BIND_POINT_COMPUTE, *pipeline_layout,
                                                  0, buffer_index, descriptor_buffer_offset);
         } else if (uses_push_descriptor) {
-            cmdbuf.PushDescriptorSetWithTemplateKHR(*descriptor_update_template, *pipeline_layout,
-                                                    0, descriptor_data);
+            if (update_descriptors) {
+                cmdbuf.PushDescriptorSetWithTemplateKHR(*descriptor_update_template,
+                                                        *pipeline_layout, 0, descriptor_data);
+            }
         } else {
             const VkDescriptorSet descriptor_set{descriptor_allocator.Commit()};
             const vk::Device& dev{device.GetLogical()};

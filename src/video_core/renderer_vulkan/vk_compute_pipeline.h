@@ -76,6 +76,10 @@ private:
     vk::PipelineLayout pipeline_layout;
     vk::DescriptorUpdateTemplate descriptor_update_template;
     vk::Pipeline pipeline;
+    std::vector<DescriptorUpdateEntry> last_descriptor_payload;
+    VkDeviceSize last_descriptor_buffer_offset{};
+    u32 last_descriptor_buffer_chunk{};
+    u64 last_descriptor_buffer_generation{};
 
     std::condition_variable build_condvar;
     std::mutex build_mutex;

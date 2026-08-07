@@ -132,7 +132,7 @@ class GamesViewModel : ViewModel() {
                         }
                     }
 
-                    setGames(GameHelper.getGames())
+                    setGames(GameHelper.getGames(forceMetadataRefresh = directoriesChanged))
                     _shouldScrollAfterReload.value = true
 
                     if (directoriesChanged) {

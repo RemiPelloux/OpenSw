@@ -244,7 +244,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
             return
         } else if (intentUri != null) {
             intentGame = if (Game.extensions.contains(FileUtil.getExtension(intentUri))) {
-                GameHelper.getGame(requireActivity().intent.data!!, false)
+                GameHelper.getGame(requireActivity().intent.data!!)
             } else {
                 null
             }

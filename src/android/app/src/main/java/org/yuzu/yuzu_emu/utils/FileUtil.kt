@@ -118,7 +118,9 @@ object FileUtil {
         val columns = arrayOf(
             DocumentsContract.Document.COLUMN_DOCUMENT_ID,
             DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-            DocumentsContract.Document.COLUMN_MIME_TYPE
+            DocumentsContract.Document.COLUMN_MIME_TYPE,
+            DocumentsContract.Document.COLUMN_SIZE,
+            DocumentsContract.Document.COLUMN_LAST_MODIFIED
         )
         var c: Cursor? = null
         val results: MutableList<MinimalDocumentFile> = ArrayList()
@@ -135,7 +137,13 @@ object FileUtil {
                 val documentName = c.getString(1)
                 val documentMimeType = c.getString(2)
                 val documentUri = DocumentsContract.buildDocumentUriUsingTree(uri, documentId)
-                val document = MinimalDocumentFile(documentName, documentMimeType, documentUri)
+                val document = MinimalDocumentFile(
+                    documentName,
+                    documentMimeType,
+                    documentUri,
+                    if (c.isNull(3)) null else c.getLong(3),
+                    if (c.isNull(4)) null else c.getLong(4)
+                )
                 results.add(document)
             }
         } catch (e: Exception) {
@@ -503,8 +511,7 @@ object FileUtil {
                 DocumentsContract.getDocumentId(uri)
             }
             val childrenUri = DocumentsContract.buildChildDocumentsUriUsingTree(uri, docId)
-            resolver.query(childrenUri, columns, null, null, null)
-            true
+            resolver.query(childrenUri, columns, null, null, null)?.use { true } ?: false
         } catch (_: Exception) {
             false
         }

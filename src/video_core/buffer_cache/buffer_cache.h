@@ -809,6 +809,15 @@ void BufferCache<P>::BindHostVertexBuffers() {
     constexpr bool use_optimized_vertex_buffers = true;
 #endif
 
+    const auto synchronize_vertex_buffer = [this](const Binding& binding, Buffer& buffer) {
+        TouchBuffer(buffer, binding.buffer_id);
+        u64 uploaded_bytes{};
+        if (IsRegionCpuModified(binding.device_addr, binding.size)) {
+            SynchronizeBuffer(buffer, binding.device_addr, binding.size, &uploaded_bytes);
+        }
+        Vulkan::ProfileVertexBufferSynchronized(binding.size, uploaded_bytes);
+    };
+
     if (use_optimized_vertex_buffers) {
         auto& flags = maxwell3d->dirty.flags;
         u32 dirty_mask{};
@@ -824,10 +833,7 @@ void BufferCache<P>::BindHostVertexBuffers() {
             enabled_mask &= (enabled_mask - 1);
             const Binding& binding = VertexBufferSlot(index);
             Buffer& buffer = slot_buffers[binding.buffer_id];
-            TouchBuffer(buffer, binding.buffer_id);
-            u64 uploaded_bytes{};
-            SynchronizeBuffer(buffer, binding.device_addr, binding.size, &uploaded_bytes);
-            Vulkan::ProfileVertexBufferSynchronized(binding.size, uploaded_bytes);
+            synchronize_vertex_buffer(binding, buffer);
         }
         for (const VertexBufferRange range :
              BuildDirtyVertexBufferRanges(enabled_vertex_buffers_mask, dirty_mask)) {
@@ -853,10 +859,7 @@ void BufferCache<P>::BindHostVertexBuffers() {
         for (u32 index = 0; index < NUM_VERTEX_BUFFERS; ++index) {
             const Binding& binding = channel_state->vertex_buffers[index];
             Buffer& buffer = slot_buffers[binding.buffer_id];
-            TouchBuffer(buffer, binding.buffer_id);
-            u64 uploaded_bytes{};
-            SynchronizeBuffer(buffer, binding.device_addr, binding.size, &uploaded_bytes);
-            Vulkan::ProfileVertexBufferSynchronized(binding.size, uploaded_bytes);
+            synchronize_vertex_buffer(binding, buffer);
             if (!flags[Dirty::VertexBuffer0 + index]) {
                 continue;
             }
