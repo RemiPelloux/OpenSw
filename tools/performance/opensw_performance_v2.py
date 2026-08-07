@@ -471,6 +471,13 @@ def parse_kgsl_sample(raw: str) -> dict[str, int | float]:
     return values
 
 
+def aggregate_kgsl_busy_percent(samples: Sequence[tuple[int, int]]) -> float:
+    """Aggregate KGSL's per-read busy and elapsed time intervals."""
+    busy_us = sum(busy for busy, total in samples if total > 0)
+    total_us = sum(total for _, total in samples if total > 0)
+    return busy_us / total_us * 100.0 if total_us > 0 else 0.0
+
+
 def parse_thermal_status(raw: str) -> int | None:
     match = re.search(r"Thermal Status:\s*(\d+)", raw)
     return int(match.group(1)) if match else None
@@ -659,12 +666,7 @@ def capture(args: argparse.Namespace) -> int:
         for sample in kgsl_samples
         if "busy_us" in sample and "total_us" in sample
     ]
-    busy_delta_percent = 0.0
-    if len(busy_samples) >= 2:
-        busy_delta = busy_samples[-1][0] - busy_samples[0][0]
-        total_delta = busy_samples[-1][1] - busy_samples[0][1]
-        if total_delta > 0:
-            busy_delta_percent = busy_delta / total_delta * 100.0
+    busy_delta_percent = aggregate_kgsl_busy_percent(busy_samples)
     summary.update(
         {
             "rss_max_kib": max(rss_samples, default=0),

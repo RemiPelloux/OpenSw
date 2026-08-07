@@ -13,6 +13,7 @@ from opensw_performance_v2 import (
     CaptureError,
     LAB_INSTRUMENTATION,
     SCHEMA,
+    aggregate_kgsl_busy_percent,
     build_parser,
     compare_summaries,
     load_manifests,
@@ -58,6 +59,13 @@ class PerformanceV2Test(unittest.TestCase):
             ),
         )
         self.assertEqual(0, parse_thermal_status("Thermal Status: 0"))
+
+    def test_kgsl_busy_aggregates_resetting_interval_counters(self):
+        self.assertAlmostEqual(
+            75.0,
+            aggregate_kgsl_busy_percent([(900, 1000), (600, 1000)]),
+        )
+        self.assertEqual(0.0, aggregate_kgsl_busy_percent([(10, 0)]))
 
     def test_perfetto_trace_rejects_empty_or_processless_payload(self):
         with tempfile.TemporaryDirectory() as directory:
