@@ -28,6 +28,33 @@ class QueryCacheBase;
 
 namespace Vulkan {
 
+struct DescriptorBufferOffsetState {
+    [[nodiscard]] bool Update(VkPipelineBindPoint bind_point_, VkPipelineLayout layout_,
+                              u32 chunk_, VkDeviceSize offset_) noexcept {
+        if (valid && bind_point == bind_point_ && layout == layout_ && chunk == chunk_ &&
+            offset == offset_) {
+            return false;
+        }
+        valid = true;
+        bind_point = bind_point_;
+        layout = layout_;
+        chunk = chunk_;
+        offset = offset_;
+        return true;
+    }
+
+    void Reset() noexcept {
+        valid = false;
+    }
+
+private:
+    VkPipelineBindPoint bind_point{};
+    VkPipelineLayout layout{};
+    u32 chunk{};
+    VkDeviceSize offset{};
+    bool valid{};
+};
+
 class CommandPool;
 class Device;
 class Framebuffer;
@@ -82,6 +109,10 @@ public:
 
     /// Returns true when the descriptor buffer chunk has to be bound into the command buffer.
     bool UpdateDescriptorBufferChunk(u32 descriptor_chunk);
+
+    /// Returns true when the descriptor buffer offset command must be emitted.
+    bool UpdateDescriptorBufferOffset(VkPipelineBindPoint bind_point, VkPipelineLayout layout,
+                                      u32 descriptor_chunk, VkDeviceSize offset);
 
     /// Invalidates current command buffer state except for render passes
     void InvalidateState();
@@ -260,6 +291,7 @@ private:
         bool needs_state_enable_refresh = false;
         u32 descriptor_buffer_chunk = 0;
         bool descriptor_buffer_bound = false;
+        DescriptorBufferOffsetState descriptor_buffer_offset;
     };
 
     struct DeferredClear {

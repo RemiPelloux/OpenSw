@@ -580,6 +580,7 @@ bool GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
             std::memcmp(last_descriptor_payload.data(), entries,
                         num_descriptor_entries * sizeof(DescriptorUpdateEntry)) == 0;
         if (reuse_allocation) {
+            ProfileDescriptorPayloadReuse();
             descriptor_buffer_offset = last_descriptor_buffer_offset;
             descriptor_buffer_chunk = last_descriptor_buffer_chunk;
             descriptor_buffer_ring.TouchFrame(scheduler);
@@ -591,6 +592,7 @@ bool GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
                 return false;
             }
             WriteDescriptorBuffer(device, descriptor_buffer_layout, entries, alloc.host);
+            ProfileDescriptorBytesWritten(descriptor_buffer_layout.size);
             descriptor_buffer_offset = alloc.offset;
             descriptor_buffer_chunk = alloc.chunk;
             last_descriptor_buffer_offset = alloc.offset;
@@ -630,6 +632,17 @@ bool GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
     const bool bind_descriptor_buffer{
         descriptor_set_layout && uses_descriptor_buffer &&
         scheduler.UpdateDescriptorBufferChunk(descriptor_buffer_chunk)};
+    if (descriptor_set_layout) {
+        ProfileDescriptorDraw(uses_descriptor_buffer, uses_push_descriptor);
+    }
+    const bool update_descriptor_buffer_offset =
+        descriptor_set_layout && uses_descriptor_buffer &&
+        scheduler.UpdateDescriptorBufferOffset(VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline_layout,
+                                               descriptor_buffer_chunk,
+                                               descriptor_buffer_offset);
+    if (descriptor_set_layout && uses_descriptor_buffer) {
+        ProfileDescriptorOffset(update_descriptor_buffer_offset);
+    }
 
     // Log graphics pipeline binding
     if (bind_pipeline && GPU::Logging::IsActive() &&
@@ -651,6 +664,7 @@ bool GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
     }
     scheduler.Record([this, descriptor_data, bind_pipeline, update_descriptors,
                       descriptor_buffer_offset, descriptor_buffer_chunk, bind_descriptor_buffer,
+                      update_descriptor_buffer_offset,
                       rescaling_data = rescaling.Data(), is_rescaling, update_rescaling,
                       uses_render_area = render_area.uses_render_area,
                       render_area_data = render_area.words](vk::CommandBuffer cmdbuf) {
@@ -684,6 +698,9 @@ bool GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
             return;
         }
         if (uses_descriptor_buffer) {
+            if (!update_descriptor_buffer_offset) {
+                return;
+            }
             const u32 buffer_index{};
             cmdbuf.SetDescriptorBufferOffsetsEXT(VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline_layout,
                                                  0, buffer_index, descriptor_buffer_offset);

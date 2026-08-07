@@ -256,6 +256,12 @@ bool Scheduler::UpdateDescriptorBufferChunk(u32 descriptor_chunk) {
     return true;
 }
 
+bool Scheduler::UpdateDescriptorBufferOffset(VkPipelineBindPoint bind_point,
+                                             VkPipelineLayout layout, u32 descriptor_chunk,
+                                             VkDeviceSize offset) {
+    return state.descriptor_buffer_offset.Update(bind_point, layout, descriptor_chunk, offset);
+}
+
 void Scheduler::WorkerThread(std::stop_token stop_token) {
     Common::SetCurrentThreadName("VulkanWorker");
 
@@ -379,6 +385,7 @@ void Scheduler::InvalidateState() {
     state.graphics_pipeline = nullptr;
     state.rescaling_defined = false;
     state.descriptor_buffer_bound = false;
+    state.descriptor_buffer_offset.Reset();
     state_tracker.InvalidateCommandBufferState();
 }
 

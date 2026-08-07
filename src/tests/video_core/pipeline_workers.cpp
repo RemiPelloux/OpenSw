@@ -4,6 +4,7 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "video_core/renderer_vulkan/vk_pipeline_workers.h"
+#include "video_core/renderer_vulkan/vk_scheduler.h"
 
 TEST_CASE("Pipeline workers resolve Auto and explicit values", "[video_core][vulkan]") {
     const auto automatic = Vulkan::ResolvePipelineWorkers(0, 8, false);
@@ -15,6 +16,22 @@ TEST_CASE("Pipeline workers resolve Auto and explicit values", "[video_core][vul
         CHECK(explicit_value.effective == static_cast<size_t>(requested));
         CHECK(explicit_value.reason == Vulkan::PipelineWorkerReason::Explicit);
     }
+}
+
+TEST_CASE("Descriptor buffer offsets skip only identical active tuples",
+          "[video_core][vulkan]") {
+    Vulkan::DescriptorBufferOffsetState state;
+    const auto layout_a = reinterpret_cast<VkPipelineLayout>(static_cast<uintptr_t>(1));
+    const auto layout_b = reinterpret_cast<VkPipelineLayout>(static_cast<uintptr_t>(2));
+
+    CHECK(state.Update(VK_PIPELINE_BIND_POINT_GRAPHICS, layout_a, 3, 64));
+    CHECK_FALSE(state.Update(VK_PIPELINE_BIND_POINT_GRAPHICS, layout_a, 3, 64));
+    CHECK(state.Update(VK_PIPELINE_BIND_POINT_GRAPHICS, layout_a, 3, 128));
+    CHECK(state.Update(VK_PIPELINE_BIND_POINT_GRAPHICS, layout_a, 4, 128));
+    CHECK(state.Update(VK_PIPELINE_BIND_POINT_GRAPHICS, layout_b, 4, 128));
+    CHECK(state.Update(VK_PIPELINE_BIND_POINT_COMPUTE, layout_b, 4, 128));
+    state.Reset();
+    CHECK(state.Update(VK_PIPELINE_BIND_POINT_COMPUTE, layout_b, 4, 128));
 }
 
 TEST_CASE("Pipeline workers report caps and fallbacks", "[video_core][vulkan]") {
