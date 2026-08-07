@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <permission
+        android:name="com.remipelloux.opensw.lab.permission.PROFILE_BRIDGE"
+        android:protectionLevel="signature" />
+
+    <application>
+        <service
+            android:name="org.yuzu.yuzu_emu.lab.OpenSwProfileBridgeService"
+            android:exported="true"
+            android:permission="com.remipelloux.opensw.lab.permission.PROFILE_BRIDGE" />
+    </application>
+</manifest>

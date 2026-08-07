@@ -3,9 +3,58 @@
 
 #include "video_core/renderer_vulkan/vk_pipeline_profile.h"
 
-#ifdef OPENSW_PROFILE
-
 #include <atomic>
+
+namespace Vulkan {
+namespace {
+
+struct RenderRuntimeCounters {
+    std::atomic<u64> title_id{};
+    std::atomic<int> requested_workers{};
+    std::atomic<u64> effective_workers{1};
+    std::atomic<PipelineWorkerReason> worker_reason{PipelineWorkerReason::Auto};
+    std::atomic<bool> async_shaders{};
+    std::atomic<bool> async_gpu{};
+    std::atomic<bool> async_presentation{};
+    std::atomic<bool> descriptor_buffer_available{};
+    std::atomic<int> presentation_target{};
+};
+
+RenderRuntimeCounters runtime;
+
+} // namespace
+
+void SetRenderRuntimeSnapshot(PipelineWorkerResolution workers, bool async_shaders, bool async_gpu,
+                              bool async_presentation, bool descriptor_buffer_available,
+                              int presentation_target) {
+    runtime.requested_workers.store(workers.requested, std::memory_order_relaxed);
+    runtime.effective_workers.store(workers.effective, std::memory_order_relaxed);
+    runtime.worker_reason.store(workers.reason, std::memory_order_relaxed);
+    runtime.async_shaders.store(async_shaders, std::memory_order_relaxed);
+    runtime.async_gpu.store(async_gpu, std::memory_order_relaxed);
+    runtime.async_presentation.store(async_presentation, std::memory_order_relaxed);
+    runtime.descriptor_buffer_available.store(descriptor_buffer_available, std::memory_order_relaxed);
+    runtime.presentation_target.store(presentation_target, std::memory_order_relaxed);
+}
+
+RenderRuntimeSnapshot GetRenderRuntimeSnapshot() {
+    return {
+        RenderRuntimeSnapshotSchemaVersion,
+        runtime.title_id.load(std::memory_order_acquire),
+        static_cast<u64>(static_cast<s64>(runtime.requested_workers.load(std::memory_order_relaxed))),
+        runtime.effective_workers.load(std::memory_order_relaxed),
+        static_cast<u64>(runtime.worker_reason.load(std::memory_order_relaxed)),
+        runtime.async_shaders.load(std::memory_order_relaxed),
+        runtime.async_gpu.load(std::memory_order_relaxed),
+        runtime.async_presentation.load(std::memory_order_relaxed),
+        runtime.descriptor_buffer_available.load(std::memory_order_relaxed),
+        static_cast<u64>(static_cast<s64>(runtime.presentation_target.load(std::memory_order_relaxed))),
+    };
+}
+
+} // namespace Vulkan
+
+#ifdef OPENSW_PROFILE
 
 #include "common/logging.h"
 
@@ -30,6 +79,11 @@ struct PipelineProfileCounters {
     std::atomic<u64> scheduler_wait_ns{};
     std::atomic<u64> swapchain_acquire_ns{};
     std::atomic<u64> present_ns{};
+    std::atomic<bool> window_active{};
+    std::atomic<u64> window_max_queue_depth{};
+    std::atomic<u64> window_max_present_queue_depth{};
+    std::atomic<u64> window_small_draw_waits{};
+    std::atomic<u64> window_small_draw_wait_ns{};
 };
 
 PipelineProfileCounters counters;
@@ -57,15 +111,27 @@ void ProfilePipelineQueueDepth(size_t depth) {
     while (observed < depth && !counters.max_queue_depth.compare_exchange_weak(
                                    observed, depth, std::memory_order_relaxed)) {
     }
+    if (counters.window_active.load(std::memory_order_relaxed)) {
+        observed = counters.window_max_queue_depth.load(std::memory_order_relaxed);
+        while (observed < depth && !counters.window_max_queue_depth.compare_exchange_weak(
+                                       observed, depth, std::memory_order_relaxed)) {
+        }
+    }
 }
 
 void ProfileSmallDrawWait() {
     Add(counters.small_draw_waits);
 }
 
-void ProfilePipelineWait(u64 nanoseconds) {
+void ProfilePipelineWait(u64 nanoseconds, bool small_draw) {
     Add(counters.pipeline_waits);
     Add(counters.pipeline_wait_ns, nanoseconds);
+    if (small_draw) {
+        if (counters.window_active.load(std::memory_order_relaxed)) {
+            Add(counters.window_small_draw_waits);
+            Add(counters.window_small_draw_wait_ns, nanoseconds);
+        }
+    }
 }
 
 void ProfilePipelinePhase(PipelineProfilePhase phase, u64 nanoseconds) {
@@ -90,6 +156,12 @@ void ProfilePresentationQueueDepth(size_t depth) {
     while (observed < depth && !counters.max_present_queue_depth.compare_exchange_weak(
                                    observed, depth, std::memory_order_relaxed)) {
     }
+    if (counters.window_active.load(std::memory_order_relaxed)) {
+        observed = counters.window_max_present_queue_depth.load(std::memory_order_relaxed);
+        while (observed < depth && !counters.window_max_present_queue_depth.compare_exchange_weak(
+                                       observed, depth, std::memory_order_relaxed)) {
+        }
+    }
 }
 
 void ProfilePresentationPhase(PresentationProfilePhase phase, u64 nanoseconds) {
@@ -110,6 +182,7 @@ void ProfilePresentationPhase(PresentationProfilePhase phase, u64 nanoseconds) {
 }
 
 void ResetPipelineProfile(u64 title_id) {
+    runtime.title_id.store(title_id, std::memory_order_release);
     counters.title_id.store(0, std::memory_order_release);
     counters.cache_hits.store(0, std::memory_order_relaxed);
     counters.cache_misses.store(0, std::memory_order_relaxed);
@@ -127,7 +200,21 @@ void ResetPipelineProfile(u64 title_id) {
     counters.scheduler_wait_ns.store(0, std::memory_order_relaxed);
     counters.swapchain_acquire_ns.store(0, std::memory_order_relaxed);
     counters.present_ns.store(0, std::memory_order_relaxed);
+    counters.window_active.store(false, std::memory_order_relaxed);
+    counters.window_max_queue_depth.store(0, std::memory_order_relaxed);
+    counters.window_max_present_queue_depth.store(0, std::memory_order_relaxed);
+    counters.window_small_draw_waits.store(0, std::memory_order_relaxed);
+    counters.window_small_draw_wait_ns.store(0, std::memory_order_relaxed);
     counters.title_id.store(title_id, std::memory_order_release);
+}
+
+void StartPipelineProfileWindow() {
+    counters.window_active.store(false, std::memory_order_release);
+    counters.window_max_queue_depth.store(0, std::memory_order_relaxed);
+    counters.window_max_present_queue_depth.store(0, std::memory_order_relaxed);
+    counters.window_small_draw_waits.store(0, std::memory_order_relaxed);
+    counters.window_small_draw_wait_ns.store(0, std::memory_order_relaxed);
+    counters.window_active.store(true, std::memory_order_release);
 }
 
 PipelineProfileSnapshot GetPipelineProfileSnapshot() {
@@ -153,6 +240,10 @@ PipelineProfileSnapshot GetPipelineProfileSnapshot() {
         counters.scheduler_wait_ns.load(std::memory_order_relaxed),
         counters.swapchain_acquire_ns.load(std::memory_order_relaxed),
         counters.present_ns.load(std::memory_order_relaxed),
+        counters.window_max_queue_depth.load(std::memory_order_relaxed),
+        counters.window_max_present_queue_depth.load(std::memory_order_relaxed),
+        counters.window_small_draw_waits.load(std::memory_order_relaxed),
+        counters.window_small_draw_wait_ns.load(std::memory_order_relaxed),
     };
     if (counters.title_id.load(std::memory_order_acquire) != title_id) {
         return {};

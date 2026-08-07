@@ -266,6 +266,7 @@ bool ComputePipeline::Configure(Tegra::Engines::KeplerCompute& kepler_compute,
         // Wait for the pipeline to be built
         scheduler.Record([this](vk::CommandBuffer) {
 #ifdef OPENSW_PROFILE
+            ProfileTraceScope trace{"OpenSw pipeline wait"};
             const auto wait_start = std::chrono::steady_clock::now();
 #endif
             std::unique_lock lock{build_mutex};

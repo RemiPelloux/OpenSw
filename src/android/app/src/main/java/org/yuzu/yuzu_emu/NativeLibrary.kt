@@ -264,6 +264,12 @@ object NativeLibrary {
     /** Returns Profile-only Vulkan pipeline counters, or an empty array in other builds. */
     external fun getPipelineProfileStats(): LongArray
 
+    /** Returns the versioned native render configuration actually active for this session. */
+    external fun getRenderRuntimeSnapshot(): LongArray
+
+    /** Resets Profile-only capture-window counters without changing session counters. */
+    external fun startPipelineProfileWindow()
+
     /**
      * Returns a summary of detailed information about the CPU.
      */

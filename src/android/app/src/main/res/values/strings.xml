@@ -1913,6 +1913,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
         <item quantity="one">%1$d worker</item>
         <item quantity="other">%1$d workers</item>
     </plurals>
+    <string name="performance_workers_effective_format">%1$s → %2$d effective (%3$s)</string>
     <string name="pipeline_workers_2">2 workers</string>
     <string name="pipeline_workers_4">4 workers</string>
     <string name="pipeline_workers_6">6 workers</string>

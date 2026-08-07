@@ -17,12 +17,14 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.button.MaterialButtonToggleGroup
 import java.io.File
+import java.util.Locale
 import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.yuzu.yuzu_emu.R
 import org.yuzu.yuzu_emu.BuildConfig
+import org.yuzu.yuzu_emu.NativeLibrary
 import org.yuzu.yuzu_emu.features.settings.model.BooleanSetting
 import org.yuzu.yuzu_emu.features.settings.model.IntSetting
 import org.yuzu.yuzu_emu.utils.OpenSwPerformanceModeManager
@@ -237,12 +239,25 @@ class PerformancePanelController(
     }
 
     private fun currentConfiguration(): String {
-        val workers = IntSetting.ANDROID_PIPELINE_WORKERS.getInt(false)
-        val workerLabel = if (workers == 0) {
+        val requested = IntSetting.ANDROID_PIPELINE_WORKERS.getInt(false)
+        val runtime = RenderRuntimeSnapshot.from(NativeLibrary.getRenderRuntimeSnapshot())
+        val requestedLabel = if (requested == 0) {
             fragment.getString(R.string.performance_workers_auto)
         } else {
-            fragment.resources.getQuantityString(R.plurals.performance_workers, workers, workers)
+            fragment.resources.getQuantityString(
+                R.plurals.performance_workers,
+                requested,
+                requested
+            )
         }
+        val workerLabel = runtime?.let {
+            fragment.getString(
+                R.string.performance_workers_effective_format,
+                requestedLabel,
+                it.effectiveWorkers,
+                it.workerReason.name.lowercase(Locale.ROOT).replace('_', ' ')
+            )
+        } ?: requestedLabel
         val displayTarget = IntSetting.ANDROID_PRESENTATION_FRAME_RATE.getInt(false)
         val displayLabel = if (displayTarget == 0) {
             fragment.getString(R.string.performance_display_auto)

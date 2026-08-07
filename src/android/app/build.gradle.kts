@@ -182,6 +182,7 @@ android {
         }
 
         register("profile") {
+            matchingFallbacks += listOf("debug")
             signingConfig = signingConfigs.getByName("default")
             isDebuggable = false
             isJniDebuggable = false
@@ -382,6 +383,7 @@ ktlint {
 }
 
 dependencies {
+    "profileImplementation"(project(":lab-protocol"))
     testImplementation("junit:junit:4.13.2")
     implementation("androidx.core:core-ktx:1.15.0")
     implementation("androidx.appcompat:appcompat:1.7.0")
