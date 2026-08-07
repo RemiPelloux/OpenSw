@@ -565,21 +565,24 @@ def capture(args: argparse.Namespace) -> int:
     surface_arg = shlex.quote(surface)
     adb(args.serial, "shell", "dumpsys", "SurfaceFlinger", "--latency-clear", surface_arg)
 
-    config = render_perfetto_config(args.package, args.duration * 1000)
-    adb_command = ["adb"]
-    if args.serial:
-        adb_command += ["-s", args.serial]
-    adb_command += ["shell", "perfetto", "-c", "-", "--txt", "-o", REMOTE_TRACE]
-    perfetto = subprocess.Popen(
-        adb_command,
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-    )
-    assert perfetto.stdin is not None
-    perfetto.stdin.write(config)
-    perfetto.stdin.close()
+    adb(args.serial, "shell", "rm", "-f", REMOTE_TRACE, check=False)
+    perfetto: subprocess.Popen[str] | None = None
+    if args.perfetto == "auto":
+        config = render_perfetto_config(args.package, args.duration * 1000)
+        adb_command = ["adb"]
+        if args.serial:
+            adb_command += ["-s", args.serial]
+        adb_command += ["shell", "perfetto", "-c", "-", "--txt", "-o", REMOTE_TRACE]
+        perfetto = subprocess.Popen(
+            adb_command,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+        )
+        assert perfetto.stdin is not None
+        perfetto.stdin.write(config)
+        perfetto.stdin.close()
 
     rss_samples: list[int] = []
     temperature_samples: list[dict[str, float]] = []
@@ -608,8 +611,13 @@ def capture(args: argparse.Namespace) -> int:
             )
         )
         time.sleep(min(args.sample_interval, max(0.0, deadline - time.monotonic())))
-    return_code = perfetto.wait(timeout=15) if perfetto.poll() is None else perfetto.returncode
-    stderr = perfetto.stderr.read() if perfetto.stderr else ""
+    return_code: int | None = None
+    stderr = ""
+    if perfetto is not None:
+        return_code = (
+            perfetto.wait(timeout=15) if perfetto.poll() is None else perfetto.returncode
+        )
+        stderr = perfetto.stderr.read() if perfetto.stderr else ""
 
     verify_active_title_id(args.serial, args.package, pid, expected_title_id)
     raw_latency = adb(
@@ -618,7 +626,10 @@ def capture(args: argparse.Namespace) -> int:
     latency_samples.append(raw_latency)
     trace_path = output / "trace.pftrace"
     invalid_trace_name: str | None = None
-    if return_code == 0:
+    if perfetto is None:
+        perfetto_available = False
+        perfetto_reason = "disabled_after_device_ftrace_unavailable"
+    elif return_code == 0:
         adb(args.serial, "pull", REMOTE_TRACE, str(trace_path))
         perfetto_available, perfetto_reason = validate_perfetto_trace(trace_path, args.package)
         if not perfetto_available:
@@ -732,6 +743,7 @@ def capture(args: argparse.Namespace) -> int:
         "kgsl_samples": kgsl_samples,
         "android_thermal_status_samples": thermal_status_samples,
         "perfetto": {
+            "mode": args.perfetto,
             "available": perfetto_available,
             "unavailable_reason": perfetto_reason,
         },
@@ -1015,6 +1027,7 @@ def build_parser() -> argparse.ArgumentParser:
     capture_parser.add_argument("--package", default="com.remipelloux.opensw.profile")
     capture_parser.add_argument("--duration", type=int, default=60)
     capture_parser.add_argument("--sample-interval", type=float, default=1.0)
+    capture_parser.add_argument("--perfetto", choices=("auto", "off"), default="auto")
     capture_parser.add_argument("--serial")
     capture_parser.add_argument("--surface")
     capture_parser.add_argument("--apk", required=True)
