@@ -179,9 +179,11 @@ class GamesFragment : Fragment() {
 
         gamesViewModel.shouldScrollAfterReload.collect(viewLifecycleOwner) { shouldScroll ->
             if (shouldScroll) {
-                binding.gridGames.post {
-                    (binding.gridGames as? CarouselRecyclerView)?.pendingScrollAfterReload = true
-                    (binding.gridGames as? CarouselRecyclerView)?.refreshView()
+                val gridGames = binding.gridGames
+                gridGames.post {
+                    if (_binding?.gridGames !== gridGames) return@post
+                    (gridGames as? CarouselRecyclerView)?.pendingScrollAfterReload = true
+                    (gridGames as? CarouselRecyclerView)?.refreshView()
                 }
                 gamesViewModel.setShouldScrollAfterReload(false)
             }
