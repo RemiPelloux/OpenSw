@@ -103,7 +103,7 @@ constexpr const char* PresentationProfileTraceName(PresentationProfilePhase phas
 }
 
 // The first 17 fields are the original session snapshot contract. New fields are append-only.
-constexpr size_t PipelineProfileSnapshotSize = 46;
+constexpr size_t PipelineProfileSnapshotSize = 51;
 using PipelineProfileSnapshot = std::array<u64, PipelineProfileSnapshotSize>;
 
 constexpr u64 RenderRuntimeSnapshotSchemaVersion = 1;
@@ -134,6 +134,7 @@ void ProfileDescriptorBytesWritten(u64 bytes);
 void ProfileDescriptorChunkSwitch();
 void ProfileDescriptorRingStall(u64 nanoseconds);
 void ProfileDescriptorOffset(bool emitted);
+void ProfileAdaptiveDescriptorCache(bool hit, size_t depth, bool grew, bool shrank);
 void ProfileVertexBufferBind(size_t slots);
 void ProfileVertexBufferSynchronized(u64 synchronized_bytes, u64 uploaded_bytes);
 void ProfileTextureUpload(u64 bytes, u64 nanoseconds);
@@ -162,6 +163,7 @@ inline void ProfileDescriptorBytesWritten(u64) {}
 inline void ProfileDescriptorChunkSwitch() {}
 inline void ProfileDescriptorRingStall(u64) {}
 inline void ProfileDescriptorOffset(bool) {}
+inline void ProfileAdaptiveDescriptorCache(bool, size_t, bool, bool) {}
 inline void ProfileVertexBufferBind(size_t) {}
 inline void ProfileVertexBufferSynchronized(u64, u64) {}
 inline void ProfileTextureUpload(u64, u64) {}

@@ -55,7 +55,14 @@ native counters and SurfaceFlinger timestamps remain available without presentin
 
 The descriptor-offset cache skips `vkCmdSetDescriptorBufferOffsetsEXT` only when bind point,
 pipeline layout, descriptor chunk, and offset are unchanged in the active command buffer. The
-optimized vertex-buffer setting binds dirty enabled slots as contiguous sparse ranges and clears
+descriptor payload cache starts with one allocation per graphics pipeline, retains ghost
+fingerprints for recently evicted payloads, and grows to at most four allocations only after a
+payload proves that it recurs. It periodically shrinks when deeper reuse disappears. Ring-generation
+changes invalidate every cached location, and Profile counters report lookups, hot/deep hits, growth,
+and shrink decisions. This policy adapts to 2D, 3D, and mixed workloads without identifying games or
+changing draw order.
+
+The optimized vertex-buffer setting binds dirty enabled slots as contiguous sparse ranges and clears
 dirty null slots; it remains a compatibility-controlled Android setting until repeated device A/B
 captures justify changing the default. Descriptor-ring spill chunks are likewise deferred until the
 Profile exhaustion counter proves that the current fallback occurs in the target workload.

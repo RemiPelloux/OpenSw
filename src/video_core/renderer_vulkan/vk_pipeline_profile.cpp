@@ -109,6 +109,11 @@ struct PipelineProfileCounters {
     std::atomic<u64> texture_unswizzle_ns{};
     std::atomic<u64> descriptor_offset_calls{};
     std::atomic<u64> descriptor_offset_skips{};
+    std::atomic<u64> adaptive_descriptor_lookups{};
+    std::atomic<u64> adaptive_descriptor_hot_hits{};
+    std::atomic<u64> adaptive_descriptor_deep_hits{};
+    std::atomic<u64> adaptive_descriptor_grows{};
+    std::atomic<u64> adaptive_descriptor_shrinks{};
 };
 
 PipelineProfileCounters counters;
@@ -228,6 +233,15 @@ void ProfileDescriptorRingStall(u64 nanoseconds) {
 void ProfileDescriptorOffset(bool emitted) {
     Add(emitted ? counters.descriptor_offset_calls : counters.descriptor_offset_skips);
 }
+void ProfileAdaptiveDescriptorCache(bool hit, size_t depth, bool grew, bool shrank) {
+    Add(counters.adaptive_descriptor_lookups);
+    if (hit) {
+        Add(depth == 1 ? counters.adaptive_descriptor_hot_hits
+                       : counters.adaptive_descriptor_deep_hits);
+    }
+    if (grew) Add(counters.adaptive_descriptor_grows);
+    if (shrank) Add(counters.adaptive_descriptor_shrinks);
+}
 void ProfileVertexBufferBind(size_t slots) {
     Add(counters.vertex_buffer_bind_calls);
     Add(counters.vertex_buffer_slots_bound, slots);
@@ -298,6 +312,11 @@ void ResetPipelineProfile(u64 title_id) {
     counters.texture_unswizzle_ns.store(0, std::memory_order_relaxed);
     counters.descriptor_offset_calls.store(0, std::memory_order_relaxed);
     counters.descriptor_offset_skips.store(0, std::memory_order_relaxed);
+    counters.adaptive_descriptor_lookups.store(0, std::memory_order_relaxed);
+    counters.adaptive_descriptor_hot_hits.store(0, std::memory_order_relaxed);
+    counters.adaptive_descriptor_deep_hits.store(0, std::memory_order_relaxed);
+    counters.adaptive_descriptor_grows.store(0, std::memory_order_relaxed);
+    counters.adaptive_descriptor_shrinks.store(0, std::memory_order_relaxed);
     counters.title_id.store(title_id, std::memory_order_release);
 }
 
@@ -362,6 +381,11 @@ PipelineProfileSnapshot GetPipelineProfileSnapshot() {
         counters.texture_unswizzle_ns.load(std::memory_order_relaxed),
         counters.descriptor_offset_calls.load(std::memory_order_relaxed),
         counters.descriptor_offset_skips.load(std::memory_order_relaxed),
+        counters.adaptive_descriptor_lookups.load(std::memory_order_relaxed),
+        counters.adaptive_descriptor_hot_hits.load(std::memory_order_relaxed),
+        counters.adaptive_descriptor_deep_hits.load(std::memory_order_relaxed),
+        counters.adaptive_descriptor_grows.load(std::memory_order_relaxed),
+        counters.adaptive_descriptor_shrinks.load(std::memory_order_relaxed),
     };
     if (counters.title_id.load(std::memory_order_acquire) != title_id) {
         return {};

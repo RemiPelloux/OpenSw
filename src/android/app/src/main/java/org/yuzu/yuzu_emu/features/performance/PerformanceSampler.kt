@@ -117,7 +117,12 @@ data class PipelineProfileSnapshot(
     val textureUnswizzleBytes: Long = 0L,
     val textureUnswizzleNs: Long = 0L,
     val descriptorOffsetCalls: Long = 0L,
-    val descriptorOffsetSkips: Long = 0L
+    val descriptorOffsetSkips: Long = 0L,
+    val adaptiveDescriptorLookups: Long = 0L,
+    val adaptiveDescriptorHotHits: Long = 0L,
+    val adaptiveDescriptorDeepHits: Long = 0L,
+    val adaptiveDescriptorGrows: Long = 0L,
+    val adaptiveDescriptorShrinks: Long = 0L
 ) {
     fun matches(titleId: String): Boolean {
         val normalized = titleId.uppercase(Locale.ROOT).filter(Char::isLetterOrDigit)
@@ -178,7 +183,12 @@ data class PipelineProfileSnapshot(
                 textureUnswizzleBytes = values.getOrElse(42) { 0L },
                 textureUnswizzleNs = values.getOrElse(43) { 0L },
                 descriptorOffsetCalls = values.getOrElse(44) { 0L },
-                descriptorOffsetSkips = values.getOrElse(45) { 0L }
+                descriptorOffsetSkips = values.getOrElse(45) { 0L },
+                adaptiveDescriptorLookups = values.getOrElse(46) { 0L },
+                adaptiveDescriptorHotHits = values.getOrElse(47) { 0L },
+                adaptiveDescriptorDeepHits = values.getOrElse(48) { 0L },
+                adaptiveDescriptorGrows = values.getOrElse(49) { 0L },
+                adaptiveDescriptorShrinks = values.getOrElse(50) { 0L }
             )
         }
     }
@@ -580,6 +590,11 @@ object PerformanceSampler {
                             put("texture_unswizzle_ns", profile.textureUnswizzleNs)
                             put("descriptor_offset_calls", profile.descriptorOffsetCalls)
                             put("descriptor_offset_skips", profile.descriptorOffsetSkips)
+                            put("adaptive_descriptor_lookups", profile.adaptiveDescriptorLookups)
+                            put("adaptive_descriptor_hot_hits", profile.adaptiveDescriptorHotHits)
+                            put("adaptive_descriptor_deep_hits", profile.adaptiveDescriptorDeepHits)
+                            put("adaptive_descriptor_grows", profile.adaptiveDescriptorGrows)
+                            put("adaptive_descriptor_shrinks", profile.adaptiveDescriptorShrinks)
                         }
                     }
             )
