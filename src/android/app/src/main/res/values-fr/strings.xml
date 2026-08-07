@@ -1231,9 +1231,13 @@
     <string name="performance_pipeline_cache_format">%1$.0f%% cache · %2$d builds · file %3$d</string>
     <string name="performance_pipeline_wait_format">%1$d attentes · %2$.1f ms · %3$d petits draws</string>
     <string name="performance_pipeline_phases_format">Maxwell %1$.1f · SPIR-V %2$.1f · module %3$.1f · Vulkan %4$.1f ms</string>
+    <string name="performance_presentation_format">File présentation %1$d · libre %2$.1f · scheduler %3$.1f · acquire %4$.1f · present %5$.1f ms</string>
+    <string name="performance_view_direct">Direct</string>
+    <string name="performance_view_details">Détails</string>
+    <string name="performance_profile_waiting">En attente des compteurs Profile du jeu actif</string>
     <string name="performance_thermal_warning">La pression thermique est élevée. Thor Équilibré est recommandé.</string>
     <string name="performance_speed_warning">La vitesse d’émulation reste sous 95%%. Essayez Thor Équilibré ou vérifiez le profil du jeu.</string>
-    <string name="performance_capture_start">Démarrer une mesure A/B</string>
+    <string name="performance_capture_start">Démarrer un diagnostic</string>
     <string name="performance_capture_stop">Terminer et enregistrer</string>
     <string name="performance_capture_saved">Rapport de performance enregistré</string>
     <string name="performance_capture_empty">Aucune mesure de performance capturée</string>

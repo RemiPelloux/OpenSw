@@ -76,6 +76,7 @@ android {
         versionCode = autoVersion
         manifestPlaceholders += mapOf("profileableShell" to false)
         buildConfigField("boolean", "IS_OPENSW", "false")
+        buildConfigField("boolean", "OPENSW_PROFILE", "false")
         buildConfigField("String", "EDEN_PACKAGE", "\"dev.eden.eden_emulator.nightly\"")
         buildConfigField("String", "OPENSW_CPU_PRESET", "\"generic\"")
         buildConfigField("String", "OPENSW_LTO_MODE", "\"off\"")
@@ -187,6 +188,7 @@ android {
             isMinifyEnabled = false
             applicationIdSuffix = ".profile"
             versionNameSuffix = "-profile"
+            buildConfigField("boolean", "OPENSW_PROFILE", "true")
             manifestPlaceholders += mapOf(
                 "appNameSuffix" to " Profile",
                 "profileableShell" to true
@@ -213,7 +215,6 @@ android {
 
             manifestPlaceholders += mapOf("appNameSuffix" to " Debug")
         }
-
     }
 
     // appNameBase is used for the primary identifier

@@ -3,6 +3,7 @@
 
 package org.yuzu.yuzu_emu.features.performance
 
+import android.content.ClipData
 import android.content.Intent
 import android.view.View
 import android.widget.TextView
@@ -14,12 +15,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.button.MaterialButtonToggleGroup
 import java.io.File
 import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.yuzu.yuzu_emu.R
+import org.yuzu.yuzu_emu.BuildConfig
 import org.yuzu.yuzu_emu.features.settings.model.BooleanSetting
 import org.yuzu.yuzu_emu.features.settings.model.IntSetting
 import org.yuzu.yuzu_emu.utils.OpenSwPerformanceModeManager
@@ -44,14 +47,21 @@ class PerformancePanelController(
     private val memory = panel.findViewById<TextView>(R.id.performance_memory)
     private val power = panel.findViewById<TextView>(R.id.performance_power)
     private val graph = panel.findViewById<FrameTimeGraphView>(R.id.performance_graph)
+    private val modeToggle =
+        panel.findViewById<MaterialButtonToggleGroup>(R.id.performance_mode_toggle)
+    private val directGroup = panel.findViewById<View>(R.id.performance_direct_group)
     private val pipelineGroup = panel.findViewById<View>(R.id.performance_pipeline_group)
+    private val pipelineEmpty = panel.findViewById<View>(R.id.performance_pipeline_empty)
     private val pipelineCache = panel.findViewById<TextView>(R.id.performance_pipeline_cache)
     private val pipelineWait = panel.findViewById<TextView>(R.id.performance_pipeline_wait)
     private val pipelinePhases = panel.findViewById<TextView>(R.id.performance_pipeline_phases)
+    private val presentation = panel.findViewById<TextView>(R.id.performance_presentation)
     private val capture = panel.findViewById<MaterialButton>(R.id.performance_capture)
     private val share = panel.findViewById<MaterialButton>(R.id.performance_share)
     private val samplerConsumer = Any()
     private var isVisible = false
+    private var detailsVisible = false
+    private var latestPipelineProfile: PipelineProfileSnapshot? = null
 
     init {
         title.text = gameTitle
@@ -62,6 +72,16 @@ class PerformancePanelController(
         }
         capture.setOnClickListener { toggleCapture() }
         share.setOnClickListener { shareLatestReport() }
+        if (BuildConfig.OPENSW_PROFILE) {
+            modeToggle.addOnButtonCheckedListener { _, checkedId, isChecked ->
+                if (!isChecked) return@addOnButtonCheckedListener
+                detailsVisible = checkedId == R.id.performance_mode_details
+                updateSelectedView()
+            }
+        } else {
+            modeToggle.visibility = View.GONE
+        }
+        updateSelectedView()
         fragment.viewLifecycleOwner.lifecycleScope.launch {
             fragment.viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 PerformanceSampler.snapshots.collect(::render)
@@ -77,11 +97,15 @@ class PerformancePanelController(
         panel.visibility = View.VISIBLE
         val mode = OpenSwPerformanceModeManager.getResolvedMode(fragment.requireContext(), titleId)
         val modeLabel = fragment.getString(mode.labelResource())
-        context.text = if (compact) modeLabel else fragment.getString(
-            R.string.performance_context_format,
-            titleId,
+        context.text = if (compact) {
             modeLabel
-        )
+        } else {
+            fragment.getString(
+                R.string.performance_context_format,
+                titleId,
+                modeLabel
+            )
+        }
         config.text = currentConfiguration()
         capture.setText(
             if (PerformanceSampler.isCapturing()) {
@@ -133,7 +157,8 @@ class PerformancePanelController(
             snapshot.batteryCapacity
         )
         renderHealth(performanceHealth(snapshot))
-        renderPipelineProfile(snapshot.pipelineProfile?.takeIf { it.matches(titleId) })
+        latestPipelineProfile = snapshot.pipelineProfile?.takeIf { it.matches(titleId) }
+        renderPipelineProfile(latestPipelineProfile)
         when {
             snapshot.thermalWarning -> {
                 warning.setText(R.string.performance_thermal_warning)
@@ -165,11 +190,16 @@ class PerformancePanelController(
     }
 
     private fun renderPipelineProfile(profile: PipelineProfileSnapshot?) {
-        if (profile == null) {
+        if (!BuildConfig.OPENSW_PROFILE || !detailsVisible) {
             pipelineGroup.visibility = View.GONE
             return
         }
         pipelineGroup.visibility = View.VISIBLE
+        pipelineEmpty.visibility = if (profile == null) View.VISIBLE else View.GONE
+        listOf(pipelineCache, pipelineWait, pipelinePhases, presentation).forEach { metric ->
+            metric.visibility = if (profile == null) View.GONE else View.VISIBLE
+        }
+        if (profile == null) return
         val cacheAccesses = profile.cacheHits + profile.cacheMisses
         val hitRate = if (cacheAccesses == 0L) 0.0 else profile.cacheHits * 100.0 / cacheAccesses
         pipelineCache.text = fragment.getString(
@@ -191,6 +221,19 @@ class PerformancePanelController(
             profile.shaderModuleNs / 1_000_000.0,
             profile.vulkanPipelineNs / 1_000_000.0
         )
+        presentation.text = fragment.getString(
+            R.string.performance_presentation_format,
+            profile.maxPresentQueueDepth,
+            profile.freeFrameWaitNs / 1_000_000.0,
+            profile.schedulerWaitNs / 1_000_000.0,
+            profile.swapchainAcquireNs / 1_000_000.0,
+            profile.presentNs / 1_000_000.0
+        )
+    }
+
+    private fun updateSelectedView() {
+        directGroup.visibility = if (detailsVisible) View.GONE else View.VISIBLE
+        renderPipelineProfile(latestPipelineProfile)
     }
 
     private fun currentConfiguration(): String {
@@ -272,9 +315,12 @@ class PerformancePanelController(
             .setType("application/json")
             .putExtra(Intent.EXTRA_STREAM, uri)
             .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        fragment.startActivity(
-            Intent.createChooser(intent, fragment.getString(R.string.performance_share_chooser))
-        )
+        intent.clipData = ClipData.newRawUri(latest.name, uri)
+        val chooser = Intent.createChooser(
+            intent,
+            fragment.getString(R.string.performance_share_chooser)
+        ).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        fragment.startActivity(chooser)
     }
 
     private fun PerformanceMode.labelResource(): Int = when (this) {

@@ -453,14 +453,14 @@ object NativeLibrary {
 
     @Keep
     @JvmStatic
-    fun onEmulationStarted() {
-        sEmulationActivity.get()!!.onEmulationStarted()
+    fun onEmulationStarted(generation: Long) {
+        sEmulationActivity.get()?.onEmulationStarted(generation)
     }
 
     @Keep
     @JvmStatic
-    fun onEmulationStopped(status: Int) {
-        sEmulationActivity.get()!!.onEmulationStopped(status)
+    fun onEmulationStopped(status: Int, generation: Long) {
+        sEmulationActivity.get()?.onEmulationStopped(status, generation)
     }
 
     @Keep

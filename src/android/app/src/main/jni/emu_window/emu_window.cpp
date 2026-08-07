@@ -69,9 +69,11 @@ void EmuWindow_Android::OnFrameDisplayed() {
     UpdateObservedFrameRate();
     UpdateFrameRateHint();
 
-    if (!m_first_frame) {
+    if (!m_first_frame && m_session_generation != 0) {
         Common::Android::RunJNIOnFiber<void>(
-            [&](JNIEnv* env) { EmulationSession::GetInstance().OnEmulationStarted(); });
+            [&](JNIEnv* env) {
+                EmulationSession::GetInstance().OnEmulationStarted(m_session_generation);
+            });
         m_first_frame = true;
     }
 }
@@ -251,8 +253,9 @@ void EmuWindow_Android::UpdateFrameRateHint() {
 }
 
 EmuWindow_Android::EmuWindow_Android(ANativeWindow* surface,
-                                     std::shared_ptr<Common::DynamicLibrary> driver_library)
-    : m_driver_library{driver_library} {
+                                     std::shared_ptr<Common::DynamicLibrary> driver_library,
+                                     std::uint64_t session_generation)
+    : m_driver_library{driver_library}, m_session_generation{session_generation} {
     LOG_INFO(Frontend, "initializing");
 
     if (!surface) {

@@ -23,23 +23,56 @@ class PerformanceAnalysisTest {
     @Test
     fun percentileUsesSortedNearestRankWindow() {
         assertEquals(0.0, percentile95(emptyList()), 0.0)
+        assertEquals(0.0, percentile95(listOf(Double.NaN, Double.POSITIVE_INFINITY)), 0.0)
         assertEquals(20.0, percentile95(listOf(10.0, 20.0)), 0.0)
+        assertEquals(
+            20.0,
+            percentile95(listOf(Double.NaN, 10.0, Double.NEGATIVE_INFINITY, 20.0)),
+            0.0
+        )
         assertEquals(95.0, percentile95((1..100).map(Int::toDouble)), 0.0)
+    }
+
+    @Test
+    fun diagnosticMetricsConvertNonFiniteValuesToNull() {
+        assertEquals(null, finiteMetricOrNull(Double.NaN))
+        assertEquals(null, finiteMetricOrNull(Double.POSITIVE_INFINITY))
+        assertEquals(null, finiteMetricOrNull(Float.NEGATIVE_INFINITY))
+        assertEquals(16.7, finiteMetricOrNull(16.7)!!, 0.0)
+        assertEquals(42f, finiteMetricOrNull(42f)!!, 0f)
     }
 
     @Test
     fun healthUsesTheObservedFrameBudget() {
         assertEquals(
             PerformanceHealth.STABLE,
-            performanceHealth(PerformanceSnapshot(fps = 30.0, frameTimeP95Ms = 37.0, emulationSpeed = 1.0))
+            performanceHealth(
+                PerformanceSnapshot(
+                    fps = 30.0,
+                    frameTimeP95Ms = 37.0,
+                    emulationSpeed = 1.0
+                )
+            )
         )
         assertEquals(
             PerformanceHealth.STABLE,
-            performanceHealth(PerformanceSnapshot(fps = 60.0, frameTimeP95Ms = 19.0, emulationSpeed = 1.0))
+            performanceHealth(
+                PerformanceSnapshot(
+                    fps = 60.0,
+                    frameTimeP95Ms = 19.0,
+                    emulationSpeed = 1.0
+                )
+            )
         )
         assertEquals(
             PerformanceHealth.UNEVEN,
-            performanceHealth(PerformanceSnapshot(fps = 60.0, frameTimeP95Ms = 24.0, emulationSpeed = 1.0))
+            performanceHealth(
+                PerformanceSnapshot(
+                    fps = 60.0,
+                    frameTimeP95Ms = 24.0,
+                    emulationSpeed = 1.0
+                )
+            )
         )
     }
 
@@ -71,26 +104,120 @@ class PerformanceAnalysisTest {
         assertEquals(12L, snapshot.vulkanPipelineNs)
         assertTrue(snapshot.matches("0000000000000001"))
         assertFalse(snapshot.matches("0000000000000002"))
+
+        val extended = PipelineProfileSnapshot.from(LongArray(17) { (it + 1).toLong() })!!
+        assertEquals(13L, extended.maxPresentQueueDepth)
+        assertEquals(14L, extended.freeFrameWaitNs)
+        assertEquals(17L, extended.presentNs)
     }
 
     @Test
-    fun captureSummaryUsesOnlyFinitePresentedFrames() {
+    fun diagnosticSummaryDoesNotExposeSampledFramePercentiles() {
         val summary = summarizeCapture(
             listOf(
-                PerformanceSnapshot(fps = 60.0, frameTimeMs = 10.0, appRssMb = 100, batteryTemperatureC = 40f),
-                PerformanceSnapshot(fps = 50.0, frameTimeMs = 20.0, appRssMb = 150, batteryTemperatureC = 42f),
-                PerformanceSnapshot(fps = 40.0, frameTimeMs = 30.0, appRssMb = 120, batteryTemperatureC = 41f),
+                PerformanceSnapshot(
+                    fps = 60.0,
+                    frameTimeMs = 10.0,
+                    appRssMb = 100,
+                    batteryTemperatureC = 40f
+                ),
+                PerformanceSnapshot(
+                    fps = 50.0,
+                    frameTimeMs = 20.0,
+                    appRssMb = 150,
+                    batteryTemperatureC = 42f
+                ),
+                PerformanceSnapshot(
+                    fps = 40.0,
+                    frameTimeMs = 30.0,
+                    appRssMb = 120,
+                    batteryTemperatureC = 41f
+                ),
                 PerformanceSnapshot(fps = 0.0, frameTimeMs = Double.NaN)
-            )
+            ),
+            "0000000000000001"
         )
 
-        assertEquals(20.0, summary.frameTimeP50Ms, 0.0)
-        assertEquals(30.0, summary.frameTimeP95Ms, 0.0)
-        assertEquals(30.0, summary.frameTimeP99Ms, 0.0)
-        assertEquals(50.0, summary.medianFps, 0.0)
-        assertEquals(3, summary.sampleCount)
+        assertEquals(4, summary.sampleCount)
         assertEquals(150L, summary.maxRssMb)
         assertEquals(42f, summary.maxTemperatureC)
+        assertEquals(null, summary.pipeline)
+    }
+
+    @Test
+    fun profileSummaryUsesDeltasAndQueueMaximums() {
+        fun profile(base: Long, pipelineQueue: Long, presentQueue: Long) = PipelineProfileSnapshot(
+            titleId = 1L,
+            cacheHits = base,
+            cacheMisses = base + 1,
+            compilations = base + 2,
+            maxQueueDepth = pipelineQueue,
+            smallDrawWaits = base + 3,
+            pipelineWaits = base + 4,
+            pipelineWaitNs = base + 5,
+            translationNs = base + 6,
+            spirvNs = base + 7,
+            shaderModuleNs = base + 8,
+            vulkanPipelineNs = base + 9,
+            maxPresentQueueDepth = presentQueue,
+            freeFrameWaitNs = base + 10,
+            schedulerWaitNs = base + 11,
+            swapchainAcquireNs = base + 12,
+            presentNs = base + 13
+        )
+
+        val summary = summarizePipelineProfiles(
+            listOf(profile(10, 2, 4), profile(25, 7, 5)),
+            "0000000000000001"
+        )!!
+        assertEquals(7L, summary.maxPipelineQueueDepth)
+        assertEquals(5L, summary.maxPresentQueueDepth)
+        assertEquals(15L, summary.cacheHits)
+        assertEquals(15L, summary.presentNs)
+
+        assertEquals(
+            null,
+            summarizePipelineProfiles(
+                listOf(profile(25, 2, 2), profile(10, 3, 3)),
+                "0000000000000001"
+            )
+        )
+    }
+
+    @Test
+    fun captureSessionRejectsOldGenerationAndInvalidatesConfigurationChange() {
+        val configuration = CaptureConfiguration(
+            titleId = "0000000000000001",
+            processId = 42,
+            packageName = "com.remipelloux.opensw.profile",
+            apkVersion = "test",
+            mode = "STANDARD",
+            pipelineWorkers = 4,
+            presentationRate = 60,
+            asyncPresentation = true
+        )
+        val session = PerformanceCaptureSession(
+            captureId = "capture-1",
+            generation = 7,
+            startedAtMs = 100,
+            startedAtMonotonicMs = 50,
+            configuration = configuration
+        )
+
+        assertFalse(session.record(6, configuration, PerformanceSnapshot()))
+        assertEquals(CaptureState.ACTIVE, session.state)
+        assertFalse(
+            session.record(
+                7,
+                configuration.copy(pipelineWorkers = 6),
+                PerformanceSnapshot()
+            )
+        )
+        assertEquals(CaptureState.INVALIDATED, session.state)
+        assertEquals("configuration_changed", session.invalidationReason)
+        assertTrue(session.finish(7, 200, 150))
+        assertEquals(CaptureState.INVALIDATED, session.state)
+        assertFalse(session.finish(8, 300, 250))
     }
 
     @Test
