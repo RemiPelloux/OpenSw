@@ -829,9 +829,8 @@ void BufferCache<P>::BindHostVertexBuffers() {
             SynchronizeBuffer(buffer, binding.device_addr, binding.size, &uploaded_bytes);
             Vulkan::ProfileVertexBufferSynchronized(binding.size, uploaded_bytes);
         }
-        const VertexBufferRangePlan plan =
-            BuildAdaptiveVertexBufferRanges(enabled_vertex_buffers_mask, dirty_mask);
-        for (const VertexBufferRange range : plan.Ranges()) {
+        for (const VertexBufferRange range :
+             BuildDirtyVertexBufferRanges(enabled_vertex_buffers_mask, dirty_mask)) {
             HostBindings<Buffer> bindings{};
             bindings.min_index = range.first;
             bindings.max_index = range.first + range.count;

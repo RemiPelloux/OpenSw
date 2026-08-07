@@ -5,34 +5,29 @@
 
 #include "video_core/buffer_cache/vertex_buffer_ranges.h"
 
-TEST_CASE("Vertex buffer ranges keep widely separated slots sparse", "[video_core][vulkan]") {
-    const auto plan = VideoCommon::BuildAdaptiveVertexBufferRanges(0b10000001, 0b11111111);
-    const auto ranges = plan.Ranges();
-    REQUIRE(ranges.size() == 2);
+TEST_CASE("Vertex buffer ranges bind sparse dirty enabled slots", "[video_core][vulkan]") {
+    const auto ranges = VideoCommon::BuildDirtyVertexBufferRanges(0b10110101, 0b11111111);
+    REQUIRE(ranges.size() == 4);
     CHECK(ranges[0] == VideoCommon::VertexBufferRange{0, 1});
-    CHECK(ranges[1] == VideoCommon::VertexBufferRange{7, 1});
+    CHECK(ranges[1] == VideoCommon::VertexBufferRange{2, 1});
+    CHECK(ranges[2] == VideoCommon::VertexBufferRange{4, 2});
+    CHECK(ranges[3] == VideoCommon::VertexBufferRange{7, 1});
 }
 
 TEST_CASE("Vertex buffer ranges exclude null and clean slots", "[video_core][vulkan]") {
-    CHECK(VideoCommon::BuildAdaptiveVertexBufferRanges(0, ~0U).Ranges().empty());
-    CHECK(VideoCommon::BuildAdaptiveVertexBufferRanges(~0U, 0).Ranges().empty());
-    const auto plan = VideoCommon::BuildAdaptiveVertexBufferRanges(0b111111, 0b100001);
-    const auto ranges = plan.Ranges();
+    CHECK(VideoCommon::BuildDirtyVertexBufferRanges(0, ~0U).empty());
+    CHECK(VideoCommon::BuildDirtyVertexBufferRanges(~0U, 0).empty());
+    const auto ranges = VideoCommon::BuildDirtyVertexBufferRanges(0b111111, 0b100001);
     REQUIRE(ranges.size() == 2);
     CHECK(ranges[0] == VideoCommon::VertexBufferRange{0, 1});
     CHECK(ranges[1] == VideoCommon::VertexBufferRange{5, 1});
 }
 
-TEST_CASE("Vertex buffer ranges coalesce inexpensive gaps", "[video_core][vulkan]") {
-    const auto plan = VideoCommon::BuildAdaptiveVertexBufferRanges(0b101, 0b111);
-    const auto ranges = plan.Ranges();
-    REQUIRE(ranges.size() == 1);
-    CHECK(ranges[0] == VideoCommon::VertexBufferRange{0, 3});
-}
-
-TEST_CASE("Vertex buffer range planning has no heap-sized result", "[video_core][vulkan]") {
-    const auto plan = VideoCommon::BuildAdaptiveVertexBufferRanges(~0U, ~0U);
-    const auto ranges = plan.Ranges();
-    REQUIRE(ranges.size() == 1);
-    CHECK(ranges[0] == VideoCommon::VertexBufferRange{0, 32});
+TEST_CASE("Vertex buffer ranges are draw-type and extension independent",
+          "[video_core][vulkan]") {
+    const auto non_indexed = VideoCommon::BuildDirtyVertexBufferRanges(0b1110, 0b1111);
+    const auto indexed = VideoCommon::BuildDirtyVertexBufferRanges(0b1110, 0b1111);
+    CHECK(non_indexed == indexed);
+    REQUIRE(non_indexed.size() == 1);
+    CHECK(non_indexed[0] == VideoCommon::VertexBufferRange{1, 3});
 }

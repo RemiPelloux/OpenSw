@@ -56,11 +56,9 @@ native counters and SurfaceFlinger timestamps remain available without presentin
 The descriptor-offset cache skips `vkCmdSetDescriptorBufferOffsetsEXT` only when bind point,
 pipeline layout, descriptor chunk, and offset are unchanged in the active command buffer. The
 optimized vertex-buffer setting binds dirty enabled slots as contiguous sparse ranges and clears
-dirty null slots. Its allocation-free per-draw planner chooses between sparse ranges and one dense
-range by accounting for both slots and fixed command cost, so compact 2D and complex 3D bindings use
-the cheaper representation. It remains a compatibility-controlled Android setting until repeated
-device A/B captures justify changing the default. Descriptor-ring spill chunks are likewise deferred
-until the Profile exhaustion counter proves that the current fallback occurs in the target workload.
+dirty null slots; it remains a compatibility-controlled Android setting until repeated device A/B
+captures justify changing the default. Descriptor-ring spill chunks are likewise deferred until the
+Profile exhaustion counter proves that the current fallback occurs in the target workload.
 
 ## Lab packages
 
