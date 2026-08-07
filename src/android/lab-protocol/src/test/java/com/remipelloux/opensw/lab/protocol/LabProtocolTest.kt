@@ -36,6 +36,20 @@ class LabProtocolTest {
         assertFalse(LabCommandPolicy.validGameUri("file:///sdcard/game.xci"))
     }
 
+    @Test
+    fun graphicsConfigurationAcceptsOnlyKnownRanges() {
+        assertTrue(LabCommandPolicy.validResolutionSetup(0))
+        assertTrue(LabCommandPolicy.validResolutionSetup(12))
+        assertFalse(LabCommandPolicy.validResolutionSetup(-1))
+        assertFalse(LabCommandPolicy.validResolutionSetup(13))
+        assertTrue(LabCommandPolicy.validScalingFilter(0))
+        assertTrue(LabCommandPolicy.validScalingFilter(14))
+        assertFalse(LabCommandPolicy.validScalingFilter(15))
+        assertTrue(LabCommandPolicy.validSharpening(0))
+        assertTrue(LabCommandPolicy.validSharpening(100))
+        assertFalse(LabCommandPolicy.validSharpening(101))
+    }
+
 
     @Test
     fun replayValidationAcceptsCanonicalHash() {

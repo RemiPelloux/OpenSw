@@ -98,6 +98,12 @@ object ReplayHasher {
 object LabCommandPolicy {
     fun validWorkerSelection(workers: Int): Boolean = workers == 0 || workers in 2..8
 
+    fun validResolutionSetup(resolution: Int): Boolean = resolution in 0..12
+
+    fun validScalingFilter(scalingFilter: Int): Boolean = scalingFilter in 0..14
+
+    fun validSharpening(sharpening: Int): Boolean = sharpening in 0..100
+
     fun validTitleId(titleId: String): Boolean = titleIdPattern.matches(titleId)
 
     fun validGameUri(uri: String): Boolean = uri.startsWith("content://") && uri.length <= 4096

@@ -7,6 +7,7 @@ interface IOpenSwProfileBridge {
     String getRuntimeIdentity();
     String getSessionStatus();
     boolean setPipelineWorkers(int workers);
+    boolean setGraphicsConfig(int resolution, int scalingFilter, int sharpening);
     boolean clearShaderCache(String titleId);
     boolean launchGame(String gameUri, String expectedTitleId, long timeoutMs);
     boolean pauseEmulation(long timeoutMs);

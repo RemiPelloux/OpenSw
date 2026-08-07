@@ -19,6 +19,39 @@ REMOTE_REPLAY_NAME = "opensw-input-replay.json"
 PROFILE_PACKAGE = "com.remipelloux.opensw.profile"
 EDEN_PACKAGE = "dev.eden.eden_emulator.nightly"
 
+RESOLUTION_VALUES = {
+    "0.25x": 0,
+    "0.5x": 1,
+    "0.75x": 2,
+    "1x": 3,
+    "1.25x": 4,
+    "1.5x": 5,
+    "2x": 6,
+    "3x": 7,
+    "4x": 8,
+    "5x": 9,
+    "6x": 10,
+    "7x": 11,
+    "8x": 12,
+}
+SCALING_FILTER_VALUES = {
+    "nearest": 0,
+    "bilinear": 1,
+    "bicubic": 2,
+    "gaussian": 3,
+    "lanczos": 4,
+    "scaleforce": 5,
+    "fsr": 6,
+    "area": 7,
+    "zero-tangent": 8,
+    "b-spline": 9,
+    "mitchell": 10,
+    "spline-1": 11,
+    "mmpx": 12,
+    "sgsr": 13,
+    "sgsr-edge": 14,
+}
+
 
 def canonical_replay_sha256(replay: dict) -> str:
     lines = [
@@ -137,6 +170,12 @@ def execute(args: argparse.Namespace) -> int:
         command_args.update(game_uri=args.game_uri, title_id=args.title_id)
     elif args.command == "set-workers":
         command_args["workers"] = str(args.workers)
+    elif args.command == "set-graphics":
+        command_args.update(
+            resolution=str(RESOLUTION_VALUES[args.resolution]),
+            scaling_filter=str(SCALING_FILTER_VALUES[args.scaling_filter]),
+            sharpening=str(args.sharpening),
+        )
     elif args.command == "clear-cache":
         command_args["title_id"] = args.title_id
     elif args.command == "start-capture":
@@ -210,6 +249,10 @@ def parser() -> argparse.ArgumentParser:
     launch.add_argument("--timeout-ms", type=int, default=120_000)
     workers = subparsers.add_parser("set-workers")
     workers.add_argument("workers", type=int)
+    graphics = subparsers.add_parser("set-graphics")
+    graphics.add_argument("--resolution", choices=RESOLUTION_VALUES, required=True)
+    graphics.add_argument("--scaling-filter", choices=SCALING_FILTER_VALUES, required=True)
+    graphics.add_argument("--sharpening", type=int, choices=range(0, 101), default=0)
     cache = subparsers.add_parser("clear-cache")
     cache.add_argument("--title-id", required=True)
     replay = subparsers.add_parser("start-replay")

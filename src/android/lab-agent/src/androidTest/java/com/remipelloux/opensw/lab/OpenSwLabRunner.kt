@@ -60,6 +60,13 @@ class OpenSwLabRunner : AndroidJUnitRunner() {
                     "set-workers" -> booleanResult(
                         bridge.setPipelineWorkers(requireArgument("workers").toInt())
                     )
+                    "set-graphics" -> booleanResult(
+                        bridge.setGraphicsConfig(
+                            requireArgument("resolution").toInt(),
+                            requireArgument("scaling_filter").toInt(),
+                            requireArgument("sharpening").toInt()
+                        )
+                    )
                     "clear-cache" -> booleanResult(
                         bridge.clearShaderCache(requireArgument("title_id"))
                     )

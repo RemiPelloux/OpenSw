@@ -24,7 +24,7 @@ from opensw_performance_v2 import (
     summarize_frametimes,
     validate_manifest,
 )
-from opensw_lab import canonical_replay_sha256, parser as lab_parser
+from opensw_lab import canonical_replay_sha256, execute as execute_lab, parser as lab_parser
 
 
 class PerformanceV2Test(unittest.TestCase):
@@ -165,6 +165,45 @@ class PerformanceV2Test(unittest.TestCase):
         disable = lab_parser().parse_args(["disable-cheat", "60 FPS"])
         self.assertEqual("enable-cheat", enable.command)
         self.assertEqual("disable-cheat", disable.command)
+
+        graphics = lab_parser().parse_args(
+            [
+                "set-graphics",
+                "--resolution",
+                "0.75x",
+                "--scaling-filter",
+                "fsr",
+                "--sharpening",
+                "20",
+            ]
+        )
+        self.assertEqual("0.75x", graphics.resolution)
+        self.assertEqual("fsr", graphics.scaling_filter)
+        self.assertEqual(20, graphics.sharpening)
+
+    @patch("opensw_lab.run_lab_command")
+    def test_lab_graphics_command_maps_symbolic_values(self, mock_run_lab_command):
+        mock_run_lab_command.return_value = {"ok": True}
+        graphics = lab_parser().parse_args(
+            [
+                "--serial",
+                "device",
+                "set-graphics",
+                "--resolution",
+                "0.75x",
+                "--scaling-filter",
+                "fsr",
+                "--sharpening",
+                "20",
+            ]
+        )
+
+        self.assertEqual(0, execute_lab(graphics))
+        mock_run_lab_command.assert_called_once_with(
+            "device",
+            "set-graphics",
+            {"resolution": "2", "scaling_filter": "6", "sharpening": "20"},
+        )
 
     def test_comparison_promotes_tail_improvement_without_regression(self):
         baseline = self.summary("a", fps=30.0, p95=40.0, p99=60.0)

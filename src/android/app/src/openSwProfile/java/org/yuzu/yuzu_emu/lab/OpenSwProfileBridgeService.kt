@@ -32,6 +32,7 @@ import org.yuzu.yuzu_emu.features.performance.OpenSwSessionSnapshot
 import org.yuzu.yuzu_emu.features.performance.OpenSwSessionState
 import org.yuzu.yuzu_emu.features.settings.model.IntSetting
 import org.yuzu.yuzu_emu.utils.DirectoryInitialization
+import org.yuzu.yuzu_emu.utils.NativeConfig
 import org.yuzu.yuzu_emu.ui.main.MainActivity
 
 class OpenSwProfileBridgeService : Service() {
@@ -59,6 +60,9 @@ class OpenSwProfileBridgeService : Service() {
                 .put("async_presentation", runtime?.asyncPresentation ?: false)
                 .put("descriptor_buffer_available", runtime?.descriptorBufferAvailable ?: false)
                 .put("presentation_target", runtime?.presentationTarget ?: 0)
+                .put("resolution_setup", IntSetting.RENDERER_RESOLUTION.getInt(true))
+                .put("scaling_filter", IntSetting.RENDERER_SCALING_FILTER.getInt(true))
+                .put("fsr_sharpening", IntSetting.FSR_SHARPENING_SLIDER.getInt(true))
                 .put("replay_sha256", replay.sha256)
                 .put("replay_state", replay.state.name)
                 .put("monotonic_timestamp_ms", SystemClock.elapsedRealtime())
@@ -75,13 +79,28 @@ class OpenSwProfileBridgeService : Service() {
                     .toString()
 
         override fun setPipelineWorkers(workers: Int): Boolean {
-            if (!LabCommandPolicy.validWorkerSelection(workers) || NativeLibrary.isRunning()) {
+            if (!LabCommandPolicy.validWorkerSelection(workers)) {
                 return false
             }
-            return runCatching {
-                IntSetting.ANDROID_PIPELINE_WORKERS.setInt(workers)
-                true
-            }.getOrDefault(false)
+            return setGlobalIntSettings(IntSetting.ANDROID_PIPELINE_WORKERS to workers)
+        }
+
+        override fun setGraphicsConfig(
+            resolution: Int,
+            scalingFilter: Int,
+            sharpening: Int
+        ): Boolean {
+            if (!LabCommandPolicy.validResolutionSetup(resolution) ||
+                !LabCommandPolicy.validScalingFilter(scalingFilter) ||
+                !LabCommandPolicy.validSharpening(sharpening)
+            ) {
+                return false
+            }
+            return setGlobalIntSettings(
+                IntSetting.RENDERER_RESOLUTION to resolution,
+                IntSetting.RENDERER_SCALING_FILTER to scalingFilter,
+                IntSetting.FSR_SHARPENING_SLIDER to sharpening
+            )
         }
 
         override fun clearShaderCache(titleId: String): Boolean {
@@ -240,6 +259,18 @@ class OpenSwProfileBridgeService : Service() {
     }
 
     private fun validTimeout(timeoutMs: Long): Boolean = timeoutMs in 100..MAX_TIMEOUT_MS
+
+    private fun setGlobalIntSettings(vararg settings: Pair<IntSetting, Int>): Boolean {
+        if (NativeLibrary.isRunning() || NativeConfig.isPerGameConfigLoaded()) return false
+        return runCatching {
+            settings.forEach { (setting, value) ->
+                setting.global = true
+                setting.setInt(value)
+            }
+            NativeConfig.saveGlobalConfig()
+            true
+        }.getOrDefault(false)
+    }
 
     private fun writeRuntimeIdentity(identity: String) {
         val directory = File(filesDir, "lab")
