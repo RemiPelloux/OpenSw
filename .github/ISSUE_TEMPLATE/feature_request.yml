@@ -1,28 +1,43 @@
-name: Feature Request
-description: File a feature request
-labels: "request"
+# SPDX-FileCopyrightText: Copyright 2026 OpenSw Project
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: Feature request
+description: Propose a scoped OpenSw improvement
+title: "[Feature]: "
+labels: [enhancement, needs-triage]
 body:
-  - type: markdown
-    attributes:
-      value: Tech support does not belong here. You should only file an issue here if you are requesting a feature you believe would make yuzu better.
   - type: checkboxes
     attributes:
-      label: Is there an existing issue for this?
-      description: Please search to see if an issue already exists for the feature you are requesting.
+      label: Preflight
       options:
-      - label: I have searched the existing issues
-        required: true
+        - label: I searched existing issues and discussions for this proposal.
+          required: true
   - type: textarea
-    id: what-feature
+    id: problem
     attributes:
-      label: What feature are you suggesting?
-      description: A brief description of the requested feature.
+      label: Problem
+      description: What user or engineering problem needs to be solved?
     validations:
       required: true
   - type: textarea
-    id: why-feature
+    id: proposal
     attributes:
-      label: Why would this feature be useful?
-      description: A brief description of why this feature would make yuzu better.
+      label: Proposed behavior
+      description: Describe the observable behavior, controls and compatibility expectations.
     validations:
       required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe existing workarounds and relevant tradeoffs.
+    validations:
+      required: false
+  - type: checkboxes
+    attributes:
+      label: Compatibility
+      options:
+        - label: The proposal preserves generic Android ARM64 support or clearly isolates device-specific behavior.
+          required: true
+        - label: The proposal does not require games, keys, firmware or copyrighted assets in the repository.
+          required: true

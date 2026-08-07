@@ -7,7 +7,18 @@
 - JDK 17
 - Git submodules initialised
 
-From `src/android`, build the profileable release-like APK:
+From `src/android`, build the normal installable Release APK:
+
+```sh
+./gradlew :app:assembleOpenSwRelease
+```
+
+The output is `app/build/outputs/apk/openSw/release/app-openSw-release.apk` and installs as
+`com.remipelloux.opensw`. Use `adb install -r` for an in-place update. Confirm the APK certificate
+matches the installed package before updating; never uninstall or clear app data when preserving
+saves, settings, cheats and shader caches.
+
+Build the isolated, profileable measurement APK with:
 
 ```sh
 ./gradlew :app:assembleOpenSwProfile

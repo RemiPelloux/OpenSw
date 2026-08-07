@@ -7,6 +7,7 @@ The maintained guides are:
 
 - [Android build and installation](./Android.md)
 - [Performance modes and A/B captures](./Performance.md)
+- [Vulkan rendering compatibility](./Rendering.md)
 - [Session stability and memory lifecycle](./SessionStability.md)
 - [Secondary-screen cockpit and live cheats](./CockpitAndCheats.md)
 - [Troubleshooting and safe diagnostics](./Troubleshooting.md)

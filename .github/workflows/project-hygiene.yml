@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: Copyright 2026 OpenSw Project
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: Project hygiene
+
+on:
+  push:
+    branches: [thor-lab]
+  pull_request:
+    branches: [thor-lab]
+
+permissions:
+  contents: read
+
+jobs:
+  metadata:
+    name: Documentation and repository metadata
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Validate project metadata
+        run: ruby tools/check-project-metadata.rb
+
+      - name: Reject whitespace errors
+        run: git diff --check HEAD^

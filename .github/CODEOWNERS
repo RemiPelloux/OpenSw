@@ -1,0 +1,10 @@
+# SPDX-FileCopyrightText: Copyright 2026 OpenSw Project
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+# OpenSw project ownership
+* @RemiPelloux
+
+/src/android/ @RemiPelloux
+/src/video_core/ @RemiPelloux
+/docs/ @RemiPelloux
+/.github/ @RemiPelloux

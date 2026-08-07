@@ -1,4 +1,11 @@
+# SPDX-FileCopyrightText: Copyright 2026 OpenSw Project
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 blank_issues_enabled: false
 contact_links:
-  - name: Eden Discord
-    url: https://discord.gg/HstXbPch7X
+  - name: OpenSw Discussions
+    url: https://github.com/RemiPelloux/OpenSw/discussions
+    about: Ask usage questions and discuss ideas before opening an issue.
+  - name: Private security report
+    url: https://github.com/RemiPelloux/OpenSw/security/advisories/new
+    about: Report an unpatched vulnerability privately.

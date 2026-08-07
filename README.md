@@ -1,4 +1,7 @@
 <!--
+# SPDX-FileCopyrightText: Copyright 2026 OpenSw Project
+# SPDX-License-Identifier: GPL-3.0-or-later
+
 # SPDX-FileCopyrightText: Copyright 2025 Eden Emulator Project
 # SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -7,30 +10,39 @@
 -->
 <!-- lang: en-GB -->
 
-<h1 align="center">
-  <br>
-  <img src="./branding/opensw-monogram.svg" alt="OpenSw" width="200">
-  <br>
-  <b>OpenSw</b>
-  <br>
-</h1>
+<p align="center">
+  <img src="./branding/opensw-monogram.svg" alt="OpenSw Android emulator logo" width="200">
+</p>
 
-<h4 align="center">
-OpenSw is a standalone Android Switch emulator developed as its own complete project, with a general
-ARM64 build and an optional performance path measured on AYN Thor. It combines reversible per-game
-profiles, live cheats, a dual-screen cockpit and reproducible performance diagnostics.
-</h4>
+<h1 align="center">OpenSw Android Nintendo Switch Emulator</h1>
+
+<p align="center">
+  Open-source ARM64 emulator for Android with a Vulkan renderer, per-game profiles, live cheats,
+  dual-screen controls and reproducible performance diagnostics.
+</p>
+
+<p align="center">
+  <a href="./LICENSE.txt"><img alt="License: GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue"></a>
+  <img alt="Platform: Android ARM64" src="https://img.shields.io/badge/platform-Android%20ARM64-3DDC84">
+  <img alt="Renderer: Vulkan" src="https://img.shields.io/badge/renderer-Vulkan-AC162C">
+</p>
 
 <p align="center">
   <a href="#features">Features</a> |
+  <a href="#build-from-source">Build</a> |
   <a href="#live-cheats">Live cheats</a> |
   <a href="#app-identity-and-data">App identity and data</a> |
-  <a href="#building">Building</a> |
+  <a href="#performance-development">Performance</a> |
   <a href="#testing">Testing</a> |
   <a href="#roadmap">Roadmap</a> |
   <a href="#based-on-eden">Based on Eden</a> |
+  <a href="#community-and-project-policy">Community</a> |
   <a href="#license">License</a>
 </p>
+
+OpenSw targets generic Android ARM64 hardware. AYN Thor support is an optional, reversible profile,
+not a requirement and not a device-wide overclock. OpenSw does not include games, encryption keys or
+firmware; users must provide content they are legally entitled to use.
 
 ## Features
 
@@ -54,10 +66,9 @@ profiles, live cheats, a dual-screen cockpit and reproducible performance diagno
 
 ## Current status
 
-The maintained Android targets build as `openSwRelease` and `openSwProfile`. Pokemon Legends:
-Arceus 1.1.1 has been verified on the AYN Thor with Build ID
-`AEE8F150DDA1B5A8`; the live cheat engine applied Mastercode plus the 60 FPS section and a stable
-presentation sample measured 59.96 FPS.
+The maintained Android targets build as `openSwRelease` and `openSwProfile`. The normal installable
+application is `com.remipelloux.opensw`; Profile is an isolated measurement variant and is not the
+public runtime package.
 
 Repeated-session shutdown now rejects callbacks from older native generations and has focused fixes
 for cheat callbacks, audio streams, emulated backing memory, page tables, process trackers, guest
@@ -70,6 +81,25 @@ The Profile build preserves 17 compatible JNI counters and appends per-draw Vulk
 including presentation queue depth and time spent waiting for a free frame, the scheduler,
 swapchain acquisition and presentation. Release
 builds hide those counters while retaining the compact Direct view on the Thor secondary display.
+
+Vulkan direct draws now emulate Maxwell `LineLoop` with a line strip and an explicit closing index,
+instead of incorrectly treating the vertices as triangles. The implementation and audited fallback
+behavior are documented in [Vulkan rendering compatibility](./docs/opensw/Rendering.md).
+
+## Build from source
+
+OpenSw does not currently publish GitHub Release binaries. Build the normal generic ARM64 APK with
+the documented Android SDK, NDK and JDK versions:
+
+```sh
+cd src/android
+./gradlew :app:assembleOpenSwRelease
+```
+
+The APK is written to
+`src/android/app/build/outputs/apk/openSw/release/app-openSw-release.apk`. Installing it with
+`adb install -r` updates `com.remipelloux.opensw` in place when the signing certificate matches.
+Never uninstall or clear the package when the intent is to preserve saves and configuration.
 
 ## Live cheats
 
@@ -99,7 +129,7 @@ The optional legacy migration flow uses Android's document picker and a user-gra
 source. It stages and verifies copied files before installing them into OpenSw; game files, caches,
 logs and temporary data are not copied.
 
-## Building
+## Performance development
 
 Build the installable Release and the locally signed profiling APK from `src/android`:
 
@@ -148,6 +178,17 @@ Emulator Project.
 
 Unverified desktop guides are retained as clearly labelled upstream documentation under
 [docs](./docs). OpenSw-specific documentation lives under [docs/opensw](./docs/opensw).
+
+Nintendo Switch is a trademark of Nintendo. OpenSw is an independent open-source project and is not
+affiliated with, endorsed by or supported by Nintendo or the Eden Emulator Project.
+
+## Community and project policy
+
+- Read the [documentation index](./docs/README.md) and [OpenSw handbook](./docs/opensw/README.md).
+- Report reproducible defects with the [GitHub issue template](https://github.com/RemiPelloux/OpenSw/issues/new/choose).
+- Discuss usage and proposals in [GitHub Discussions](https://github.com/RemiPelloux/OpenSw/discussions).
+- Review [CONTRIBUTING.md](./CONTRIBUTING.md), [SECURITY.md](./SECURITY.md),
+  [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) and [CHANGELOG.md](./CHANGELOG.md).
 
 ## License
 

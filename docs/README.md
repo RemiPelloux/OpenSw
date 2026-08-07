@@ -4,12 +4,16 @@ OpenSw's maintained Android documentation is under [opensw](./opensw/README.md).
 
 - [Build and install OpenSw](./opensw/Android.md)
 - [Performance profiles and measurement](./opensw/Performance.md)
+- [Vulkan rendering compatibility](./opensw/Rendering.md)
 - [Session stability and memory lifecycle](./opensw/SessionStability.md)
 - [Cockpit and live cheats](./opensw/CockpitAndCheats.md)
 - [Troubleshooting and diagnostics](./opensw/Troubleshooting.md)
 - [Engineering roadmap](./opensw/Roadmap.md)
 - [AYN Thor acceptance baseline](./performance/ayn-thor-baseline.md)
 - [Development rules](./policies/DevelopmentRules.md)
+- [Contributing](../CONTRIBUTING.md)
+- [Security policy](../SECURITY.md)
+- [Changelog](../CHANGELOG.md)
 
 ## Inherited upstream documentation
 

@@ -70,6 +70,15 @@ unchanged. Refreshes that follow key, content, or directory changes still force 
 Native metadata entries use synchronized stable ownership so background icon decoding cannot race a
 library refresh, and newly discovered library timestamps are persisted in one preference transaction.
 
+## Vulkan compatibility
+
+Maxwell `LineLoop` direct draws are mapped to `VK_PRIMITIVE_TOPOLOGY_LINE_STRIP` and closed with an
+extra first index. Indexed draws duplicate the first source index with GPU buffer copies, avoiding a
+CPU readback; non-indexed draws use a sequential temporary index buffer. Indexed loops using
+primitive restart and indirect loops remain open strips and emit a one-time warning rather than
+being misrendered as triangles. See [docs/opensw/Rendering.md](docs/opensw/Rendering.md) for the
+capability and format audit.
+
 ## Lab packages
 
 The Android project contains a shared `:lab-protocol` module and a debug-only `:lab-agent` package,

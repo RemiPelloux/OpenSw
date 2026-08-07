@@ -1,81 +1,83 @@
-# Contributing
+<!--
+SPDX-FileCopyrightText: Copyright 2026 OpenSw Project
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
 
-Eden has lots of different ways that you can contribute to its efforts, even without knowing how to write code:
+# Contributing to OpenSw
 
-- Donate! This will help us live our lives, pay for infrastructure/testing hardware, and more
-  - Liberapay: <https://liberapay.com/crueter>
-  - PayPal: `business@eden-emu.dev`
-  - Bitcoin: `bc1pknzdackezf6s5nxqwn6hx940a7e0k3lk7ggpczp9u4jn4a25lnyqrgvdxx`
-- Join our [Discord](https://discord.gg/HstXbPch7X) community
-- Submit [bug reports or feature requests](https://github.com/eden-emulator/Issue-Reports/issues), or on [Codeberg](https://codeberg.org/eden-emu/eden/issues)
-- Contribute to our [translation efforts](./dist/languages/README.md)
+OpenSw accepts focused bug fixes, Android improvements, Vulkan correctness work, documentation and
+reproducible performance tooling. Open an issue before a large feature or architectural rewrite so
+the scope and validation plan can be agreed first.
 
-## Code Contributions
+By contributing, you agree that your work is distributed under the repository's existing GPL and
+file-level license terms. OpenSw is based on Eden and retains the Eden/yuzu source history,
+copyrights and attribution.
 
-Eden is free, open-source, copyleft software, licensed under the terms of the [GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html). You would do well to familiarize yourself with the GPL, [its FAQ](https://www.gnu.org/licenses/gpl-faq.html), and [free software as a concept](https://www.gnu.org/philosophy/free-sw.html) before contributing. If these terms are not acceptable to you, then you shouldn't contribute.
+## Before opening a change
 
-### Policies
+1. Search [existing issues](https://github.com/RemiPelloux/OpenSw/issues).
+2. Read the [development rules](docs/policies/DevelopmentRules.md) and relevant subsystem guide.
+3. Create a focused branch from the current default branch.
+4. Keep unrelated formatting, branding, generated files and refactors out of the change.
+5. Never commit games, keys, firmware, saves, shader caches, APK signing keys, device dumps or
+   personal paths.
 
-- Fork development follows the [development rules](docs/policies/DevelopmentRules.md).
-- Contributors remain responsible for every submitted change, regardless of the tools used.
-- New code must follow the same general style as the surrounding codebase. Exceptions may be granted in certain cases.
-- Maintainers reserve the right to change your patches and pull requests at will. We will try to avoid this.
-  - You should respect all decisions made by the [code owners](docs/CODEOWNERS) in your particular subsystem. If you feel they are overstepping or are incorrect, don't be afraid to stand your ground!
-- While we do *not* adhere to the terms of a formal code of conduct, you will generally be expected to respect other developers, contributors, and community members.
-- You **must** have basic knowledge of [Git](https://git-scm.com/learn). Knowing how to manage your branches and follow proper fork policies is a necessity.
+AI-assisted development is allowed. The contributor remains responsible for the design, licensing,
+tests and reviewability of every submitted line. Disclose substantial generated content in the pull
+request.
 
-### Where do I start?
+## Build and test
 
-Anywhere you like! If you are facing an issue and want to fix it, go ahead. For new features, you are heavily encouraged to open a feature request on GitHub, Codeberg, or Forgejo first, discussing the motivations, potential implementation, and user flow of your desired feature. Our UI/UX designers will work with you to refine your feature before you actually choose to implement it.
+The normal Android package is `com.remipelloux.opensw`. From `src/android`, build it with:
 
-You may also search for open issues on [GitHub](https://github.com/eden-emulator/Issue-Reports/issues), [Codeberg](https://codeberg.org/eden-emu/eden/issues), or [Forgejo](https://git.eden-emu.dev/eden-emu/eden/issues). For larger features/refactors, you should first express your interest in the issue to ensure another developer isn't already working on it.
-
-### Great! Can I contribute already?
-
-There are five primary ways to contribute.
-
-- Submit pull requests directly to our source tree
-  - You must first request an account on our Forgejo. See [Signup](#how-do-i-sign-up)
-- Submit pull requests to our [GitHub mirror](https://github.com/eden-emulator/Issue-Reports)
-  - Note that this is subject to being removed by DMCA, so don't rely on this.
-- Submit pull requests to our [Codeberg mirror](https://codeberg.org/eden-emu/eden)
-  - Codeberg is not subject to draconian DMCA laws, but they have been hostile to emulators such as Torzu in the past. Thus, you shouldn't rely on this either.
-- Submit patches to [`patch@eden-emu.dev`](mailto:patch@eden-emu.dev)
-  - These **must** be in `git format-patch` format. You should familiarize yourself with the [art of patching](https://www.gitkraken.com/learn/git/git-patch) beforehand.
-  - Alongside the contents of your email, please attach the patch/diff file itself for easy access and use.
-- Email our developers at [`developers@eden-emu.dev`](mailto:developers@eden-emu.dev) with any of your relevant findings or code changes.
-
-To test your changes, ensure to read the [build documentation](./docs/Build.md) for your specific platform(s) to ensure everything compiles and works properly. You should also make sure that your branch is up-to-date with the upstream `master` branch before opening a pull request.
-
-### How do I sign up?
-
-<details>
-<summary>To sign up and begin contributing... (click to open)</summary>
-
-Email [crueter@crueter.xyz](mailto:crueter@crueter.xyz) with the following format:
-
-```txt
-Subject: [Eden Git] Registration Request
-Username: <Your Desired Username>
-Email: <Your Desired Email>
-I wish to sign up because... <your reason here>
+```sh
+./gradlew :app:assembleOpenSwRelease
 ```
 
-Received mail that does not follow this format will be ignored.
+Run the smallest relevant tests while iterating, then expand validation to match the blast radius.
+Common final checks include:
 
-Once your request is processed, you will receive a confirmation email with your temporary password and some information on Git access and policies. If you do not receive a response within 48 hours, feel free to send another email.
+```sh
+cmake --build build-host-tests --target tests
+build-host-tests/bin/tests
+cd src/android
+./gradlew :app:testOpenSwReleaseUnitTest :app:assembleOpenSwRelease
+git diff --check
+```
 
-> [!WARNING]
-> Some email providers may place the response email in your spam/junk folder; notable offenders include Gmail and Outlook. *Always* ensure to check your Spam or Junk folder.
+Exact prerequisites and output paths are documented in
+[docs/opensw/Android.md](docs/opensw/Android.md). Do not claim a device test unless it was actually
+run on the named device and build.
 
-</details>
+## Performance changes
 
-## Non-code Contributions
+Establish a baseline before changing performance-sensitive code. Submit raw measurement inputs,
+device/build identity and repeated A/B results. A faster build must preserve rendering, saves,
+settings, cheats and generic Android ARM64 compatibility. Do not use unsafe math flags, affinity,
+clock changes or lower rendering quality as an optimization.
 
-Alongside the other contribution methods listed up top, you can also choose to contribute through documentation, organization, or community guides. These can be done either through the code contribution methods described above, or created externally and shared via our Discord community.
+The acceptance contract is documented in
+[docs/performance/ayn-thor-baseline.md](docs/performance/ayn-thor-baseline.md). An AYN Thor-specific
+path must remain optional and reversible.
 
-If you have an external tool or page that would be useful to integrate with OpenSw,
-open a proposal describing its purpose, ownership, license, data handling, and
-maintenance plan. AI-assisted and tool-generated contributions are permitted, but
-they must have a human owner, be reviewable, pass the same tests and quality checks
-as hand-written work, and disclose substantial generated content during review.
+## Pull requests
+
+A pull request should explain:
+
+- the user-visible or technical problem;
+- the root cause and why the change fixes it;
+- tests and builds actually run;
+- device or rendering evidence when relevant;
+- known limitations and follow-up work;
+- licensing or attribution changes.
+
+Keep commits grouped by purpose and suitable for review or revert. Resolve review comments with code
+or evidence, not by weakening diagnostics or deleting failing tests.
+
+## Reporting problems
+
+Use the repository issue templates for reproducible bugs and feature proposals. Use
+[GitHub Discussions](https://github.com/RemiPelloux/OpenSw/discussions) for usage questions. Report
+unpatched vulnerabilities privately according to [SECURITY.md](SECURITY.md).
+
+Community participation is governed by [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md).

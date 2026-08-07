@@ -29,6 +29,8 @@ Tools for Eden and other subprojects. When adding new scripts please use `#!/bin
     * Requires: clang
 - `find-unused-strings.sh`: Find any unused strings in the Android app (XML -> Kotlin).
 - `cpp-lint.sh`: Homemade dumb C++ linter.
+- `check-project-metadata.rb`: Validates maintained Markdown links, GitHub issue-form YAML and
+  required open-source governance files.
 - `fuzzsettings.cpp`: Fuzz settings files.
 
 ## Android

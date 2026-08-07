@@ -1,10 +1,32 @@
-name: New Issue (Developers Only)
-description: A blank issue template for developers only. If you are not a developer, do not use this issue template. Your issue WILL BE CLOSED if you do not use the appropriate issue template.
+# SPDX-FileCopyrightText: Copyright 2026 OpenSw Project
+# SPDX-License-Identifier: GPL-3.0-or-later
+
+name: Maintainer task
+description: Track a scoped engineering or release task
+title: "[Task]: "
+labels: [maintenance]
 body:
   - type: markdown
     attributes:
-      value: |
-        **If you are not a developer, do not use this issue template. Your issue WILL BE CLOSED if you do not use the appropriate issue template.**
+      value: Use the bug or feature template for user reports. This form is for scoped maintainer work.
   - type: textarea
+    id: outcome
     attributes:
-      label: "Issue"
+      label: Required outcome
+      description: Define the observable completion condition.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence and constraints
+      description: Link relevant code, measurements, issues and compatibility constraints.
+    validations:
+      required: true
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation plan
+      description: List the tests, builds or device checks required before closure.
+    validations:
+      required: true
