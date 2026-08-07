@@ -19,6 +19,7 @@ from opensw_performance_v2 import (
     parse_lab_result,
     parse_surfaceflinger_latency,
     render_perfetto_config,
+    resolve_surface,
     run_lab_command,
     summarize_frametimes,
     validate_manifest,
@@ -53,6 +54,32 @@ class PerformanceV2Test(unittest.TestCase):
         self.assertEqual(16666666, refresh)
         self.assertEqual([10000000, 26000000, 45000000, 65000000], timestamps)
         self.assertEqual([16.0, 19.0, 20.0], frametimes)
+
+    @patch("opensw_performance_v2.adb")
+    def test_surface_resolution_prefers_active_blast_layer(self, mock_adb):
+        mock_adb.return_value = "\n".join(
+            [
+                "com.remipelloux.opensw.profile/MainActivity#1",
+                "SurfaceView[com.remipelloux.opensw.profile/EmulationActivity]#2",
+                "SurfaceView[com.remipelloux.opensw.profile/EmulationActivity](BLAST)#3",
+            ]
+        )
+
+        self.assertEqual(
+            "SurfaceView[com.remipelloux.opensw.profile/EmulationActivity](BLAST)#3",
+            resolve_surface(None, "com.remipelloux.opensw.profile", None),
+        )
+
+    @patch("opensw_performance_v2.adb")
+    def test_surface_resolution_rejects_stale_requested_layer(self, mock_adb):
+        mock_adb.return_value = "SurfaceView[com.remipelloux.opensw.profile/Game](BLAST)#4"
+
+        with self.assertRaises(CaptureError):
+            resolve_surface(
+                None,
+                "com.remipelloux.opensw.profile",
+                "SurfaceView[com.remipelloux.opensw.profile/Game](BLAST)#3",
+            )
 
     def test_perfetto_config_preserves_literal_braces(self):
         config = render_perfetto_config("com.remipelloux.opensw.profile", 60_000)

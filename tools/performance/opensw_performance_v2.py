@@ -385,12 +385,21 @@ def fetch_runtime_identity(
 
 
 def resolve_surface(serial: str | None, package: str, requested: str | None) -> str:
+    layers = adb(serial, "shell", "dumpsys", "SurfaceFlinger", "--list")
+    matches = [line.strip() for line in layers.splitlines() if package in line]
     if requested:
         if package not in requested:
             raise CaptureError("The selected SurfaceFlinger layer does not belong to OpenSw")
+        if requested not in matches:
+            raise CaptureError("The selected SurfaceFlinger layer is not currently active")
         return requested
-    layers = adb(serial, "shell", "dumpsys", "SurfaceFlinger", "--list")
-    matches = [line.strip() for line in layers.splitlines() if package in line]
+    blast_surfaces = [
+        layer
+        for layer in matches
+        if layer.startswith("SurfaceView[") and "EmulationActivity](BLAST)#" in layer
+    ]
+    if len(blast_surfaces) == 1:
+        return blast_surfaces[0]
     if len(matches) != 1:
         raise CaptureError(
             f"Expected one active OpenSw SurfaceFlinger layer, found {len(matches)}; use --surface"
@@ -551,6 +560,8 @@ def capture(args: argparse.Namespace) -> int:
     )
 
     refresh_period, timestamps, frametimes = merge_surfaceflinger_latency(latency_samples)
+    if not frametimes:
+        raise CaptureError("SurfaceFlinger returned no frame intervals for the selected layer")
     summary = summarize_frametimes(frametimes)
     summary.update(
         {
