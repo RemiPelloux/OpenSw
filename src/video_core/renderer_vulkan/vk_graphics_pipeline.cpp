@@ -651,7 +651,7 @@ bool GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
     }
 
     bool update_descriptors = true;
-    if (descriptor_set_layout && !uses_descriptor_buffer) {
+    if (descriptor_set_layout && !uses_push_descriptor && !uses_descriptor_buffer) {
         const auto* const entries = static_cast<const DescriptorUpdateEntry*>(descriptor_data);
         update_descriptors =
             bind_pipeline || last_descriptor_payload.size() != num_descriptor_entries ||
@@ -659,8 +659,6 @@ bool GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
                         num_descriptor_entries * sizeof(DescriptorUpdateEntry)) != 0;
         if (update_descriptors) {
             last_descriptor_payload.assign(entries, entries + num_descriptor_entries);
-        } else if (uses_push_descriptor) {
-            ProfileDescriptorPayloadReuse();
         }
     }
     scheduler.Record([this, descriptor_data, bind_pipeline, update_descriptors,
@@ -706,10 +704,8 @@ bool GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
             cmdbuf.SetDescriptorBufferOffsetsEXT(VK_PIPELINE_BIND_POINT_GRAPHICS, *pipeline_layout,
                                                  0, buffer_index, descriptor_buffer_offset);
         } else if (uses_push_descriptor) {
-            if (update_descriptors) {
-                cmdbuf.PushDescriptorSetWithTemplateKHR(*descriptor_update_template,
-                                                        *pipeline_layout, 0, descriptor_data);
-            }
+            cmdbuf.PushDescriptorSetWithTemplateKHR(*descriptor_update_template, *pipeline_layout,
+                                                    0, descriptor_data);
         } else if (update_descriptors) {
             const VkDescriptorSet descriptor_set{descriptor_allocator.Commit()};
             const vk::Device& dev{device.GetLogical()};
