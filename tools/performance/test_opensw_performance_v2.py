@@ -15,6 +15,7 @@ from opensw_performance_v2 import (
     nearest_rank,
     parse_lab_result,
     parse_surfaceflinger_latency,
+    render_perfetto_config,
     summarize_frametimes,
     validate_manifest,
 )
@@ -48,6 +49,13 @@ class PerformanceV2Test(unittest.TestCase):
         self.assertEqual(16666666, refresh)
         self.assertEqual([10000000, 26000000, 45000000, 65000000], timestamps)
         self.assertEqual([16.0, 19.0, 20.0], frametimes)
+
+    def test_perfetto_config_preserves_literal_braces(self):
+        config = render_perfetto_config("com.remipelloux.opensw.profile", 60_000)
+        self.assertIn("buffers: { size_kb: 65536", config)
+        self.assertIn('atrace_apps: "com.remipelloux.opensw.profile"', config)
+        self.assertIn("duration_ms: 60000", config)
+        self.assertNotIn("{package}", config)
 
     def test_lab_result_decodes_instrumentation_payload(self):
         payload = base64.b64encode(json.dumps({"ok": True, "value": {"pid": 42}}).encode()).decode()

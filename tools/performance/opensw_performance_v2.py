@@ -11,6 +11,7 @@ import math
 import os
 import platform
 import re
+import shlex
 import shutil
 import statistics
 import subprocess
@@ -61,6 +62,12 @@ duration_ms: {duration_ms}
 write_into_file: true
 file_write_period_ms: 2500
 """.strip()
+
+
+def render_perfetto_config(package: str, duration_ms: int) -> str:
+    return PERFETTO_CONFIG.replace("{package}", package).replace(
+        "{duration_ms}", str(duration_ms)
+    )
 
 
 class CaptureError(RuntimeError):
@@ -486,9 +493,10 @@ def capture(args: argparse.Namespace) -> int:
     )
     verify_active_title_id(args.serial, args.package, pid, expected_title_id)
     surface = resolve_surface(args.serial, args.package, args.surface)
-    adb(args.serial, "shell", "dumpsys", "SurfaceFlinger", "--latency-clear", surface)
+    surface_arg = shlex.quote(surface)
+    adb(args.serial, "shell", "dumpsys", "SurfaceFlinger", "--latency-clear", surface_arg)
 
-    config = PERFETTO_CONFIG.format(package=args.package, duration_ms=args.duration * 1000)
+    config = render_perfetto_config(args.package, args.duration * 1000)
     adb_command = ["adb"]
     if args.serial:
         adb_command += ["-s", args.serial]
@@ -521,7 +529,7 @@ def capture(args: argparse.Namespace) -> int:
                 "dumpsys",
                 "SurfaceFlinger",
                 "--latency",
-                surface,
+                surface_arg,
                 check=False,
             )
         )
@@ -535,7 +543,9 @@ def capture(args: argparse.Namespace) -> int:
         raise CaptureError(f"Perfetto failed ({return_code}): {stderr}")
 
     verify_active_title_id(args.serial, args.package, pid, expected_title_id)
-    raw_latency = adb(args.serial, "shell", "dumpsys", "SurfaceFlinger", "--latency", surface)
+    raw_latency = adb(
+        args.serial, "shell", "dumpsys", "SurfaceFlinger", "--latency", surface_arg
+    )
     latency_samples.append(raw_latency)
     trace_path = output / "trace.pftrace"
     adb(args.serial, "pull", REMOTE_TRACE, str(trace_path))
