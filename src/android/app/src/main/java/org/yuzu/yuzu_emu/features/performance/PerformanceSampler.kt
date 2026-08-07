@@ -117,7 +117,24 @@ data class PipelineProfileSnapshot(
     val textureUnswizzleBytes: Long = 0L,
     val textureUnswizzleNs: Long = 0L,
     val descriptorOffsetCalls: Long = 0L,
-    val descriptorOffsetSkips: Long = 0L
+    val descriptorOffsetSkips: Long = 0L,
+    val renderPassBegins: Long = 0L,
+    val renderPassEndsAndroidDrawHardFlush: Long = 0L,
+    val renderPassEndsUploadSynchronization: Long = 0L,
+    val renderPassEndsFeedbackLoop: Long = 0L,
+    val renderPassEndsExplicitOutside: Long = 0L,
+    val renderPassEndsSubmission: Long = 0L,
+    val renderPassEndsSwitch: Long = 0L,
+    val commandBufferSubmissions: Long = 0L,
+    val reorderedBufferUploads: Long = 0L,
+    val reorderedBufferUploadBytes: Long = 0L,
+    val inlineBufferUploads: Long = 0L,
+    val inlineBufferUploadBytes: Long = 0L,
+    val postCopyBarrierCalls: Long = 0L,
+    val feedbackLoopBarrierCalls: Long = 0L,
+    val androidDrawFlushDeferred: Long = 0L,
+    val androidDrawSoftFlushes: Long = 0L,
+    val androidDrawHardFlushes: Long = 0L
 ) {
     fun matches(titleId: String): Boolean {
         val normalized = titleId.uppercase(Locale.ROOT).filter(Char::isLetterOrDigit)
@@ -178,7 +195,24 @@ data class PipelineProfileSnapshot(
                 textureUnswizzleBytes = values.getOrElse(42) { 0L },
                 textureUnswizzleNs = values.getOrElse(43) { 0L },
                 descriptorOffsetCalls = values.getOrElse(44) { 0L },
-                descriptorOffsetSkips = values.getOrElse(45) { 0L }
+                descriptorOffsetSkips = values.getOrElse(45) { 0L },
+                renderPassBegins = values.getOrElse(46) { 0L },
+                renderPassEndsAndroidDrawHardFlush = values.getOrElse(47) { 0L },
+                renderPassEndsUploadSynchronization = values.getOrElse(48) { 0L },
+                renderPassEndsFeedbackLoop = values.getOrElse(49) { 0L },
+                renderPassEndsExplicitOutside = values.getOrElse(50) { 0L },
+                renderPassEndsSubmission = values.getOrElse(51) { 0L },
+                renderPassEndsSwitch = values.getOrElse(52) { 0L },
+                commandBufferSubmissions = values.getOrElse(53) { 0L },
+                reorderedBufferUploads = values.getOrElse(54) { 0L },
+                reorderedBufferUploadBytes = values.getOrElse(55) { 0L },
+                inlineBufferUploads = values.getOrElse(56) { 0L },
+                inlineBufferUploadBytes = values.getOrElse(57) { 0L },
+                postCopyBarrierCalls = values.getOrElse(58) { 0L },
+                feedbackLoopBarrierCalls = values.getOrElse(59) { 0L },
+                androidDrawFlushDeferred = values.getOrElse(60) { 0L },
+                androidDrawSoftFlushes = values.getOrElse(61) { 0L },
+                androidDrawHardFlushes = values.getOrElse(62) { 0L }
             )
         }
     }
@@ -670,6 +704,29 @@ object PerformanceSampler {
         .put("scheduler_wait_ns_delta", schedulerWaitNs)
         .put("swapchain_acquire_ns_delta", swapchainAcquireNs)
         .put("present_ns_delta", presentNs)
+        .put("render_pass_begins_delta", renderPassBegins)
+        .put(
+            "render_pass_ends_android_draw_hard_flush_delta",
+            renderPassEndsAndroidDrawHardFlush
+        )
+        .put(
+            "render_pass_ends_upload_synchronization_delta",
+            renderPassEndsUploadSynchronization
+        )
+        .put("render_pass_ends_feedback_loop_delta", renderPassEndsFeedbackLoop)
+        .put("render_pass_ends_explicit_outside_delta", renderPassEndsExplicitOutside)
+        .put("render_pass_ends_submission_delta", renderPassEndsSubmission)
+        .put("render_pass_ends_switch_delta", renderPassEndsSwitch)
+        .put("command_buffer_submissions_delta", commandBufferSubmissions)
+        .put("reordered_buffer_uploads_delta", reorderedBufferUploads)
+        .put("reordered_buffer_upload_bytes_delta", reorderedBufferUploadBytes)
+        .put("inline_buffer_uploads_delta", inlineBufferUploads)
+        .put("inline_buffer_upload_bytes_delta", inlineBufferUploadBytes)
+        .put("post_copy_barrier_calls_delta", postCopyBarrierCalls)
+        .put("feedback_loop_barrier_calls_delta", feedbackLoopBarrierCalls)
+        .put("android_draw_flush_deferred_delta", androidDrawFlushDeferred)
+        .put("android_draw_soft_flushes_delta", androidDrawSoftFlushes)
+        .put("android_draw_hard_flushes_delta", androidDrawHardFlushes)
 
     private suspend fun readSlowMetrics(
         context: Context,

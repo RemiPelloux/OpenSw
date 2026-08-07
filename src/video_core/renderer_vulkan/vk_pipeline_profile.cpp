@@ -109,6 +109,23 @@ struct PipelineProfileCounters {
     std::atomic<u64> texture_unswizzle_ns{};
     std::atomic<u64> descriptor_offset_calls{};
     std::atomic<u64> descriptor_offset_skips{};
+    std::atomic<u64> render_pass_begins{};
+    std::atomic<u64> render_pass_ends_android_draw_hard_flush{};
+    std::atomic<u64> render_pass_ends_upload_synchronization{};
+    std::atomic<u64> render_pass_ends_feedback_loop{};
+    std::atomic<u64> render_pass_ends_explicit_outside{};
+    std::atomic<u64> render_pass_ends_submission{};
+    std::atomic<u64> render_pass_ends_switch{};
+    std::atomic<u64> command_buffer_submissions{};
+    std::atomic<u64> reordered_buffer_uploads{};
+    std::atomic<u64> reordered_buffer_upload_bytes{};
+    std::atomic<u64> inline_buffer_uploads{};
+    std::atomic<u64> inline_buffer_upload_bytes{};
+    std::atomic<u64> post_copy_barrier_calls{};
+    std::atomic<u64> feedback_loop_barrier_calls{};
+    std::atomic<u64> android_draw_flush_deferred{};
+    std::atomic<u64> android_draw_soft_flushes{};
+    std::atomic<u64> android_draw_hard_flushes{};
 };
 
 PipelineProfileCounters counters;
@@ -249,6 +266,42 @@ void ProfileTextureUnswizzle(u64 bytes, u64 nanoseconds) {
     Add(counters.texture_unswizzle_ns, nanoseconds);
 }
 
+void ProfileRenderPassBegin() { Add(counters.render_pass_begins); }
+void ProfileRenderPassEnd(RenderPassEndReason reason) {
+    switch (reason) {
+    case RenderPassEndReason::AndroidDrawHardFlush:
+        Add(counters.render_pass_ends_android_draw_hard_flush);
+        break;
+    case RenderPassEndReason::UploadSynchronization:
+        Add(counters.render_pass_ends_upload_synchronization);
+        break;
+    case RenderPassEndReason::FeedbackLoop:
+        Add(counters.render_pass_ends_feedback_loop);
+        break;
+    case RenderPassEndReason::ExplicitOutsideOperation:
+        Add(counters.render_pass_ends_explicit_outside);
+        break;
+    case RenderPassEndReason::Submission:
+        Add(counters.render_pass_ends_submission);
+        break;
+    case RenderPassEndReason::RenderPassSwitch:
+        Add(counters.render_pass_ends_switch);
+        break;
+    }
+}
+void ProfileCommandBufferSubmission() { Add(counters.command_buffer_submissions); }
+void ProfileBufferUpload(bool reordered, u64 bytes) {
+    Add(reordered ? counters.reordered_buffer_uploads : counters.inline_buffer_uploads);
+    Add(reordered ? counters.reordered_buffer_upload_bytes : counters.inline_buffer_upload_bytes,
+        bytes);
+}
+void ProfilePostCopyBarrier() { Add(counters.post_copy_barrier_calls); }
+void ProfileFeedbackLoopBarrier() { Add(counters.feedback_loop_barrier_calls); }
+void ProfileAndroidDrawFlushDeferred() { Add(counters.android_draw_flush_deferred); }
+void ProfileAndroidDrawFlush(bool hard) {
+    Add(hard ? counters.android_draw_hard_flushes : counters.android_draw_soft_flushes);
+}
+
 void ResetPipelineProfile(u64 title_id) {
     runtime.title_id.store(title_id, std::memory_order_release);
     counters.title_id.store(0, std::memory_order_release);
@@ -298,6 +351,23 @@ void ResetPipelineProfile(u64 title_id) {
     counters.texture_unswizzle_ns.store(0, std::memory_order_relaxed);
     counters.descriptor_offset_calls.store(0, std::memory_order_relaxed);
     counters.descriptor_offset_skips.store(0, std::memory_order_relaxed);
+    counters.render_pass_begins.store(0, std::memory_order_relaxed);
+    counters.render_pass_ends_android_draw_hard_flush.store(0, std::memory_order_relaxed);
+    counters.render_pass_ends_upload_synchronization.store(0, std::memory_order_relaxed);
+    counters.render_pass_ends_feedback_loop.store(0, std::memory_order_relaxed);
+    counters.render_pass_ends_explicit_outside.store(0, std::memory_order_relaxed);
+    counters.render_pass_ends_submission.store(0, std::memory_order_relaxed);
+    counters.render_pass_ends_switch.store(0, std::memory_order_relaxed);
+    counters.command_buffer_submissions.store(0, std::memory_order_relaxed);
+    counters.reordered_buffer_uploads.store(0, std::memory_order_relaxed);
+    counters.reordered_buffer_upload_bytes.store(0, std::memory_order_relaxed);
+    counters.inline_buffer_uploads.store(0, std::memory_order_relaxed);
+    counters.inline_buffer_upload_bytes.store(0, std::memory_order_relaxed);
+    counters.post_copy_barrier_calls.store(0, std::memory_order_relaxed);
+    counters.feedback_loop_barrier_calls.store(0, std::memory_order_relaxed);
+    counters.android_draw_flush_deferred.store(0, std::memory_order_relaxed);
+    counters.android_draw_soft_flushes.store(0, std::memory_order_relaxed);
+    counters.android_draw_hard_flushes.store(0, std::memory_order_relaxed);
     counters.title_id.store(title_id, std::memory_order_release);
 }
 
@@ -362,6 +432,23 @@ PipelineProfileSnapshot GetPipelineProfileSnapshot() {
         counters.texture_unswizzle_ns.load(std::memory_order_relaxed),
         counters.descriptor_offset_calls.load(std::memory_order_relaxed),
         counters.descriptor_offset_skips.load(std::memory_order_relaxed),
+        counters.render_pass_begins.load(std::memory_order_relaxed),
+        counters.render_pass_ends_android_draw_hard_flush.load(std::memory_order_relaxed),
+        counters.render_pass_ends_upload_synchronization.load(std::memory_order_relaxed),
+        counters.render_pass_ends_feedback_loop.load(std::memory_order_relaxed),
+        counters.render_pass_ends_explicit_outside.load(std::memory_order_relaxed),
+        counters.render_pass_ends_submission.load(std::memory_order_relaxed),
+        counters.render_pass_ends_switch.load(std::memory_order_relaxed),
+        counters.command_buffer_submissions.load(std::memory_order_relaxed),
+        counters.reordered_buffer_uploads.load(std::memory_order_relaxed),
+        counters.reordered_buffer_upload_bytes.load(std::memory_order_relaxed),
+        counters.inline_buffer_uploads.load(std::memory_order_relaxed),
+        counters.inline_buffer_upload_bytes.load(std::memory_order_relaxed),
+        counters.post_copy_barrier_calls.load(std::memory_order_relaxed),
+        counters.feedback_loop_barrier_calls.load(std::memory_order_relaxed),
+        counters.android_draw_flush_deferred.load(std::memory_order_relaxed),
+        counters.android_draw_soft_flushes.load(std::memory_order_relaxed),
+        counters.android_draw_hard_flushes.load(std::memory_order_relaxed),
     };
     if (counters.title_id.load(std::memory_order_acquire) != title_id) {
         return {};

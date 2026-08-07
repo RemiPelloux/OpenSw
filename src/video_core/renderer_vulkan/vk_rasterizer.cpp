@@ -27,6 +27,7 @@
 #include "video_core/renderer_vulkan/blit_image.h"
 #include "video_core/renderer_vulkan/fixed_pipeline_state.h"
 #include "video_core/renderer_vulkan/maxwell_to_vk.h"
+#include "video_core/renderer_vulkan/vk_android_flush_policy.h"
 #include "video_core/renderer_vulkan/vk_buffer_cache.h"
 #include "video_core/renderer_vulkan/vk_compute_pipeline.h"
 #include "video_core/renderer_vulkan/vk_descriptor_pool.h"
@@ -977,23 +978,44 @@ void RasterizerVulkan::LoadDiskResources(u64 title_id, std::stop_token stop_load
 
 void RasterizerVulkan::FlushWork() {
 #ifdef __ANDROID__
-    static constexpr u32 DRAWS_TO_DISPATCH = 512;
     static constexpr u32 CHECK_MASK = 3;
 #else
     static constexpr u32 DRAWS_TO_DISPATCH = 4096;
     static constexpr u32 CHECK_MASK = 7;
 #endif // __ANDROID__
 
-    static_assert(DRAWS_TO_DISPATCH % (CHECK_MASK + 1) == 0);
     if ((++draw_counter & CHECK_MASK) != CHECK_MASK) {
         return;
     }
+#ifdef __ANDROID__
+    switch (SelectAndroidFlushAction(draw_counter, scheduler.IsRenderPassActive())) {
+    case AndroidFlushAction::Dispatch:
+        scheduler.DispatchWork();
+        return;
+    case AndroidFlushAction::Defer:
+        ProfileAndroidDrawFlushDeferred();
+        scheduler.DispatchWork();
+        return;
+    case AndroidFlushAction::Flush:
+        ProfileAndroidDrawFlush(false);
+        scheduler.Flush();
+        draw_counter = 0;
+        return;
+    case AndroidFlushAction::HardFlush:
+        ProfileAndroidDrawFlush(true);
+        scheduler.Flush(RenderPassEndReason::AndroidDrawHardFlush);
+        draw_counter = 0;
+        return;
+    }
+#else
+    static_assert(DRAWS_TO_DISPATCH % (CHECK_MASK + 1) == 0);
     if (draw_counter < DRAWS_TO_DISPATCH) {
         scheduler.DispatchWork();
         return;
     }
     scheduler.Flush();
     draw_counter = 0;
+#endif
 }
 
 AccelerateDMA::AccelerateDMA(BufferCache& buffer_cache_, TextureCache& texture_cache_,

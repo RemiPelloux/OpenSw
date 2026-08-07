@@ -62,7 +62,24 @@ internal data class PipelineProfileSummary(
     val schedulerWaitNs: Long,
     val swapchainAcquireNs: Long,
     val presentNs: Long,
-    val captureSmallDrawWaitNs: Long
+    val captureSmallDrawWaitNs: Long,
+    val renderPassBegins: Long,
+    val renderPassEndsAndroidDrawHardFlush: Long,
+    val renderPassEndsUploadSynchronization: Long,
+    val renderPassEndsFeedbackLoop: Long,
+    val renderPassEndsExplicitOutside: Long,
+    val renderPassEndsSubmission: Long,
+    val renderPassEndsSwitch: Long,
+    val commandBufferSubmissions: Long,
+    val reorderedBufferUploads: Long,
+    val reorderedBufferUploadBytes: Long,
+    val inlineBufferUploads: Long,
+    val inlineBufferUploadBytes: Long,
+    val postCopyBarrierCalls: Long,
+    val feedbackLoopBarrierCalls: Long,
+    val androidDrawFlushDeferred: Long,
+    val androidDrawSoftFlushes: Long,
+    val androidDrawHardFlushes: Long
 )
 
 internal fun summarizeCapture(
@@ -110,7 +127,72 @@ internal fun summarizePipelineProfiles(
             last.swapchainAcquireNs
         ) ?: return null,
         presentNs = delta(first.presentNs, last.presentNs) ?: return null,
-        captureSmallDrawWaitNs = last.captureSmallDrawWaitNs
+        captureSmallDrawWaitNs = last.captureSmallDrawWaitNs,
+        renderPassBegins = delta(first.renderPassBegins, last.renderPassBegins) ?: return null,
+        renderPassEndsAndroidDrawHardFlush = delta(
+            first.renderPassEndsAndroidDrawHardFlush,
+            last.renderPassEndsAndroidDrawHardFlush
+        ) ?: return null,
+        renderPassEndsUploadSynchronization = delta(
+            first.renderPassEndsUploadSynchronization,
+            last.renderPassEndsUploadSynchronization
+        ) ?: return null,
+        renderPassEndsFeedbackLoop = delta(
+            first.renderPassEndsFeedbackLoop,
+            last.renderPassEndsFeedbackLoop
+        ) ?: return null,
+        renderPassEndsExplicitOutside = delta(
+            first.renderPassEndsExplicitOutside,
+            last.renderPassEndsExplicitOutside
+        ) ?: return null,
+        renderPassEndsSubmission = delta(
+            first.renderPassEndsSubmission,
+            last.renderPassEndsSubmission
+        ) ?: return null,
+        renderPassEndsSwitch = delta(
+            first.renderPassEndsSwitch,
+            last.renderPassEndsSwitch
+        ) ?: return null,
+        commandBufferSubmissions = delta(
+            first.commandBufferSubmissions,
+            last.commandBufferSubmissions
+        ) ?: return null,
+        reorderedBufferUploads = delta(
+            first.reorderedBufferUploads,
+            last.reorderedBufferUploads
+        ) ?: return null,
+        reorderedBufferUploadBytes = delta(
+            first.reorderedBufferUploadBytes,
+            last.reorderedBufferUploadBytes
+        ) ?: return null,
+        inlineBufferUploads = delta(
+            first.inlineBufferUploads,
+            last.inlineBufferUploads
+        ) ?: return null,
+        inlineBufferUploadBytes = delta(
+            first.inlineBufferUploadBytes,
+            last.inlineBufferUploadBytes
+        ) ?: return null,
+        postCopyBarrierCalls = delta(
+            first.postCopyBarrierCalls,
+            last.postCopyBarrierCalls
+        ) ?: return null,
+        feedbackLoopBarrierCalls = delta(
+            first.feedbackLoopBarrierCalls,
+            last.feedbackLoopBarrierCalls
+        ) ?: return null,
+        androidDrawFlushDeferred = delta(
+            first.androidDrawFlushDeferred,
+            last.androidDrawFlushDeferred
+        ) ?: return null,
+        androidDrawSoftFlushes = delta(
+            first.androidDrawSoftFlushes,
+            last.androidDrawSoftFlushes
+        ) ?: return null,
+        androidDrawHardFlushes = delta(
+            first.androidDrawHardFlushes,
+            last.androidDrawHardFlushes
+        ) ?: return null
     )
 }
 
