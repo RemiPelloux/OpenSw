@@ -26,6 +26,7 @@
 #include "video_core/host1x/gpu_device_memory_manager.h"
 #include "video_core/renderer_vulkan/blit_image.h"
 #include "video_core/renderer_vulkan/fixed_pipeline_state.h"
+#include "video_core/renderer_vulkan/line_loop_utils.h"
 #include "video_core/renderer_vulkan/maxwell_to_vk.h"
 #include "video_core/renderer_vulkan/vk_buffer_cache.h"
 #include "video_core/renderer_vulkan/vk_compute_pipeline.h"
@@ -150,7 +151,8 @@ VkRect2D GetScissorState(const Maxwell& regs, size_t index, u32 up_scale = 1, u3
     return scissor;
 }
 
-DrawParams MakeDrawParams(const Tegra::Engines::Maxwell3D::DrawManager::State& draw_state, u32 num_instances, bool is_indexed) {
+DrawParams MakeDrawParams(const Tegra::Engines::Maxwell3D::DrawManager::State& draw_state,
+                          u32 num_instances, bool is_indexed, bool close_line_loop) {
     DrawParams params{
         .base_instance = draw_state.base_instance,
         .num_instances = num_instances,
@@ -169,6 +171,14 @@ DrawParams MakeDrawParams(const Tegra::Engines::Maxwell3D::DrawManager::State& d
         params.num_vertices = (params.num_vertices - 2) / 2 * 6;
         params.base_vertex = 0;
         params.is_indexed = true;
+    } else if (close_line_loop && draw_state.topology == Maxwell::PrimitiveTopology::LineLoop &&
+               params.num_vertices > 1) {
+        params.num_vertices = LineLoop::ExpandedIndexCount(params.num_vertices);
+        params.first_index = 0;
+        if (!is_indexed) {
+            params.base_vertex = draw_state.vertex_buffer.first;
+            params.is_indexed = true;
+        }
     }
     return params;
 }
@@ -260,10 +270,23 @@ void RasterizerVulkan::PrepareDraw(bool is_indexed, Func&& draw_func) {
 }
 
 void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
+    const auto& draw_state = maxwell3d->draw_manager.draw_state;
+    const bool line_loop_restart =
+        is_indexed && draw_state.topology == Maxwell::PrimitiveTopology::LineLoop &&
+        maxwell3d->regs.primitive_restart.enabled != 0;
+    if (line_loop_restart) {
+        static std::once_flag warning;
+        std::call_once(warning, [] {
+            LOG_WARNING(Render_Vulkan,
+                        "Indexed line loops with primitive restart are rendered as open strips");
+        });
+    }
     PrepareDraw(is_indexed, [this, is_indexed, instance_count] {
         const auto& draw_state = maxwell3d->draw_manager.draw_state;
         const u32 num_instances{instance_count};
-        const DrawParams draw_params{MakeDrawParams(draw_state, num_instances, is_indexed)};
+        const bool close_line_loop = !is_indexed || maxwell3d->regs.primitive_restart.enabled == 0;
+        const DrawParams draw_params{
+            MakeDrawParams(draw_state, num_instances, is_indexed, close_line_loop)};
 
         scheduler.Record([draw_params](vk::CommandBuffer cmdbuf) {
             if (draw_params.is_indexed) {
@@ -294,6 +317,12 @@ void RasterizerVulkan::Draw(bool is_indexed, u32 instance_count) {
 
 void RasterizerVulkan::DrawIndirect() {
     const auto& params = maxwell3d->draw_manager.indirect_state;
+    if (maxwell3d->draw_manager.draw_state.topology == Maxwell::PrimitiveTopology::LineLoop) {
+        static std::once_flag warning;
+        std::call_once(warning, [] {
+            LOG_WARNING(Render_Vulkan, "Indirect line loops are rendered as open strips");
+        });
+    }
     buffer_cache.SetDrawIndirect(&params);
     PrepareDraw(params.is_indexed, [this, &params] {
         const auto indirect_buffer = buffer_cache.GetDrawIndirectBuffer();

@@ -346,7 +346,7 @@ VkPrimitiveTopology PrimitiveTopology([[maybe_unused]] const Device& device,
     case Maxwell::PrimitiveTopology::Lines:
         return VK_PRIMITIVE_TOPOLOGY_LINE_LIST;
     case Maxwell::PrimitiveTopology::LineLoop:
-        return VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+        return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
     case Maxwell::PrimitiveTopology::LineStrip:
         return VK_PRIMITIVE_TOPOLOGY_LINE_STRIP;
     case Maxwell::PrimitiveTopology::Triangles:

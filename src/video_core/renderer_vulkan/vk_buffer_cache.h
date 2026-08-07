@@ -133,8 +133,10 @@ public:
 
     void ClearBuffer(VkBuffer dest_buffer, u32 offset, size_t size, u32 value);
 
-    void BindIndexBuffer(PrimitiveTopology topology, IndexFormat index_format, u32 num_indices,
-                         u32 base_vertex, VkBuffer buffer, u32 offset, u32 size);
+    void BindIndexBuffer(PrimitiveTopology topology, IndexFormat index_format, u32 base_vertex,
+                         u32 num_indices, VkBuffer buffer, u32 offset, u32 size);
+
+    void BindLineLoopIndexBuffer(u32 vertex_count);
 
     void BindQuadIndexBuffer(PrimitiveTopology topology, u32 first, u32 count);
 

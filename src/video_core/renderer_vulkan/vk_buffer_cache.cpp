@@ -13,6 +13,7 @@
 #include "video_core/buffer_cache/buffer_cache_base.h"
 #include "video_core/renderer_vulkan/vk_buffer_cache.h"
 
+#include "video_core/renderer_vulkan/line_loop_utils.h"
 #include "video_core/renderer_vulkan/maxwell_to_vk.h"
 #include "video_core/renderer_vulkan/vk_scheduler.h"
 #include "video_core/renderer_vulkan/vk_pipeline_profile.h"
@@ -558,6 +559,26 @@ void BufferCacheRuntime::BindIndexBuffer(PrimitiveTopology topology, IndexFormat
             vk_offset = 0;
         }
     }
+    if (topology == PrimitiveTopology::LineLoop && num_indices > 1) {
+        const size_t index_size = BytesPerIndex(vk_index_type);
+        const size_t source_size = static_cast<size_t>(num_indices) * index_size;
+        const auto staging = staging_pool.Request(source_size + index_size, MemoryUsage::DeviceLocal);
+        const std::array copies{
+            VideoCommon::BufferCopy{
+                .src_offset = vk_offset,
+                .dst_offset = staging.offset,
+                .size = source_size,
+            },
+            VideoCommon::BufferCopy{
+                .src_offset = vk_offset,
+                .dst_offset = staging.offset + source_size,
+                .size = index_size,
+            },
+        };
+        CopyBuffer(staging.buffer, vk_buffer, copies, true);
+        vk_buffer = staging.buffer;
+        vk_offset = staging.offset;
+    }
     if (vk_buffer == VK_NULL_HANDLE) {
         // Vulkan doesn't support null index buffers. Replace it with our own null buffer.
         ReserveNullBuffer();
@@ -565,6 +586,26 @@ void BufferCacheRuntime::BindIndexBuffer(PrimitiveTopology topology, IndexFormat
     }
     scheduler.Record([vk_buffer, vk_offset, vk_index_type](vk::CommandBuffer cmdbuf) {
         cmdbuf.BindIndexBuffer(vk_buffer, vk_offset, vk_index_type);
+    });
+}
+
+void BufferCacheRuntime::BindLineLoopIndexBuffer(u32 vertex_count) {
+    const u32 index_count = LineLoop::ExpandedIndexCount(vertex_count);
+    const bool use_u16 = vertex_count <= std::numeric_limits<u16>::max();
+    const size_t index_size = use_u16 ? sizeof(u16) : sizeof(u32);
+    const auto staging = staging_pool.Request(static_cast<size_t>(index_count) * index_size,
+                                              MemoryUsage::Upload);
+    if (use_u16) {
+        LineLoop::GenerateSequential(
+            std::span{reinterpret_cast<u16*>(staging.mapped_span.data()), index_count});
+    } else {
+        LineLoop::GenerateSequential(
+            std::span{reinterpret_cast<u32*>(staging.mapped_span.data()), index_count});
+    }
+    scheduler.Record([buffer = staging.buffer, offset = staging.offset,
+                      index_type = use_u16 ? VK_INDEX_TYPE_UINT16 : VK_INDEX_TYPE_UINT32](
+                         vk::CommandBuffer cmdbuf) {
+        cmdbuf.BindIndexBuffer(buffer, offset, index_type);
     });
 }
 

@@ -359,7 +359,10 @@ void BufferCache<P>::BindHostGeometryBuffers(bool is_indexed) {
         BindHostIndexBuffer();
     } else if constexpr (!HAS_FULL_INDEX_AND_PRIMITIVE_SUPPORT) {
         const auto& draw_state = maxwell3d->draw_manager.draw_state;
-        if (draw_state.topology == Maxwell::PrimitiveTopology::Quads ||
+        if (draw_state.topology == Maxwell::PrimitiveTopology::LineLoop &&
+            draw_state.vertex_buffer.count > 1) {
+            runtime.BindLineLoopIndexBuffer(draw_state.vertex_buffer.count);
+        } else if (draw_state.topology == Maxwell::PrimitiveTopology::Quads ||
             draw_state.topology == Maxwell::PrimitiveTopology::QuadStrip) {
             runtime.BindQuadIndexBuffer(draw_state.topology, draw_state.vertex_buffer.first,
                                         draw_state.vertex_buffer.count);
@@ -760,7 +763,14 @@ void BufferCache<P>::BindHostIndexBuffer() {
         runtime.BindIndexBuffer(buffer, new_offset, size);
     } else {
         buffer.MarkUsage(offset, size);
-        runtime.BindIndexBuffer(draw_state.topology, draw_state.index_buffer.format, draw_state.index_buffer.first, draw_state.index_buffer.count, buffer, offset, size);
+        const bool line_loop_with_restart =
+            draw_state.topology == Maxwell::PrimitiveTopology::LineLoop &&
+            maxwell3d->regs.primitive_restart.enabled != 0;
+        const auto bind_topology = line_loop_with_restart ? Maxwell::PrimitiveTopology::LineStrip
+                                                          : draw_state.topology;
+        runtime.BindIndexBuffer(bind_topology, draw_state.index_buffer.format,
+                                draw_state.index_buffer.first, draw_state.index_buffer.count, buffer,
+                                offset, size);
     }
 }
 
