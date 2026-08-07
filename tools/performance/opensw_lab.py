@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import re
 import struct
 import tempfile
 import time
@@ -18,6 +19,10 @@ REMOTE_REPLAY_DIR = "/storage/emulated/0/Android/data/com.remipelloux.opensw.lab
 REMOTE_REPLAY_NAME = "opensw-input-replay.json"
 PROFILE_PACKAGE = "com.remipelloux.opensw.profile"
 EDEN_PACKAGE = "dev.eden.eden_emulator.nightly"
+CAPTURE_EXPORT_SCHEMA = "opensw-lab-capture-export-v1"
+CAPTURE_EXPORT_ROOT = (
+    f"/storage/emulated/0/Android/data/{PROFILE_PACKAGE}/files/opensw-lab-captures"
+)
 
 RESOLUTION_VALUES = {
     "0.25x": 0,
@@ -91,6 +96,38 @@ def memory_snapshot(serial: str | None) -> dict:
         "views": views,
         "activities": activities,
     }
+
+
+def pull_capture_export(serial: str | None, descriptor: dict, output: Path) -> dict:
+    remote_path = descriptor.get("path")
+    byte_size = descriptor.get("byte_size")
+    expected_sha256 = descriptor.get("sha256")
+    path_pattern = re.compile(
+        rf"{re.escape(CAPTURE_EXPORT_ROOT)}/opensw-performance-[0-9]+\.json"
+    )
+    if not isinstance(remote_path, str) or path_pattern.fullmatch(remote_path) is None:
+        raise CaptureError("OpenSw Lab returned an invalid capture export path")
+    if not isinstance(byte_size, int) or not 0 < byte_size <= 16 * 1024 * 1024:
+        raise CaptureError("OpenSw Lab returned an invalid capture export size")
+    if not isinstance(expected_sha256, str) or re.fullmatch(
+        r"[0-9a-f]{64}", expected_sha256
+    ) is None:
+        raise CaptureError("OpenSw Lab returned an invalid capture export hash")
+
+    output.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        adb(serial, "pull", remote_path, str(output))
+        if output.stat().st_size != byte_size:
+            raise CaptureError("Pulled capture size does not match the Profile export")
+        actual_sha256 = hashlib.sha256(output.read_bytes()).hexdigest()
+        if actual_sha256 != expected_sha256:
+            raise CaptureError("Pulled capture hash does not match the Profile export")
+        report = json.loads(output.read_text(encoding="utf-8"))
+        if not isinstance(report, dict):
+            raise CaptureError("OpenSw Lab capture report must be a JSON object")
+        return report
+    finally:
+        adb(serial, "shell", "rm", "-f", remote_path, check=False)
 
 
 def require_no_eden(serial: str | None) -> None:
@@ -222,7 +259,10 @@ def execute(args: argparse.Namespace) -> int:
         if not isinstance(report, dict):
             raise CaptureError("OpenSw Lab capture report is missing")
         output = Path(args.output).resolve()
-        output.parent.mkdir(parents=True, exist_ok=True)
+        if report.get("schema") == CAPTURE_EXPORT_SCHEMA:
+            report = pull_capture_export(args.serial, report, output)
+        else:
+            output.parent.mkdir(parents=True, exist_ok=True)
         output.write_text(
             json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
         )

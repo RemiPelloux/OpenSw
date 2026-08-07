@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import base64
+import hashlib
 import json
 import shlex
 import tempfile
@@ -28,7 +29,13 @@ from opensw_performance_v2 import (
     validate_perfetto_trace,
     validate_manifest,
 )
-from opensw_lab import canonical_replay_sha256, execute as execute_lab, parser as lab_parser
+from opensw_lab import (
+    CAPTURE_EXPORT_ROOT,
+    CAPTURE_EXPORT_SCHEMA,
+    canonical_replay_sha256,
+    execute as execute_lab,
+    parser as lab_parser,
+)
 
 
 class PerformanceV2Test(unittest.TestCase):
@@ -216,6 +223,42 @@ class PerformanceV2Test(unittest.TestCase):
         self.assertEqual("0.75x", graphics.resolution)
         self.assertEqual("fsr", graphics.scaling_filter)
         self.assertEqual(20, graphics.sharpening)
+
+    @patch("opensw_lab.adb")
+    @patch("opensw_lab.run_lab_command")
+    def test_lab_finish_capture_pulls_and_verifies_export(
+        self, mock_run_lab_command, mock_adb
+    ):
+        payload = {"format": "opensw-native-diagnostic-v1", "sample_count": 400}
+        encoded = (json.dumps(payload) + "\n").encode()
+        remote_path = f"{CAPTURE_EXPORT_ROOT}/opensw-performance-123.json"
+        mock_run_lab_command.return_value = {
+            "ok": True,
+            "value": {
+                "schema": CAPTURE_EXPORT_SCHEMA,
+                "path": remote_path,
+                "byte_size": len(encoded),
+                "sha256": hashlib.sha256(encoded).hexdigest(),
+            },
+        }
+
+        def adb_side_effect(serial, *arguments, **kwargs):
+            if arguments[0] == "pull":
+                Path(arguments[2]).write_bytes(encoded)
+            return ""
+
+        mock_adb.side_effect = adb_side_effect
+        with tempfile.TemporaryDirectory() as directory:
+            output = Path(directory) / "capture.json"
+            args = lab_parser().parse_args(
+                ["--serial", "device", "finish-capture", "--output", str(output)]
+            )
+            self.assertEqual(0, execute_lab(args))
+            self.assertEqual(payload, json.loads(output.read_text(encoding="utf-8")))
+
+        mock_adb.assert_any_call(
+            "device", "shell", "rm", "-f", remote_path, check=False
+        )
 
     @patch("opensw_lab.run_lab_command")
     def test_lab_graphics_command_maps_symbolic_values(self, mock_run_lab_command):
