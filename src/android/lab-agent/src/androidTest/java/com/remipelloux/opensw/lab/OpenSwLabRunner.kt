@@ -126,6 +126,9 @@ internal class BridgeClient(private val context: Context) : AutoCloseable {
                 "org.yuzu.yuzu_emu.lab.OpenSwProfileBridgeService"
             )
         )
+        // Keep the bridge alive after this short instrumentation command disconnects. Stateful
+        // operations such as input replay must survive across subsequent capture commands.
+        context.startService(intent)
         bound = context.bindService(intent, connection, Context.BIND_AUTO_CREATE)
         check(bound) { "Profile bridge is unavailable" }
         check(connected.await(10, TimeUnit.SECONDS)) { "Timed out binding Profile bridge" }
