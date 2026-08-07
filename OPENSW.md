@@ -1,6 +1,7 @@
 # OpenSw
 
-OpenSw is an unofficial Android testing fork of Eden for the AYN Thor.
+OpenSw is a standalone Android Switch emulator with a generic ARM64 build and an optional AYN Thor
+performance profile.
 
 ## Isolation
 
@@ -9,8 +10,7 @@ OpenSw is an unofficial Android testing fork of Eden for the AYN Thor.
 - Recommended test variant: `openSwProfile`
 - Debug package: `com.remipelloux.opensw.debug`
 
-Android gives this package a separate private and external app-data directory. Installing it does not
-replace or reuse the official Eden package `dev.eden.eden_emulator.nightly`.
+Android gives each OpenSw variant its own private and external app-data directory.
 
 ## Build
 
@@ -24,6 +24,6 @@ The output APK is written below `src/android/app/build/outputs/apk/openSw/profil
 
 ## Device testing
 
-Before installation, verify the connected device and inspect the APK package name. Never uninstall,
-clear or write to the official Eden package while testing this fork. Eden data import must use the
-Android system document picker and a user-granted read-only permission.
+Before installation, verify the connected device and inspect the APK package name. Testing must stay
+scoped to OpenSw and must never uninstall, clear or write to another application's package. Legacy
+data import must use the Android system document picker and a user-granted read-only permission.
