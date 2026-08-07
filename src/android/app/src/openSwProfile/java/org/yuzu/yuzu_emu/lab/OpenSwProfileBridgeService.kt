@@ -20,10 +20,12 @@ import java.io.FileOutputStream
 import java.util.Locale
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
+import org.json.JSONArray
 import org.json.JSONObject
 import org.yuzu.yuzu_emu.BuildConfig
 import org.yuzu.yuzu_emu.NativeLibrary
 import org.yuzu.yuzu_emu.activities.EmulationActivity
+import org.yuzu.yuzu_emu.features.cheats.CheatStateKey
 import org.yuzu.yuzu_emu.features.performance.PerformanceSampler
 import org.yuzu.yuzu_emu.features.performance.RenderRuntimeSnapshot
 import org.yuzu.yuzu_emu.features.performance.OpenSwSessionSnapshot
@@ -168,6 +170,40 @@ class OpenSwProfileBridgeService : Service() {
 
         override fun finishCapture(): String =
             PerformanceSampler.finishCapture(applicationContext)?.readText().orEmpty()
+
+        override fun getCheats(): String {
+            val context = NativeLibrary.getCheatContext() ?: return ""
+            val entries = JSONArray()
+            NativeLibrary.getLoadedCheats().forEach { cheat ->
+                entries.put(
+                    JSONObject()
+                        .put("name", cheat.name)
+                        .put("enabled", cheat.enabled)
+                        .put("is_master", cheat.isMaster)
+                        .put("fingerprint", cheat.fingerprint)
+                        .put("source", cheat.source)
+                )
+            }
+            return JSONObject()
+                .put("title_id", context.titleId)
+                .put("build_id", context.buildId)
+                .put("entries", entries)
+                .toString()
+        }
+
+        override fun setCheatEnabled(name: String, enabled: Boolean): Boolean {
+            if (!NativeLibrary.isRunning() || name.isBlank()) return false
+            val context = NativeLibrary.getCheatContext() ?: return false
+            val matches = NativeLibrary.getLoadedCheats().filter { it.name == name }
+            if (matches.size != 1) return false
+            val cheat = matches.single()
+            if (cheat.isMaster && !enabled) return false
+            if (!NativeLibrary.setCheatEnabled(cheat.sessionId, enabled)) return false
+            return getSharedPreferences("opensw_cheat_states", MODE_PRIVATE)
+                .edit()
+                .putBoolean(CheatStateKey.of(context, cheat), enabled)
+                .commit()
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder = binder

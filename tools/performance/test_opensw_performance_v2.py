@@ -97,6 +97,11 @@ class PerformanceV2Test(unittest.TestCase):
         self.assertEqual("start-capture", start.command)
         self.assertEqual("finish-capture", finish.command)
 
+        enable = lab_parser().parse_args(["enable-cheat", "60 FPS"])
+        disable = lab_parser().parse_args(["disable-cheat", "60 FPS"])
+        self.assertEqual("enable-cheat", enable.command)
+        self.assertEqual("disable-cheat", disable.command)
+
     def test_comparison_promotes_tail_improvement_without_regression(self):
         baseline = self.summary("a", fps=30.0, p95=40.0, p99=60.0)
         candidate = self.summary("b", fps=30.2, p95=39.0, p99=58.0)

@@ -16,4 +16,6 @@ interface IOpenSwProfileBridge {
     boolean cancelReplay();
     boolean startCapture(String titleId, String mode);
     String finishCapture();
+    String getCheats();
+    boolean setCheatEnabled(String name, boolean enabled);
 }

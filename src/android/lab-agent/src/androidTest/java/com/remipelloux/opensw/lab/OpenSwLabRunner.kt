@@ -90,6 +90,15 @@ class OpenSwLabRunner : AndroidJUnitRunner() {
                     "finish-capture" -> JSONObject()
                         .put("ok", true)
                         .put("value", JSONObject(bridge.finishCapture()))
+                    "list-cheats" -> JSONObject()
+                        .put("ok", true)
+                        .put("value", JSONObject(bridge.cheats))
+                    "set-cheat" -> booleanResult(
+                        bridge.setCheatEnabled(
+                            requireArgument("name"),
+                            requireArgument("enabled").toBooleanStrict()
+                        )
+                    )
                     else -> error("Unknown lab command: $command")
                 }
             }

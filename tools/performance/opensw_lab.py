@@ -128,6 +128,7 @@ def execute_cycles(args: argparse.Namespace) -> int:
 def execute(args: argparse.Namespace) -> int:
     if args.command == "cycle":
         return execute_cycles(args)
+    command = args.command
     command_args: dict[str, str] = {}
     timeout_ms = getattr(args, "timeout_ms", None)
     if timeout_ms is not None:
@@ -158,9 +159,15 @@ def execute(args: argparse.Namespace) -> int:
                 f"{REMOTE_REPLAY_DIR}/{REMOTE_REPLAY_NAME}",
             )
         command_args["replay_file"] = REMOTE_REPLAY_NAME
+    elif args.command in {"enable-cheat", "disable-cheat"}:
+        command_args.update(
+            name=args.name,
+            enabled=str(args.command == "enable-cheat").lower(),
+        )
+        command = "set-cheat"
 
     try:
-        result = run_lab_command(args.serial, args.command, command_args)
+        result = run_lab_command(args.serial, command, command_args)
     finally:
         if args.command == "start-replay":
             adb(
@@ -213,6 +220,10 @@ def parser() -> argparse.ArgumentParser:
     capture.add_argument("--mode", required=True)
     finish_capture = subparsers.add_parser("finish-capture")
     finish_capture.add_argument("--output", required=True)
+    subparsers.add_parser("list-cheats")
+    for command in ("enable-cheat", "disable-cheat"):
+        cheat = subparsers.add_parser(command)
+        cheat.add_argument("name")
     cycle = subparsers.add_parser("cycle")
     cycle.add_argument("--game-uri", required=True)
     cycle.add_argument("--title-id", required=True)
