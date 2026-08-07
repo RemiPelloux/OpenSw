@@ -167,7 +167,7 @@ class OpenSwProfileBridgeService : Service() {
         }
 
         override fun finishCapture(): String =
-            PerformanceSampler.finishCapture(applicationContext)?.absolutePath.orEmpty()
+            PerformanceSampler.finishCapture(applicationContext)?.readText().orEmpty()
     }
 
     override fun onBind(intent: Intent?): IBinder = binder

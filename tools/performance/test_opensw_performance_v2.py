@@ -19,7 +19,7 @@ from opensw_performance_v2 import (
     summarize_frametimes,
     validate_manifest,
 )
-from opensw_lab import canonical_replay_sha256
+from opensw_lab import canonical_replay_sha256, parser as lab_parser
 
 
 class PerformanceV2Test(unittest.TestCase):
@@ -86,6 +86,16 @@ class PerformanceV2Test(unittest.TestCase):
         )
         replay["sha256"] = "ignored"
         self.assertEqual(digest, canonical_replay_sha256(replay))
+
+    def test_lab_parser_accepts_native_capture_commands(self):
+        start = lab_parser().parse_args(
+            ["start-capture", "--title-id", "01001F5010DFA000", "--mode", "STANDARD"]
+        )
+        finish = lab_parser().parse_args(
+            ["finish-capture", "--output", "capture.json"]
+        )
+        self.assertEqual("start-capture", start.command)
+        self.assertEqual("finish-capture", finish.command)
 
     def test_comparison_promotes_tail_improvement_without_regression(self):
         baseline = self.summary("a", fps=30.0, p95=40.0, p99=60.0)

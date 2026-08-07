@@ -138,6 +138,8 @@ def execute(args: argparse.Namespace) -> int:
         command_args["workers"] = str(args.workers)
     elif args.command == "clear-cache":
         command_args["title_id"] = args.title_id
+    elif args.command == "start-capture":
+        command_args.update(title_id=args.title_id, mode=args.mode)
     elif args.command == "start-replay":
         replay = Path(args.replay).resolve()
         if not replay.is_file() or replay.stat().st_size > 2 * 1024 * 1024:
@@ -169,7 +171,18 @@ def execute(args: argparse.Namespace) -> int:
                 f"{REMOTE_REPLAY_DIR}/{REMOTE_REPLAY_NAME}",
                 check=False,
             )
-    print(json.dumps(result, indent=2, sort_keys=True))
+    if args.command == "finish-capture":
+        report = result.get("value")
+        if not isinstance(report, dict):
+            raise CaptureError("OpenSw Lab capture report is missing")
+        output = Path(args.output).resolve()
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(
+            json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8"
+        )
+        print(f"capture_report={output}")
+    else:
+        print(json.dumps(result, indent=2, sort_keys=True))
     if args.command == "start-replay":
         print(f"replay_sha256={replay_sha256}")
     return 0
@@ -195,6 +208,11 @@ def parser() -> argparse.ArgumentParser:
     replay = subparsers.add_parser("start-replay")
     replay.add_argument("replay")
     subparsers.add_parser("cancel-replay")
+    capture = subparsers.add_parser("start-capture")
+    capture.add_argument("--title-id", required=True)
+    capture.add_argument("--mode", required=True)
+    finish_capture = subparsers.add_parser("finish-capture")
+    finish_capture.add_argument("--output", required=True)
     cycle = subparsers.add_parser("cycle")
     cycle.add_argument("--game-uri", required=True)
     cycle.add_argument("--title-id", required=True)

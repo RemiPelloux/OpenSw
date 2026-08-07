@@ -81,6 +81,15 @@ class OpenSwLabRunner : AndroidJUnitRunner() {
                         booleanResult(bridge.startReplay(replay))
                     }
                     "cancel-replay" -> booleanResult(bridge.cancelReplay())
+                    "start-capture" -> booleanResult(
+                        bridge.startCapture(
+                            requireArgument("title_id"),
+                            requireArgument("mode")
+                        )
+                    )
+                    "finish-capture" -> JSONObject()
+                        .put("ok", true)
+                        .put("value", JSONObject(bridge.finishCapture()))
                     else -> error("Unknown lab command: $command")
                 }
             }
