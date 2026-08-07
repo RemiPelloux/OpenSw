@@ -8,18 +8,30 @@ evidence; compilation alone is not a performance or stability result.
 1. Vulkan worker selection and small-draw waits still need a controlled 2/4/6-worker comparison
    with cold and warm caches. No default changes until Perfetto attribution and five-run A/B evidence
    show a p95/p99 or median-FPS improvement without regression.
-2. Runtime memory, audio cancellation, guarded fibers and Vulkan teardown now compile and have
-   focused tests, but still need 6-cycle, 30-cycle and 60-minute Arceus validation on the Thor.
-3. Three Eden upstream changes remain unported: isolated NPad and audio bounds fixes, plus a much
-   larger bindless descriptor implementation that requires its own branch and visual/performance A/B.
+2. Runtime memory, audio cancellation, guarded fibers and Vulkan teardown compile and have focused
+   tests. Six Foretales cycles are complete; 30 cycles with physical rotation and the 45-60 minute
+   Arceus validation remain pending.
+3. The Eden bindless Vulkan, NPad guard and audio DSP bounds changes are ported and build in
+   Release/Profile. Bindless remains unpromoted until its dedicated visual and performance A/B.
+
+## Delivered foundation
+
+- Native/Kotlin session generations reject callbacks from stopped emulation sessions.
+- The Profile JNI snapshot preserves its first 12 fields and adds five presentation counters.
+- Panel captures are versioned native diagnostics with monotonic timestamps, configuration identity
+  and explicit invalidation; only raw SurfaceFlinger/Perfetto captures can support A/B promotion.
+- The secondary-screen cockpit provides Direct and Profile-only Details views, fixed Capture/Share
+  actions and session controls without a hero or duplicated cover.
+- Favorites, compact selection, search and focus restoration are implemented with DiffUtil and
+  bounded Coil caching.
 
 ## P0: release stability
 
 1. Add a profile/debug-only Android instrumentation driver for launch, pause, resume and production
    shutdown. It must wait for native acknowledgements and must not ship an externally callable
    control surface in public release builds.
-2. Validate the main/idle kernel-thread ownership fix with six cycles, then 30 cycles, recording
-   10-second and 30-second memory snapshots.
+2. The six-cycle gate for the main/idle kernel-thread ownership fix is complete. Run the 30-cycle
+   gate next, recording 10-second and 30-second memory snapshots and physical rotation.
 3. Keep the kernel registry non-owning and diagnostic-only. Fix any remaining ownership issue at the
    creator; do not bulk-close unknown objects or suppress the shutdown warning.
 4. Validate guarded fiber stacks and cancelled audio waits under repeated lifecycle stress. Require
@@ -46,14 +58,15 @@ evidence; compilation alone is not a performance or stability result.
 
 ## P2: cockpit and UX completion
 
-1. Finish controller focus restoration after cheat search and IME dismissal.
+1. Validate the implemented controller focus restoration after cheat search and IME dismissal at
+   normal and maximum font scales.
 2. Validate cockpit recreation across hinge changes, rotation and secondary-display loss.
-3. Add an in-app session health view backed by the existing shared sampler, with no permanent game
-   overlay and no work for hidden metrics.
+3. Validate the delivered Direct/Details session health view across recreation; retain no permanent
+   game overlay and no work for hidden metrics.
 4. Audit French and English strings, accessibility labels and compact/grid/list/carousel layouts on
    both Thor displays.
-5. Add favorites and recently played/resume ordering, then a compact game-details drawer with
-   quick actions. Keep the 64 dp selection bar and do not reintroduce a hero or duplicated cover.
+5. Favorites and recently played/resume ordering are delivered. Validate the compact quick actions
+   and keep the 64 dp selection bar without reintroducing a hero or duplicated cover.
 
 ## P3: distribution
 

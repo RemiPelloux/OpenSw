@@ -1,5 +1,12 @@
 # Roadmap performance OpenSw
 
+## État de livraison
+
+Les phases d'implémentation 1 à 4 sont intégrées dans les APK Release/Profile et documentées dans
+l'audit Thor. Aucun gain de performance n'est revendiqué sans campagne A/B. Le statut global reste
+**validation utilisateur en attente** pour les 30 cycles avec rotation physique et la session
+Arceus 1.1.1 longue.
+
 ## Vérifié sur l'hôte
 
 - Variants OpenSw Debug/Profile et métriques v2.
@@ -18,6 +25,8 @@
 - UI secondaire Release validée en 1240x1080: Direct, graphe, capture, partage, Session et arrêt.
 - Six cycles courts Foretales launch/pause/resume/capture/stop/restart sans crash, ANR, callback
   tardif ni croissance RSS continue après stabilisation.
+- Partage du diagnostic Release vérifié sans erreur JSON ni refus FileProvider; les valeurs non
+  finies sont sérialisées comme `null` au lieu d'invalider le rapport.
 
 ## Validation appareil requise
 
@@ -49,3 +58,7 @@ tests hôte, les contrôles UI secondaires et les six cycles courts sont termin�
 de l'utilisateur les 30 cycles complets avec rotation physique, puis la session Arceus 1.1.1 de
 45-60 minutes avec rapports, température, RSS, logs et captures. Aucun accès ou changement n'a été
 effectué sur `dev.eden.eden_emulator.nightly` ni sur ses données.
+
+Les screenshots, logs et dumps temporaires produits par la validation doivent être supprimés après
+publication; les caches de jeu, sauvegardes, firmware et données Eden ne font jamais partie de ce
+nettoyage.

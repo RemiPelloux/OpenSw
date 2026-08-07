@@ -40,7 +40,10 @@ and reproducible performance diagnostics.
 - A release-like, locally signed and profileable APK for repeatable AYN Thor measurements.
 - A read-only Eden import assistant for keys, firmware, profiles, saves, settings, mods and cheats.
 - An in-game cheat overlay with controller and touch navigation.
-- A shared Performance Lab with p95 frametime, memory, power, thermal warnings and A/B reports.
+- A shared Performance Lab with rolling p95 frametime, memory, power, thermal warnings and
+  versioned native diagnostics that are explicitly excluded from A/B promotion decisions.
+- Reproducible `opensw-performance-v2` tooling that derives A/B evidence from raw
+  SurfaceFlinger/Perfetto timestamps rather than sampled UI averages.
 - An automatic cockpit on the Thor secondary display with an in-game drawer fallback.
 - Sanitised diagnostic bundles without keys, saves, firmware, game paths or game content.
 - Build-ID-aware cheat import from text files, Atmosphere/Eden trees and ZIP archives.
@@ -50,17 +53,21 @@ and reproducible performance diagnostics.
 
 ## Current status
 
-The maintained Android target builds as `openSwProfile` and runs independently from Eden on the AYN
-Thor. Pokemon Legends: Arceus 1.1.1 has been verified with Build ID `AEE8F150DDA1B5A8`; the live
-cheat engine applied Mastercode plus the 60 FPS section and a stable presentation sample measured
-59.96 FPS.
+The maintained Android targets build as `openSwRelease` and `openSwProfile` and run independently
+from Eden on the AYN Thor. Pokemon Legends: Arceus 1.1.1 has been verified with Build ID
+`AEE8F150DDA1B5A8`; the live cheat engine applied Mastercode plus the 60 FPS section and a stable
+presentation sample measured 59.96 FPS.
 
-Repeated-session shutdown has received focused fixes for cheat callbacks, audio streams, emulated
-backing memory, page tables, process trackers and guest service-thread references. The current work
-also releases the main and idle kernel threads owned by each emulated core and asks Bionic to return
-unused allocator pages after shutdown. These last two changes build successfully but remain pending
-the deterministic 30-cycle device acceptance run, so they are not presented as a completed release
-certification.
+Repeated-session shutdown now rejects callbacks from older native generations and has focused fixes
+for cheat callbacks, audio streams, emulated backing memory, page tables, process trackers, guest
+service-thread references and Vulkan presentation teardown. Six Foretales
+launch/pause/resume/capture/stop/restart cycles completed on the Thor without crash, ANR, mixed
+Title ID or continuous RSS growth after settling. The 30-cycle acceptance run, physical rotation
+coverage and the 45-60 minute Arceus session remain required before release certification.
+
+The Profile build exposes 17 compatible JNI counters, including presentation queue depth and time
+spent waiting for a free frame, the scheduler, swapchain acquisition and presentation. Release
+builds hide those counters while retaining the compact Direct view on the Thor secondary display.
 
 ## Live cheats
 
@@ -92,14 +99,14 @@ data are not copied.
 
 ## Building
 
-Build the locally signed, release-like profiling APK from `src/android`:
+Build the installable Release and the locally signed profiling APK from `src/android`:
 
 ```sh
-./gradlew :app:assembleOpenSwProfile
+./gradlew :app:assembleOpenSwRelease :app:assembleOpenSwProfile
 ```
 
-The APK is produced at
-`src/android/app/build/outputs/apk/openSw/profile/app-openSw-profile.apk`.
+The APKs are produced under `src/android/app/build/outputs/apk/openSw/release` and
+`src/android/app/build/outputs/apk/openSw/profile`.
 
 Build and archive the generic, ARMv9, ThinLTO and ARMv9 + ThinLTO measurement APKs with:
 
@@ -116,6 +123,10 @@ package and device-testing rules. Performance acceptance and the fixed AYN Thor 
 Session lifetime findings, valid measurements and rejected measurements are recorded in
 [docs/opensw/SessionStability.md](./docs/opensw/SessionStability.md).
 
+The current Thor evidence, APK hashes and remaining user validation are recorded in the
+[AYN Thor audit](./docs/performance/ayn-thor-audit.md) and
+[performance roadmap](./docs/performance/roadmap.md).
+
 The current device baseline covers an AYN Thor with Snapdragon 8 Gen 2 and Adreno 740. Performance
 changes are promoted only after repeatable A/B measurements; risky compiler flags and Android clock
 changes are intentionally excluded.
@@ -123,8 +134,9 @@ changes are intentionally excluded.
 ## Roadmap
 
 The ordered engineering roadmap and its acceptance gates are maintained in
-[docs/opensw/Roadmap.md](./docs/opensw/Roadmap.md). Stability and deterministic device automation
-come before new performance flags or additional UI features.
+[docs/opensw/Roadmap.md](./docs/opensw/Roadmap.md), with campaign status in
+[docs/performance/roadmap.md](./docs/performance/roadmap.md). Stability and deterministic device
+automation come before new performance flags or additional UI features.
 
 ## Based on Eden
 
