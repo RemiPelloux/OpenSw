@@ -61,7 +61,8 @@ internal data class PipelineProfileSummary(
     val freeFrameWaitNs: Long,
     val schedulerWaitNs: Long,
     val swapchainAcquireNs: Long,
-    val presentNs: Long
+    val presentNs: Long,
+    val captureSmallDrawWaitNs: Long
 )
 
 internal fun summarizeCapture(
@@ -90,12 +91,12 @@ internal fun summarizePipelineProfiles(
     val last = matching.last()
     fun delta(start: Long, end: Long): Long? = if (end >= start) end - start else null
     return PipelineProfileSummary(
-        maxPipelineQueueDepth = matching.maxOf(PipelineProfileSnapshot::maxQueueDepth),
-        maxPresentQueueDepth = matching.maxOf(PipelineProfileSnapshot::maxPresentQueueDepth),
+        maxPipelineQueueDepth = last.captureMaxQueueDepth,
+        maxPresentQueueDepth = last.captureMaxPresentQueueDepth,
         cacheHits = delta(first.cacheHits, last.cacheHits) ?: return null,
         cacheMisses = delta(first.cacheMisses, last.cacheMisses) ?: return null,
         compilations = delta(first.compilations, last.compilations) ?: return null,
-        smallDrawWaits = delta(first.smallDrawWaits, last.smallDrawWaits) ?: return null,
+        smallDrawWaits = last.captureSmallDrawWaits,
         pipelineWaits = delta(first.pipelineWaits, last.pipelineWaits) ?: return null,
         pipelineWaitNs = delta(first.pipelineWaitNs, last.pipelineWaitNs) ?: return null,
         translationNs = delta(first.translationNs, last.translationNs) ?: return null,
@@ -108,7 +109,8 @@ internal fun summarizePipelineProfiles(
             first.swapchainAcquireNs,
             last.swapchainAcquireNs
         ) ?: return null,
-        presentNs = delta(first.presentNs, last.presentNs) ?: return null
+        presentNs = delta(first.presentNs, last.presentNs) ?: return null,
+        captureSmallDrawWaitNs = last.captureSmallDrawWaitNs
     )
 }
 
@@ -124,7 +126,9 @@ internal data class CaptureConfiguration(
     val packageName: String,
     val apkVersion: String,
     val mode: String,
-    val pipelineWorkers: Int,
+    val pipelineWorkersRequested: Int,
+    val pipelineWorkersEffective: Int,
+    val pipelineWorkersReason: String,
     val presentationRate: Int,
     val asyncPresentation: Boolean
 )

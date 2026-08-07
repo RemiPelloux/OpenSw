@@ -14,6 +14,7 @@ from opensw_performance_v2 import (
     nearest_rank,
     parse_surfaceflinger_latency,
     summarize_frametimes,
+    validate_manifest,
 )
 
 
@@ -67,26 +68,7 @@ class PerformanceV2Test(unittest.TestCase):
         self.assertEqual("regression_over_2_percent", result["reason"])
 
     def test_summary_rejects_mixed_device_configuration(self):
-        manifest = {
-            "schema": SCHEMA,
-            "title_id": "01001f5010dfa000",
-            "scenario_sha256": "scenario",
-            "variant": "baseline",
-            "package": "com.remipelloux.opensw.profile",
-            "local_apk": {"sha256": "local"},
-            "installed_apk": {"sha256": "installed", "version": "1"},
-            "git": {"head": "head", "source_tree_sha256": "tree"},
-            "switch_firmware": "firmware",
-            "profile": "handheld",
-            "device": {
-                "manufacturer": "AYN",
-                "model": "Thor",
-                "build_fingerprint": "fingerprint",
-                "android_release": "13",
-                "resolution": "1920x1080",
-                "gpu_driver": "driver",
-            },
-        }
+        manifest = self.manifest()
         with tempfile.TemporaryDirectory() as directory:
             paths = []
             for index in range(5):
@@ -99,14 +81,121 @@ class PerformanceV2Test(unittest.TestCase):
             with self.assertRaises(CaptureError):
                 load_manifests(paths)
 
+    def test_revision_two_requires_runtime_and_matching_apk(self):
+        manifest = self.manifest()
+        manifest["runtime_identity"] = None
+        with self.assertRaises(CaptureError):
+            validate_manifest(manifest)
+
+        manifest = self.manifest()
+        manifest["installed_apk"]["sha256"] = "other"
+        with self.assertRaises(CaptureError):
+            validate_manifest(manifest)
+
+    def test_summary_rejects_replay_mismatch_and_non_finite_metric(self):
+        manifest = self.manifest()
+        manifest["runtime_identity"]["replay_sha256"] = "other"
+        with self.assertRaises(CaptureError):
+            validate_manifest(manifest)
+
+        manifest = self.manifest()
+        manifest["summary"]["median_fps"] = float("nan")
+        with self.assertRaises(CaptureError):
+            validate_manifest(manifest)
+
+    def test_comparison_rejects_stable_control_drift(self):
+        baseline = self.summary("a", fps=30.0, p95=40.0, p99=60.0)
+        candidate = self.summary("b", fps=31.0, p95=39.0, p99=58.0)
+        candidate["configuration"]["gpu_driver"] = "different"
+        with self.assertRaises(CaptureError):
+            compare_summaries(baseline, candidate)
+
+    def test_comparison_rejects_multiple_experiment_dimensions(self):
+        baseline = self.summary("a", fps=30.0, p95=40.0, p99=60.0)
+        candidate = self.summary("b", fps=31.0, p95=39.0, p99=58.0)
+        candidate["configuration"]["runtime_identity.requested_workers"] = 6
+        candidate["configuration"]["local_apk_sha256"] = "different"
+        with self.assertRaises(CaptureError):
+            compare_summaries(baseline, candidate)
+
+    @staticmethod
+    def manifest():
+        replay = "a" * 64
+        runtime = {
+            "schema": "opensw-runtime-identity-v1",
+            "pid": 42,
+            "package_version": "test",
+            "session_generation": 7,
+            "title_id": "01001f5010dfa000",
+            "requested_workers": 4,
+            "effective_workers": 4,
+            "worker_reason": "EXPLICIT",
+            "async_gpu": True,
+            "async_shaders": True,
+            "async_presentation": True,
+            "descriptor_buffer_available": True,
+            "presentation_target": 60,
+            "replay_sha256": replay,
+            "replay_state": "COMPLETED",
+            "monotonic_timestamp_ms": 1000,
+        }
+        return {
+            "schema": SCHEMA,
+            "manifest_revision": 2,
+            "title_id": "01001f5010dfa000",
+            "scenario_sha256": "scenario",
+            "variant": "baseline",
+            "experiment_key": "workers",
+            "package": "com.remipelloux.opensw.profile",
+            "local_apk": {"sha256": "apk"},
+            "installed_apk": {"sha256": "apk", "version": "test"},
+            "git": {"head": "head", "source_tree_sha256": "tree"},
+            "switch_firmware": "firmware",
+            "game_version": "1.1.1",
+            "profile": "handheld",
+            "cache_state": "cold",
+            "cheat_set_sha256": "b" * 64,
+            "fan_mode": "sport",
+            "initial_temperature_c": 35.0,
+            "temperature_band_c": [34.0, 36.0],
+            "replay_sha256": replay,
+            "runtime_identity": runtime,
+            "summary": {
+                "median_fps": 30.0,
+                "frametime_p50_ms": 33.0,
+                "frametime_p95_ms": 40.0,
+                "frametime_p99_ms": 60.0,
+                "frame_count": 1800,
+                "rss_max_kib": 1000,
+                "temperature_max_c": 40.0,
+            },
+            "device": {
+                "manufacturer": "AYN",
+                "model": "Thor",
+                "build_fingerprint": "fingerprint",
+                "android_release": "13",
+                "resolution": "1920x1080",
+                "gpu_driver": "driver",
+            },
+        }
+
     @staticmethod
     def summary(variant, fps, p95, p99):
         return {
             "schema": SCHEMA,
+            "manifest_revision": 2,
             "run_count": 5,
             "title_id": "01001f5010dfa000",
             "scenario_sha256": "scenario",
             "variant": variant,
+            "experiment_key": "workers",
+            "configuration": {
+                "gpu_driver": "driver",
+                "local_apk_sha256": "apk",
+                "runtime_identity.requested_workers": 4 if variant == "a" else 6,
+                "runtime_identity.effective_workers": 4 if variant == "a" else 6,
+                "runtime_identity.worker_reason": "EXPLICIT",
+            },
             "median_of_runs": {
                 "median_fps": fps,
                 "frametime_p50_ms": 33.0,

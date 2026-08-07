@@ -123,6 +123,21 @@ public:
         return is_built.load(std::memory_order::relaxed);
     }
 
+    void MarkSmallDrawWait() noexcept {
+        pending_small_draw_waits.fetch_add(1, std::memory_order_relaxed);
+    }
+
+    bool ConsumeSmallDrawWait() noexcept {
+        u32 pending = pending_small_draw_waits.load(std::memory_order_relaxed);
+        while (pending != 0) {
+            if (pending_small_draw_waits.compare_exchange_weak(
+                    pending, pending - 1, std::memory_order_relaxed)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     template <typename Spec>
     static auto MakeConfigureSpecFunc() {
         return [](GraphicsPipeline* pl, bool is_indexed) { return pl->ConfigureImpl<Spec>(is_indexed); };
@@ -185,6 +200,7 @@ private:
     std::condition_variable build_condvar;
     std::mutex build_mutex;
     std::atomic_bool is_built{false};
+    std::atomic<u32> pending_small_draw_waits{};
     bool uses_push_descriptor{false};
     bool uses_descriptor_buffer{false};
 };

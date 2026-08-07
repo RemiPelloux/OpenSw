@@ -20,6 +20,8 @@ from pathlib import Path
 from typing import Any, Iterable, Sequence
 
 SCHEMA = "opensw-performance-v2"
+MANIFEST_REVISION = 2
+RUNTIME_SCHEMA = "opensw-runtime-identity-v1"
 ALLOWED_PACKAGES = {"com.remipelloux.opensw", "com.remipelloux.opensw.profile"}
 REMOTE_TRACE = "/data/misc/perfetto-traces/opensw-performance-v2.pftrace"
 TITLE_ID_MARKER = re.compile(r"OpenSw performance active title_id=([0-9a-fA-F]{16})")
@@ -58,6 +60,41 @@ file_write_period_ms: 2500
 
 class CaptureError(RuntimeError):
     pass
+
+
+REQUIRED_RUNTIME_FIELDS = {
+    "pid",
+    "package_version",
+    "session_generation",
+    "title_id",
+    "requested_workers",
+    "effective_workers",
+    "worker_reason",
+    "async_gpu",
+    "async_shaders",
+    "async_presentation",
+    "descriptor_buffer_available",
+    "presentation_target",
+    "replay_sha256",
+    "replay_state",
+    "monotonic_timestamp_ms",
+}
+
+EXPERIMENT_FIELDS = {
+    "workers": {
+        "runtime_identity.requested_workers",
+        "runtime_identity.effective_workers",
+        "runtime_identity.worker_reason",
+    },
+    "build": {
+        "local_apk_sha256",
+        "installed_apk_sha256",
+        "installed_apk_version",
+        "runtime_identity.package_version",
+        "git_head",
+        "source_tree_sha256",
+    },
+}
 
 
 def run(command: Sequence[str], *, input_text: str | None = None, check: bool = True) -> str:
@@ -262,6 +299,26 @@ def scenario_digest(scenario: dict[str, Any]) -> str:
     return sha256_bytes(payload)
 
 
+def load_runtime_identity(path: Path, *, pid: str, title_id: str, replay_sha256: str) -> dict[str, Any]:
+    identity = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(identity, dict) or identity.get("schema") != RUNTIME_SCHEMA:
+        raise CaptureError(f"Runtime identity must use schema {RUNTIME_SCHEMA}")
+    missing = sorted(REQUIRED_RUNTIME_FIELDS - identity.keys())
+    if missing:
+        raise CaptureError("Runtime identity is incomplete: " + ", ".join(missing))
+    if str(identity["pid"]) != pid or int(identity["session_generation"]) <= 0:
+        raise CaptureError("Runtime identity PID or generation is stale")
+    if str(identity["title_id"]).lower() != title_id:
+        raise CaptureError("Runtime identity Title ID does not match the capture")
+    if str(identity["replay_sha256"]).lower() != replay_sha256.lower():
+        raise CaptureError("Runtime identity replay does not match the declared replay")
+    if identity["replay_state"] != "RUNNING":
+        raise CaptureError("Runtime identity replay must be RUNNING at capture start")
+    if int(identity["effective_workers"]) < 1:
+        raise CaptureError("Runtime identity reports an invalid effective worker count")
+    return identity
+
+
 def resolve_surface(serial: str | None, package: str, requested: str | None) -> str:
     if requested:
         if package not in requested:
@@ -288,7 +345,11 @@ def installed_apk_manifest(serial: str | None, package: str) -> dict[str, str]:
     version_line = next(
         (line.strip() for line in version.splitlines() if line.strip().startswith("versionName=")), ""
     )
-    return {"path": base_paths[0] if base_paths else "", "sha256": digest, "version": version_line}
+    return {
+        "path": base_paths[0] if base_paths else "",
+        "sha256": digest,
+        "version": version_line.removeprefix("versionName="),
+    }
 
 
 def verify_active_title_id(serial: str | None, package: str, pid: str, expected: str) -> None:
@@ -339,6 +400,17 @@ def capture(args: argparse.Namespace) -> int:
     if len(running_pids) != 1:
         raise CaptureError("OpenSw must already be running before capture")
     pid = running_pids[0]
+    apk = Path(args.apk).resolve()
+    installed_apk = installed_apk_manifest(args.serial, args.package)
+    local_apk_sha256 = sha256_file(apk)
+    if not installed_apk.get("sha256") or installed_apk["sha256"] != local_apk_sha256:
+        raise CaptureError("Local and installed APK hashes must match before capture")
+    runtime_identity = load_runtime_identity(
+        Path(args.runtime_identity),
+        pid=pid,
+        title_id=expected_title_id,
+        replay_sha256=args.replay_sha256,
+    )
     verify_active_title_id(args.serial, args.package, pid, expected_title_id)
     surface = resolve_surface(args.serial, args.package, args.surface)
     adb(args.serial, "shell", "dumpsys", "SurfaceFlinger", "--latency-clear", surface)
@@ -412,7 +484,6 @@ def capture(args: argparse.Namespace) -> int:
     timestamp_path = output / "surfaceflinger-present-timestamps-ns.txt"
     timestamp_path.write_text("\n".join(map(str, timestamps)) + "\n", encoding="utf-8")
 
-    apk = Path(args.apk).resolve() if args.apk else None
     device = {
         "manufacturer": adb(args.serial, "shell", "getprop", "ro.product.manufacturer"),
         "model": adb(args.serial, "shell", "getprop", "ro.product.model"),
@@ -424,6 +495,7 @@ def capture(args: argparse.Namespace) -> int:
     }
     manifest = {
         "schema": SCHEMA,
+        "manifest_revision": MANIFEST_REVISION,
         "captured_at": datetime.now(timezone.utc).isoformat(),
         "run_id": args.run_id,
         "variant": args.variant,
@@ -434,13 +506,22 @@ def capture(args: argparse.Namespace) -> int:
         "refresh_period_ns": refresh_period,
         "scenario": scenario,
         "scenario_sha256": scenario_digest(scenario),
+        "runtime_identity": runtime_identity,
+        "replay_sha256": args.replay_sha256.lower(),
+        "experiment_key": args.experiment_key,
         "git": git_manifest(root),
         "local_apk": {
-            "path": str(apk) if apk else "",
-            "sha256": sha256_file(apk) if apk else "",
+            "path": str(apk),
+            "sha256": local_apk_sha256,
         },
-        "installed_apk": installed_apk_manifest(args.serial, args.package),
+        "installed_apk": installed_apk,
         "switch_firmware": args.switch_firmware,
+        "game_version": args.game_version,
+        "cache_state": args.cache_state,
+        "cheat_set_sha256": args.cheat_set_sha256.lower(),
+        "fan_mode": args.fan_mode,
+        "initial_temperature_c": args.initial_temperature_c,
+        "temperature_band_c": [args.temperature_min_c, args.temperature_max_c],
         "profile": args.profile,
         "device": device,
         "host": {"platform": platform.platform(), "python": platform.python_version()},
@@ -464,6 +545,7 @@ def run_configuration(manifest: dict[str, Any]) -> dict[str, Any]:
     git = manifest.get("git", {})
     local_apk = manifest.get("local_apk", {})
     installed_apk = manifest.get("installed_apk", {})
+    runtime_identity = manifest.get("runtime_identity", {})
     return {
         "package": manifest.get("package"),
         "local_apk_sha256": local_apk.get("sha256"),
@@ -479,19 +561,86 @@ def run_configuration(manifest: dict[str, Any]) -> dict[str, Any]:
         "android_release": device.get("android_release"),
         "resolution": device.get("resolution"),
         "gpu_driver": device.get("gpu_driver"),
+        "game_version": manifest.get("game_version"),
+        "cache_state": manifest.get("cache_state"),
+        "cheat_set_sha256": manifest.get("cheat_set_sha256"),
+        "fan_mode": manifest.get("fan_mode"),
+        "temperature_band_c": manifest.get("temperature_band_c"),
+        "replay_sha256": manifest.get("replay_sha256"),
+        "runtime_identity.package_version": runtime_identity.get("package_version"),
+        "runtime_identity.requested_workers": runtime_identity.get("requested_workers"),
+        "runtime_identity.effective_workers": runtime_identity.get("effective_workers"),
+        "runtime_identity.worker_reason": runtime_identity.get("worker_reason"),
+        "runtime_identity.async_gpu": runtime_identity.get("async_gpu"),
+        "runtime_identity.async_shaders": runtime_identity.get("async_shaders"),
+        "runtime_identity.async_presentation": runtime_identity.get("async_presentation"),
+        "runtime_identity.descriptor_buffer_available": runtime_identity.get(
+            "descriptor_buffer_available"
+        ),
+        "runtime_identity.presentation_target": runtime_identity.get("presentation_target"),
     }
+
+
+def validate_manifest(manifest: dict[str, Any]) -> None:
+    if manifest.get("schema") != SCHEMA:
+        raise CaptureError(f"All manifests must use schema {SCHEMA}")
+    if manifest.get("manifest_revision") != MANIFEST_REVISION:
+        raise CaptureError("Only manifest_revision=2 is promotion-eligible")
+    local_hash = manifest.get("local_apk", {}).get("sha256")
+    installed_hash = manifest.get("installed_apk", {}).get("sha256")
+    if not local_hash or local_hash != installed_hash:
+        raise CaptureError("Local and installed APK hashes must match")
+    identity = manifest.get("runtime_identity")
+    if not isinstance(identity, dict) or identity.get("schema") != RUNTIME_SCHEMA:
+        raise CaptureError("A revision-2 manifest requires runtime identity")
+    missing_runtime = sorted(REQUIRED_RUNTIME_FIELDS - identity.keys())
+    if missing_runtime:
+        raise CaptureError("Runtime identity is incomplete: " + ", ".join(missing_runtime))
+    if str(identity.get("title_id", "")).lower() != str(manifest.get("title_id", "")).lower():
+        raise CaptureError("Runtime identity Title ID mismatch")
+    if identity.get("replay_sha256") != manifest.get("replay_sha256"):
+        raise CaptureError("Runtime identity replay mismatch")
+    if identity.get("package_version") != manifest.get("installed_apk", {}).get("version"):
+        raise CaptureError("Runtime identity APK version mismatch")
+    if identity.get("replay_state") not in {"RUNNING", "COMPLETED"}:
+        raise CaptureError("Runtime replay did not run to completion")
+    if int(identity.get("session_generation", 0)) <= 0 or int(identity.get("pid", 0)) <= 0:
+        raise CaptureError("Runtime identity PID or generation is stale")
+    experiment_key = manifest.get("experiment_key")
+    if experiment_key not in EXPERIMENT_FIELDS:
+        raise CaptureError("experiment_key must be workers or build")
+    if not re.fullmatch(r"[0-9a-f]{64}", str(manifest.get("replay_sha256", ""))):
+        raise CaptureError("Replay SHA-256 is invalid")
+    if not re.fullmatch(r"[0-9a-f]{64}", str(manifest.get("cheat_set_sha256", ""))):
+        raise CaptureError("Cheat-set SHA-256 is invalid")
+    summary = manifest.get("summary", {})
+    for name, value in summary.items():
+        if isinstance(value, (int, float)) and not math.isfinite(float(value)):
+            raise CaptureError(f"Summary metric {name} is not finite")
+    initial_temperature = manifest.get("initial_temperature_c")
+    if not isinstance(initial_temperature, (int, float)) or not math.isfinite(initial_temperature):
+        raise CaptureError("Initial temperature is missing or non-finite")
+    temperature_band = manifest.get("temperature_band_c")
+    if (
+        not isinstance(temperature_band, list)
+        or len(temperature_band) != 2
+        or not all(isinstance(value, (int, float)) for value in temperature_band)
+        or not float(temperature_band[0]) <= float(initial_temperature) <= float(temperature_band[1])
+    ):
+        raise CaptureError("Initial temperature is outside the calibrated band")
 
 
 def load_manifests(paths: Iterable[str]) -> list[dict[str, Any]]:
     manifests = [json.loads(Path(path).read_text(encoding="utf-8")) for path in paths]
-    if any(manifest.get("schema") != SCHEMA for manifest in manifests):
-        raise CaptureError(f"All manifests must use schema {SCHEMA}")
+    for manifest in manifests:
+        validate_manifest(manifest)
     if len(manifests) < 5:
-        raise CaptureError("At least five warm runs are required")
+        raise CaptureError("At least five runs are required")
     title_ids = {manifest.get("title_id") for manifest in manifests}
     scenarios = {manifest.get("scenario_sha256") for manifest in manifests}
     variants = {manifest.get("variant") for manifest in manifests}
-    if len(title_ids) != 1 or len(scenarios) != 1 or len(variants) != 1:
+    experiment_keys = {manifest.get("experiment_key") for manifest in manifests}
+    if len(title_ids) != 1 or len(scenarios) != 1 or len(variants) != 1 or len(experiment_keys) != 1:
         raise CaptureError("Runs must have one Title ID, scenario, and variant")
     configurations = {
         json.dumps(run_configuration(manifest), sort_keys=True) for manifest in manifests
@@ -507,6 +656,9 @@ def load_manifests(paths: Iterable[str]) -> list[dict[str, Any]]:
         )
     if len(configurations) != 1:
         raise CaptureError("Runs must use one APK, source tree, firmware, profile, and device setup")
+    temperatures = [float(manifest["initial_temperature_c"]) for manifest in manifests]
+    if max(temperatures) - min(temperatures) > 2.0:
+        raise CaptureError("Run start temperatures are outside the calibrated 2 C band")
     return manifests
 
 
@@ -526,10 +678,12 @@ def aggregate(manifests: Sequence[dict[str, Any]]) -> dict[str, Any]:
     }
     return {
         "schema": SCHEMA,
+        "manifest_revision": MANIFEST_REVISION,
         "variant": manifests[0]["variant"],
         "title_id": manifests[0]["title_id"],
         "scenario_sha256": manifests[0]["scenario_sha256"],
         "configuration": run_configuration(manifests[0]),
+        "experiment_key": manifests[0]["experiment_key"],
         "run_count": len(manifests),
         "median_of_runs": medians,
         "runs": [manifest["run_id"] for manifest in manifests],
@@ -552,11 +706,30 @@ def percentage_change(baseline: float, candidate: float, *, higher_is_better: bo
 
 def compare_summaries(baseline: dict[str, Any], candidate: dict[str, Any]) -> dict[str, Any]:
     for summary in (baseline, candidate):
-        if summary.get("schema") != SCHEMA or summary.get("run_count", 0) < 5:
+        if (
+            summary.get("schema") != SCHEMA
+            or summary.get("manifest_revision") != MANIFEST_REVISION
+            or summary.get("run_count", 0) < 5
+        ):
             raise CaptureError("Comparison inputs must contain at least five v2 runs")
     for field in ("title_id", "scenario_sha256"):
         if baseline.get(field) != candidate.get(field):
             raise CaptureError(f"A/B inputs do not match on {field}")
+    experiment_key = baseline.get("experiment_key")
+    if experiment_key != candidate.get("experiment_key") or experiment_key not in EXPERIMENT_FIELDS:
+        raise CaptureError("A/B inputs must declare one matching experiment key")
+    baseline_configuration = baseline.get("configuration", {})
+    candidate_configuration = candidate.get("configuration", {})
+    differing_fields = {
+        key
+        for key in set(baseline_configuration) | set(candidate_configuration)
+        if baseline_configuration.get(key) != candidate_configuration.get(key)
+    }
+    unauthorized = differing_fields - EXPERIMENT_FIELDS[experiment_key]
+    if unauthorized:
+        raise CaptureError("A/B controls drifted: " + ", ".join(sorted(unauthorized)))
+    if not differing_fields:
+        raise CaptureError("A/B inputs do not differ on the declared experiment key")
 
     old = baseline["median_of_runs"]
     new = candidate["median_of_runs"]
@@ -582,6 +755,9 @@ def compare_summaries(baseline: dict[str, Any], candidate: dict[str, Any]) -> di
         ),
     }
     has_regression = any(change < -2.0 for change in changes.values())
+    temperature_delta_c = new["temperature_max_c"] - old["temperature_max_c"]
+    if temperature_delta_c > 2.0:
+        has_regression = True
     has_required_gain = changes["median_fps"] >= 3.0 or (
         changes["frametime_p95_ms"] > 0.0 and changes["frametime_p99_ms"] > 0.0
     )
@@ -591,6 +767,7 @@ def compare_summaries(baseline: dict[str, Any], candidate: dict[str, Any]) -> di
         "candidate_variant": candidate["variant"],
         "change_percent_positive_is_better": changes,
         "thresholds": {"minimum_gain_percent": 3.0, "maximum_regression_percent": 2.0},
+        "temperature_delta_c": temperature_delta_c,
         "verdict": "promote" if has_required_gain and not has_regression else "reject",
         "reason": (
             "regression_over_2_percent"
@@ -629,6 +806,16 @@ def build_parser() -> argparse.ArgumentParser:
     capture_parser.add_argument("--serial")
     capture_parser.add_argument("--surface")
     capture_parser.add_argument("--apk", required=True)
+    capture_parser.add_argument("--runtime-identity", required=True)
+    capture_parser.add_argument("--replay-sha256", required=True)
+    capture_parser.add_argument("--game-version", required=True)
+    capture_parser.add_argument("--cache-state", choices=("cold", "warm"), required=True)
+    capture_parser.add_argument("--cheat-set-sha256", required=True)
+    capture_parser.add_argument("--fan-mode", required=True)
+    capture_parser.add_argument("--initial-temperature-c", type=float, required=True)
+    capture_parser.add_argument("--temperature-min-c", type=float, required=True)
+    capture_parser.add_argument("--temperature-max-c", type=float, required=True)
+    capture_parser.add_argument("--experiment-key", choices=tuple(EXPERIMENT_FIELDS), required=True)
     capture_parser.add_argument("--gpu-driver")
     capture_parser.add_argument("--resolution")
     capture_parser.add_argument("--repo", default=".")

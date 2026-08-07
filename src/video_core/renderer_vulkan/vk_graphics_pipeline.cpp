@@ -603,8 +603,15 @@ bool GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
     scheduler.RequestRenderpass(texture_cache.GetFramebuffer());
     if (!is_built.load(std::memory_order::relaxed)) {
         // Wait for the pipeline to be built
-        scheduler.Record([this](vk::CommandBuffer) {
 #ifdef OPENSW_PROFILE
+        const bool small_draw_wait = ConsumeSmallDrawWait();
+        scheduler.Record([this, small_draw_wait](vk::CommandBuffer) {
+#else
+        scheduler.Record([this](vk::CommandBuffer) {
+#endif
+#ifdef OPENSW_PROFILE
+            ProfileTraceScope trace{small_draw_wait ? "OpenSw small-draw wait"
+                                                    : "OpenSw pipeline wait"};
             const auto wait_start = std::chrono::steady_clock::now();
 #endif
             std::unique_lock lock{build_mutex};
@@ -613,7 +620,7 @@ bool GraphicsPipeline::ConfigureDraw(const RescalingPushConstant& rescaling,
             const auto wait_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
                                      std::chrono::steady_clock::now() - wait_start)
                                      .count();
-            ProfilePipelineWait(static_cast<u64>(wait_ns));
+            ProfilePipelineWait(static_cast<u64>(wait_ns), small_draw_wait);
 #endif
         });
     }

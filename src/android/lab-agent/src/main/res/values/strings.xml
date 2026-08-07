@@ -1,0 +1,6 @@
+<resources>
+    <string name="app_name">OpenSw Lab</string>
+    <string name="profile_disconnected">OpenSw Profile disconnected</string>
+    <string name="workers_auto">Auto workers</string>
+    <string name="stop_opensw">Stop OpenSw</string>
+</resources>

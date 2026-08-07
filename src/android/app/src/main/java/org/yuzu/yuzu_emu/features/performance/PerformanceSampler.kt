@@ -88,7 +88,11 @@ data class PipelineProfileSnapshot(
     val freeFrameWaitNs: Long = 0L,
     val schedulerWaitNs: Long = 0L,
     val swapchainAcquireNs: Long = 0L,
-    val presentNs: Long = 0L
+    val presentNs: Long = 0L,
+    val captureMaxQueueDepth: Long = 0L,
+    val captureMaxPresentQueueDepth: Long = 0L,
+    val captureSmallDrawWaits: Long = 0L,
+    val captureSmallDrawWaitNs: Long = 0L
 ) {
     fun matches(titleId: String): Boolean {
         val normalized = titleId.uppercase(Locale.ROOT).filter(Char::isLetterOrDigit)
@@ -120,7 +124,53 @@ data class PipelineProfileSnapshot(
                 freeFrameWaitNs = values.getOrElse(13) { 0L },
                 schedulerWaitNs = values.getOrElse(14) { 0L },
                 swapchainAcquireNs = values.getOrElse(15) { 0L },
-                presentNs = values.getOrElse(16) { 0L }
+                presentNs = values.getOrElse(16) { 0L },
+                captureMaxQueueDepth = values.getOrElse(17) { 0L },
+                captureMaxPresentQueueDepth = values.getOrElse(18) { 0L },
+                captureSmallDrawWaits = values.getOrElse(19) { 0L },
+                captureSmallDrawWaitNs = values.getOrElse(20) { 0L }
+            )
+        }
+    }
+}
+
+enum class PipelineWorkerReason {
+    AUTO,
+    EXPLICIT,
+    HARDWARE_CAPPED,
+    DRIVER_SERIALIZED,
+    INVALID_FALLBACK
+}
+
+data class RenderRuntimeSnapshot(
+    val schemaVersion: Long,
+    val titleId: Long,
+    val requestedWorkers: Int,
+    val effectiveWorkers: Int,
+    val workerReason: PipelineWorkerReason,
+    val asyncShaders: Boolean,
+    val asyncGpu: Boolean,
+    val asyncPresentation: Boolean,
+    val descriptorBufferAvailable: Boolean,
+    val presentationTarget: Int
+) {
+    companion object {
+        const val SCHEMA_VERSION = 1L
+
+        fun from(values: LongArray): RenderRuntimeSnapshot? {
+            if (values.size < 10 || values[0] != SCHEMA_VERSION) return null
+            val reason = PipelineWorkerReason.entries.getOrNull(values[4].toInt()) ?: return null
+            return RenderRuntimeSnapshot(
+                schemaVersion = values[0],
+                titleId = values[1],
+                requestedWorkers = values[2].toInt(),
+                effectiveWorkers = values[3].toInt(),
+                workerReason = reason,
+                asyncShaders = values[5] != 0L,
+                asyncGpu = values[6] != 0L,
+                asyncPresentation = values[7] != 0L,
+                descriptorBufferAvailable = values[8] != 0L,
+                presentationTarget = values[9].toInt()
             )
         }
     }
@@ -352,6 +402,7 @@ object PerformanceSampler {
     fun startCapture(context: Context, titleId: String, mode: String) {
         if (capture != null) return
         acquire(context, captureConsumer)
+        NativeLibrary.startPipelineProfileWindow()
         captureGeneration++
         capture = PerformanceCaptureSession(
             captureId = UUID.randomUUID().toString(),
@@ -447,6 +498,13 @@ object PerformanceSampler {
                             put("scheduler_wait_ns", profile.schedulerWaitNs)
                             put("swapchain_acquire_ns", profile.swapchainAcquireNs)
                             put("present_ns", profile.presentNs)
+                            put("capture_pipeline_max_queue", profile.captureMaxQueueDepth)
+                            put(
+                                "capture_presentation_max_queue",
+                                profile.captureMaxPresentQueueDepth
+                            )
+                            put("capture_small_draw_waits", profile.captureSmallDrawWaits)
+                            put("capture_small_draw_wait_ns", profile.captureSmallDrawWaitNs)
                         }
                     }
             )
@@ -473,7 +531,9 @@ object PerformanceSampler {
                 "configuration",
                 JSONObject()
                     .put("mode", configuration.mode)
-                    .put("pipeline_workers", configuration.pipelineWorkers)
+                    .put("pipeline_workers_requested", configuration.pipelineWorkersRequested)
+                    .put("pipeline_workers_effective", configuration.pipelineWorkersEffective)
+                    .put("pipeline_workers_reason", configuration.pipelineWorkersReason)
                     .put("presentation_rate_hz", configuration.presentationRate)
                     .put("async_presentation", configuration.asyncPresentation)
                     .put("pid", configuration.processId)
@@ -486,18 +546,27 @@ object PerformanceSampler {
         return file
     }
 
-    private fun captureConfiguration(context: Context, titleId: String, mode: String) =
-        CaptureConfiguration(
+    private fun captureConfiguration(
+        context: Context,
+        titleId: String,
+        mode: String
+    ): CaptureConfiguration {
+        val runtime = runtimeSnapshot()
+        return CaptureConfiguration(
             titleId = titleId.uppercase(Locale.ROOT).filter(Char::isLetterOrDigit),
             processId = Process.myPid(),
             packageName = context.packageName,
             apkVersion = BuildConfig.VERSION_NAME,
             mode = mode,
-            pipelineWorkers = IntSetting.ANDROID_PIPELINE_WORKERS.getInt(false),
+            pipelineWorkersRequested = runtime?.requestedWorkers
+                ?: IntSetting.ANDROID_PIPELINE_WORKERS.getInt(false),
+            pipelineWorkersEffective = runtime?.effectiveWorkers ?: 0,
+            pipelineWorkersReason = runtime?.workerReason?.name ?: "UNAVAILABLE",
             presentationRate = IntSetting.ANDROID_PRESENTATION_FRAME_RATE.getInt(false)
                 .takeIf { it in setOf(0, 30, 40, 60) } ?: 0,
             asyncPresentation = BooleanSetting.RENDERER_ASYNC_PRESENTATION.getBoolean(false)
         )
+    }
 
     private fun currentCaptureConfiguration(
         context: Context,
@@ -515,6 +584,7 @@ object PerformanceSampler {
         .put("pipeline_cache_misses_delta", cacheMisses)
         .put("pipeline_compilations_delta", compilations)
         .put("pipeline_small_draw_waits_delta", smallDrawWaits)
+        .put("pipeline_small_draw_wait_ns", captureSmallDrawWaitNs)
         .put("pipeline_waits_delta", pipelineWaits)
         .put("pipeline_wait_ns_delta", pipelineWaitNs)
         .put("maxwell_translate_ns_delta", translationNs)
@@ -591,6 +661,9 @@ object PerformanceSampler {
     private fun updateThermalWarning(now: Long, thermalStatus: Int): Boolean {
         return thermalCondition.update(now, thermalStatus >= PowerManager.THERMAL_STATUS_SEVERE)
     }
+
+    private fun runtimeSnapshot(): RenderRuntimeSnapshot? =
+        RenderRuntimeSnapshot.from(NativeLibrary.getRenderRuntimeSnapshot())
 
     private fun updatePerformanceWarning(now: Long, speed: Double): Boolean {
         return performanceCondition.update(now, speed in 0.01..0.949)

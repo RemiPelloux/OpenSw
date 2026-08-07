@@ -1033,6 +1033,24 @@ jlongArray Java_org_yuzu_yuzu_1emu_NativeLibrary_getPipelineProfileStats(JNIEnv*
     return result;
 }
 
+jlongArray Java_org_yuzu_yuzu_1emu_NativeLibrary_getRenderRuntimeSnapshot(JNIEnv* env,
+                                                                           jclass clazz) {
+    const auto snapshot = Vulkan::GetRenderRuntimeSnapshot();
+    std::array<jlong, Vulkan::RenderRuntimeSnapshotSize> java_snapshot{};
+    std::transform(snapshot.begin(), snapshot.end(), java_snapshot.begin(),
+                   [](u64 value) { return static_cast<jlong>(value); });
+    auto result = env->NewLongArray(static_cast<jsize>(snapshot.size()));
+    if (!result) {
+        return nullptr;
+    }
+    env->SetLongArrayRegion(result, 0, static_cast<jsize>(snapshot.size()), java_snapshot.data());
+    return result;
+}
+
+void Java_org_yuzu_yuzu_1emu_NativeLibrary_startPipelineProfileWindow(JNIEnv*, jclass) {
+    Vulkan::StartPipelineProfileWindow();
+}
+
 jstring Java_org_yuzu_yuzu_1emu_NativeLibrary_getCpuBackend(JNIEnv* env, jclass clazz) {
     if (Settings::IsNceEnabled()) {
         return Common::Android::ToJString(env, "NCE");

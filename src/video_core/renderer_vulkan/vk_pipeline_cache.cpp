@@ -314,18 +314,18 @@ Shader::RuntimeInfo MakeRuntimeInfo(std::span<const Shader::IR::Program> program
     return info;
 }
 
-size_t GetTotalPipelineWorkers() {
-    const size_t max_core_threads =
-        std::max<size_t>(static_cast<size_t>(std::thread::hardware_concurrency()), 2ULL) - 1ULL;
+PipelineWorkerResolution GetPipelineWorkerResolution(bool driver_serialized) {
 #ifdef __ANDROID__
     const int configured = AndroidSettings::values.pipeline_worker_count.GetValue();
-    if (configured == 0) {
-        return max_core_threads;
+    const auto resolution =
+        ResolvePipelineWorkers(configured, std::thread::hardware_concurrency(), driver_serialized);
+    if (resolution.reason == PipelineWorkerReason::InvalidFallback) {
+        LOG_WARNING(Render_Vulkan, "Invalid pipeline worker count {}; falling back to Auto",
+                    configured);
     }
-    const size_t desired = static_cast<size_t>(std::clamp(configured, 2, 8));
-    return std::min(max_core_threads, desired);
+    return resolution;
 #else
-    return max_core_threads;
+    return ResolvePipelineWorkers(0, std::thread::hardware_concurrency(), driver_serialized);
 #endif
 }
 
@@ -363,9 +363,19 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
       texture_cache{texture_cache_}, shader_notify{shader_notify_},
       use_asynchronous_shaders{Settings::values.use_asynchronous_shaders.GetValue()},
       use_vulkan_pipeline_cache{Settings::values.use_vulkan_driver_pipeline_cache.GetValue()},
-      workers(device.HasBrokenParallelShaderCompiling() ? 1ULL : GetTotalPipelineWorkers(),
-              "VkPipelineBuilder"),
+      worker_resolution{GetPipelineWorkerResolution(device.HasBrokenParallelShaderCompiling())},
+      workers(worker_resolution.effective, "VkPipelineBuilder"),
       serialization_thread(1, "VkPipelineSerialization") {
+    SetRenderRuntimeSnapshot(worker_resolution, use_asynchronous_shaders,
+                             Settings::values.use_asynchronous_gpu_emulation.GetValue(),
+                             Settings::values.async_presentation.GetValue(),
+                             device.IsExtDescriptorBufferSupported(),
+#ifdef __ANDROID__
+                             AndroidSettings::values.presentation_frame_rate.GetValue()
+#else
+                             0
+#endif
+    );
     const auto& float_control{device.FloatControlProperties()};
     const VkDriverId driver_id{device.GetDriverID()};
     const VkShaderStageFlags subgroup_stages{device.GetSubgroupSupportedStages()};
@@ -757,6 +767,9 @@ GraphicsPipeline* PipelineCache::BuiltPipeline(GraphicsPipeline* pipeline) const
     const auto& draw_state = maxwell3d->draw_manager.draw_state;
     if (draw_state.index_buffer.count <= 6 || draw_state.vertex_buffer.count <= 6) {
         ProfileSmallDrawWait();
+#ifdef OPENSW_PROFILE
+        pipeline->MarkSmallDrawWait();
+#endif
         return pipeline;
     }
     return nullptr;

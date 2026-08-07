@@ -6,14 +6,35 @@
 #include <array>
 #ifdef OPENSW_PROFILE
 #include <chrono>
+#ifdef __ANDROID__
+#include <android/trace.h>
+#endif
 #endif
 #include <cstddef>
 #include <type_traits>
 #include <utility>
 
 #include "common/common_types.h"
+#include "video_core/renderer_vulkan/vk_pipeline_workers.h"
 
 namespace Vulkan {
+
+class ProfileTraceScope {
+public:
+    explicit ProfileTraceScope(const char* name) {
+#if defined(OPENSW_PROFILE) && defined(__ANDROID__)
+        ATrace_beginSection(name);
+#else
+        (void)name;
+#endif
+    }
+
+    ~ProfileTraceScope() {
+#if defined(OPENSW_PROFILE) && defined(__ANDROID__)
+        ATrace_endSection();
+#endif
+    }
+};
 
 enum class PipelineProfilePhase {
     MaxwellTranslation,
@@ -29,8 +50,46 @@ enum class PresentationProfilePhase {
     Present,
 };
 
-constexpr size_t PipelineProfileSnapshotSize = 17;
+constexpr const char* PipelineProfileTraceName(PipelineProfilePhase phase) {
+    switch (phase) {
+    case PipelineProfilePhase::MaxwellTranslation:
+        return "OpenSw Maxwell translation";
+    case PipelineProfilePhase::SpirvEmission:
+        return "OpenSw SPIR-V emission";
+    case PipelineProfilePhase::ShaderModule:
+        return "OpenSw shader module";
+    case PipelineProfilePhase::VulkanPipeline:
+        return "OpenSw Vulkan pipeline creation";
+    }
+    return "OpenSw pipeline";
+}
+
+constexpr const char* PresentationProfileTraceName(PresentationProfilePhase phase) {
+    switch (phase) {
+    case PresentationProfilePhase::FreeFrameWait:
+        return "OpenSw free-frame wait";
+    case PresentationProfilePhase::SchedulerWait:
+        return "OpenSw scheduler wait";
+    case PresentationProfilePhase::SwapchainAcquire:
+        return "OpenSw acquire";
+    case PresentationProfilePhase::Present:
+        return "OpenSw present";
+    }
+    return "OpenSw presentation";
+}
+
+// The first 17 fields are the original session snapshot contract. New fields are append-only.
+constexpr size_t PipelineProfileSnapshotSize = 21;
 using PipelineProfileSnapshot = std::array<u64, PipelineProfileSnapshotSize>;
+
+constexpr u64 RenderRuntimeSnapshotSchemaVersion = 1;
+constexpr size_t RenderRuntimeSnapshotSize = 10;
+using RenderRuntimeSnapshot = std::array<u64, RenderRuntimeSnapshotSize>;
+
+void SetRenderRuntimeSnapshot(PipelineWorkerResolution workers, bool async_shaders, bool async_gpu,
+                              bool async_presentation, bool descriptor_buffer_available,
+                              int presentation_target);
+RenderRuntimeSnapshot GetRenderRuntimeSnapshot();
 
 #ifdef OPENSW_PROFILE
 void ProfilePipelineCacheHit();
@@ -38,11 +97,12 @@ void ProfilePipelineCacheMiss();
 void ProfilePipelineCompilation();
 void ProfilePipelineQueueDepth(size_t depth);
 void ProfileSmallDrawWait();
-void ProfilePipelineWait(u64 nanoseconds);
+void ProfilePipelineWait(u64 nanoseconds, bool small_draw = false);
 void ProfilePipelinePhase(PipelineProfilePhase phase, u64 nanoseconds);
 void ProfilePresentationQueueDepth(size_t depth);
 void ProfilePresentationPhase(PresentationProfilePhase phase, u64 nanoseconds);
 void ResetPipelineProfile(u64 title_id);
+void StartPipelineProfileWindow();
 void ReportPipelineProfile();
 PipelineProfileSnapshot GetPipelineProfileSnapshot();
 #else
@@ -51,11 +111,12 @@ inline void ProfilePipelineCacheMiss() {}
 inline void ProfilePipelineCompilation() {}
 inline void ProfilePipelineQueueDepth(size_t) {}
 inline void ProfileSmallDrawWait() {}
-inline void ProfilePipelineWait(u64) {}
+inline void ProfilePipelineWait(u64, bool = false) {}
 inline void ProfilePipelinePhase(PipelineProfilePhase, u64) {}
 inline void ProfilePresentationQueueDepth(size_t) {}
 inline void ProfilePresentationPhase(PresentationProfilePhase, u64) {}
 inline void ResetPipelineProfile(u64) {}
+inline void StartPipelineProfileWindow() {}
 inline void ReportPipelineProfile() {}
 inline PipelineProfileSnapshot GetPipelineProfileSnapshot() {
     return {};
@@ -65,6 +126,7 @@ inline PipelineProfileSnapshot GetPipelineProfileSnapshot() {
 template <typename Func>
 auto MeasurePipelinePhase(PipelineProfilePhase phase, Func&& func) {
 #ifdef OPENSW_PROFILE
+    ProfileTraceScope trace{PipelineProfileTraceName(phase)};
     const auto start = std::chrono::steady_clock::now();
     auto result = std::forward<Func>(func)();
     const auto elapsed = std::chrono::steady_clock::now() - start;
@@ -80,6 +142,7 @@ auto MeasurePipelinePhase(PipelineProfilePhase phase, Func&& func) {
 template <typename Func>
 decltype(auto) MeasurePresentationPhase(PresentationProfilePhase phase, Func&& func) {
 #ifdef OPENSW_PROFILE
+    ProfileTraceScope trace{PresentationProfileTraceName(phase)};
     const auto start = std::chrono::steady_clock::now();
     if constexpr (std::is_void_v<std::invoke_result_t<Func>>) {
         std::forward<Func>(func)();

@@ -24,6 +24,8 @@ dependencyResolutionManagement {
 }
 
 include(":app")
+include(":lab-protocol")
+include(":lab-agent")
 
 include("Eden")
 project(":Eden").projectDir = file("../..")

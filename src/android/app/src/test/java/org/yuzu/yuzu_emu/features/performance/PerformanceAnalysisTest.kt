@@ -145,7 +145,7 @@ class PerformanceAnalysisTest {
     }
 
     @Test
-    fun profileSummaryUsesDeltasAndQueueMaximums() {
+    fun profileSummaryUsesDeltasAndCaptureWindowCounters() {
         fun profile(base: Long, pipelineQueue: Long, presentQueue: Long) = PipelineProfileSnapshot(
             titleId = 1L,
             cacheHits = base,
@@ -163,7 +163,11 @@ class PerformanceAnalysisTest {
             freeFrameWaitNs = base + 10,
             schedulerWaitNs = base + 11,
             swapchainAcquireNs = base + 12,
-            presentNs = base + 13
+            presentNs = base + 13,
+            captureMaxQueueDepth = pipelineQueue,
+            captureMaxPresentQueueDepth = presentQueue,
+            captureSmallDrawWaits = base + 3,
+            captureSmallDrawWaitNs = base + 14
         )
 
         val summary = summarizePipelineProfiles(
@@ -192,7 +196,9 @@ class PerformanceAnalysisTest {
             packageName = "com.remipelloux.opensw.profile",
             apkVersion = "test",
             mode = "STANDARD",
-            pipelineWorkers = 4,
+            pipelineWorkersRequested = 4,
+            pipelineWorkersEffective = 4,
+            pipelineWorkersReason = "EXPLICIT",
             presentationRate = 60,
             asyncPresentation = true
         )
@@ -209,7 +215,7 @@ class PerformanceAnalysisTest {
         assertFalse(
             session.record(
                 7,
-                configuration.copy(pipelineWorkers = 6),
+                configuration.copy(pipelineWorkersRequested = 6, pipelineWorkersEffective = 6),
                 PerformanceSnapshot()
             )
         )
