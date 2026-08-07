@@ -23,6 +23,7 @@
 #include "video_core/renderer_vulkan/vk_descriptor_buffer.h"
 #include "video_core/renderer_vulkan/vk_descriptor_pool.h"
 #include "video_core/renderer_vulkan/vk_pipeline_profile.h"
+#include "video_core/renderer_vulkan/vk_pipeline_transition_cache.h"
 #include "video_core/renderer_vulkan/vk_texture_cache.h"
 #include "video_core/renderer_vulkan/vk_update_descriptor.h"
 #include "video_core/vulkan_common/vulkan_wrapper.h"
@@ -116,16 +117,9 @@ public:
             ProfilePipelineSelfHit();
             return this;
         }
-        size_t probes{};
-        for (size_t index = 0; index < transition_keys.size(); ++index) {
-            ++probes;
-            if (transition_keys[index] == current_key) {
-                ProfilePipelineTransitionLookup(probes, false, true);
-                return transitions[index];
-            }
-        }
-        ProfilePipelineTransitionLookup(probes, false, false);
-        return nullptr;
+        const auto result = transitions.Lookup(current_key);
+        ProfilePipelineTransitionLookup(result.probes, result.hashed, result.value != nullptr);
+        return result.value;
     }
 
     [[nodiscard]] bool IsBuilt() const noexcept {
@@ -181,8 +175,7 @@ private:
 
     bool (*configure_func)(GraphicsPipeline*, bool){};
 
-    std::vector<GraphicsPipelineCacheKey> transition_keys;
-    std::vector<GraphicsPipeline*> transitions;
+    HybridTransitionCache<GraphicsPipelineCacheKey, GraphicsPipeline*> transitions;
 
     std::array<vk::ShaderModule, NUM_STAGES> spv_modules;
 
