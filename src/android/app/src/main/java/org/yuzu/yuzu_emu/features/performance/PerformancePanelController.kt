@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2026 OpenSw Project
+// SPDX-FileCopyrightText: Copyright 2026 OpenSw Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 package org.yuzu.yuzu_emu.features.performance
@@ -343,8 +343,8 @@ class PerformancePanelController(
 
     private fun PerformanceMode.labelResource(): Int = when (this) {
         PerformanceMode.STANDARD -> R.string.opensw_mode_standard
-        PerformanceMode.THOR_BALANCED -> R.string.opensw_mode_thor_balanced
-        PerformanceMode.THOR_60_STABLE -> R.string.opensw_mode_thor_60_stable
-        PerformanceMode.THOR_MAX -> R.string.opensw_mode_thor_max
+        PerformanceMode.BALANCED -> R.string.opensw_mode_balanced
+        PerformanceMode.OPTI_60 -> R.string.opensw_mode_60_opti
+        PerformanceMode.MAX -> R.string.opensw_mode_max
     }
 }

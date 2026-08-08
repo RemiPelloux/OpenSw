@@ -657,9 +657,9 @@
 
     <string-array name="openswPerformanceModeEntries">
         <item>@string/opensw_mode_standard</item>
-        <item>@string/opensw_mode_thor_balanced</item>
-        <item>@string/opensw_mode_thor_60_stable</item>
-        <item>@string/opensw_mode_thor_max</item>
+        <item>@string/opensw_mode_balanced</item>
+        <item>@string/opensw_mode_60_opti</item>
+        <item>@string/opensw_mode_max</item>
     </string-array>
 
     <integer-array name="openswPerformanceModeValues">
@@ -672,9 +672,9 @@
     <string-array name="openswGamePerformanceModeEntries">
         <item>@string/opensw_mode_inherit</item>
         <item>@string/opensw_mode_standard</item>
-        <item>@string/opensw_mode_thor_balanced</item>
-        <item>@string/opensw_mode_thor_60_stable</item>
-        <item>@string/opensw_mode_thor_max</item>
+        <item>@string/opensw_mode_balanced</item>
+        <item>@string/opensw_mode_60_opti</item>
+        <item>@string/opensw_mode_max</item>
     </string-array>
 
     <integer-array name="openswGamePerformanceModeValues">

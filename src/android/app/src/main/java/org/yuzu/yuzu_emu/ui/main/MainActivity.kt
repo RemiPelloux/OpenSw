@@ -274,7 +274,7 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
             .setPositiveButton(R.string.opensw_use_thor_60_stable) { _, _ ->
                 OpenSwPerformanceModeManager.apply(
                     applicationContext,
-                    PerformanceMode.THOR_60_STABLE.value
+                    PerformanceMode.OPTI_60.value
                 )
             }
             .setNegativeButton(R.string.opensw_keep_standard, null)

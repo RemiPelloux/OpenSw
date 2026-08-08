@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: Copyright 2026 OpenSw Emulator Project
 // SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -101,6 +102,20 @@ class HomeSettingsFragment : Fragment() {
                 )
             )
             if (BuildConfig.IS_OPENSW) {
+                add(
+                    HomeSetting(
+                        R.string.opensw_performance_mode,
+                        R.string.opensw_performance_mode_description,
+                        R.drawable.ic_frames,
+                        {
+                            val action = HomeNavigationDirections.actionGlobalSettingsActivity(
+                                null,
+                                Settings.MenuTag.SECTION_ROOT
+                            )
+                            binding.root.findNavController().navigate(action)
+                        }
+                    )
+                )
                 add(
                     HomeSetting(
                         R.string.opensw_diagnostic_bundle,

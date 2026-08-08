@@ -47,7 +47,7 @@ firmware; users must provide content they are legally entitled to use.
 ## Features
 
 - A self-contained Android emulator with dedicated Release and Profile builds.
-- `Standard`, `Thor Balanced`, `Thor 60 stable` and experimental `Thor Max` modes.
+- `Standard`, `Balanced`, `60 Opti` and experimental `Max` performance profiles.
 - Session-scoped Android scheduling policies: system scheduling, ADPF hints only, or ADPF with a
   capability-based topology fallback; no device clock changes.
 - A global default with optional per-Title-ID overrides that never rewrite game configuration files.
@@ -85,8 +85,8 @@ swapchain acquisition and presentation. Release
 builds hide those counters while retaining the compact Direct view on the Thor secondary display.
 
 OpenSw includes Eden upstream through `c0ffc900cd`. Its multithreading/ADPF refactor is integrated
-with OpenSw's existing Vulkan diagnostics: `Standard` leaves scheduling to Android, `Thor Balanced`
-uses hints only, and the stable/max modes use hints with a topology fallback. ADPF receives render
+with OpenSw's existing Vulkan diagnostics: `Standard` leaves scheduling to Android, `Balanced`
+uses hints only, and `60 Opti`/`Max` use hints with a topology fallback. ADPF receives render
 work duration without speed-limiter sleep or long pause gaps; no FPS or thermal gain is claimed until
 repeatable device A/B measurements pass the documented gates.
 

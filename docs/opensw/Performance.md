@@ -4,13 +4,13 @@
 
 - `Standard` removes OpenSw overrides, restores captured settings and leaves thread placement and
   priority to Android.
-- `Thor Balanced` enables asynchronous presentation and optimised vertex buffers. Render and
+- `Balanced` enables asynchronous presentation and optimised vertex buffers. Render and
   background workers join Android Dynamic Performance Framework (ADPF) hint sessions when the OS
   exposes them; the mode does not set CPU affinity or Linux thread priorities.
-- `Thor 60 stable` additionally enables asynchronous GPU/shaders and six Vulkan workers. It uses a
+- `60 Opti` additionally enables asynchronous GPU/shaders and six Vulkan workers. It uses a
   hybrid policy: ADPF first, then capability-based performance/efficiency core placement when a hint
   session is unavailable.
-- `Thor Max` uses the same hybrid thread policy with eight Vulkan workers and remains experimental.
+- `Max` uses the same hybrid thread policy with eight Vulkan workers and remains experimental.
 
 Choose a global default in OpenSw settings. A game's settings page can select `Inherit` or store a
 Title-ID-specific override. The override is applied in memory before native startup and restored at
@@ -25,7 +25,10 @@ interval. Durations above four times the target are treated as pause/idle gaps a
 as demand. This is scheduling feedback, not an FPS or thermal improvement claim; promotion still
 requires repeated same-quality A/B runs on the device.
 
-On a fresh installation running on a detected AYN Thor, OpenSw offers `Thor 60 stable` once. The
+Change the global profile from `Settings > Performance profile`. For one game, open its properties,
+then `Settings > Performance profile`; `Inherit` follows the global selection.
+
+On a fresh installation running on a detected AYN Thor, OpenSw offers `60 Opti` once. The
 choice remains explicit: dismissing the proposal keeps `Standard`, and an existing installation is
 never migrated silently.
 

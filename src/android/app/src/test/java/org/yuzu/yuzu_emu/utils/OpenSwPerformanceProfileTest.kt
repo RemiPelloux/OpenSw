@@ -14,9 +14,9 @@ class OpenSwPerformanceProfileTest {
     @Test
     fun performanceModesSelectReversibleThreadPolicies() {
         assertEquals(0, PerformanceMode.STANDARD.threadPerformanceMode)
-        assertEquals(1, PerformanceMode.THOR_BALANCED.threadPerformanceMode)
-        assertEquals(2, PerformanceMode.THOR_60_STABLE.threadPerformanceMode)
-        assertEquals(2, PerformanceMode.THOR_MAX.threadPerformanceMode)
+        assertEquals(1, PerformanceMode.BALANCED.threadPerformanceMode)
+        assertEquals(2, PerformanceMode.OPTI_60.threadPerformanceMode)
+        assertEquals(2, PerformanceMode.MAX.threadPerformanceMode)
     }
 
     @Test
@@ -25,9 +25,9 @@ class OpenSwPerformanceProfileTest {
         val backend = FakeBackend()
         val profile = OpenSwPerformanceProfile(store, backend)
 
-        profile.apply(OpenSwPerformanceProfile.MODE_THOR_BALANCED)
+        profile.apply(OpenSwPerformanceProfile.MODE_BALANCED)
 
-        assertEquals(OpenSwPerformanceProfile.MODE_THOR_BALANCED, profile.mode())
+        assertEquals(OpenSwPerformanceProfile.MODE_BALANCED, profile.mode())
         assertTrue(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNC_PRESENTATION.key))
         assertTrue(backend.booleans.getValue(BooleanSetting.USE_OPTIMIZED_VERTEX_BUFFERS.key))
         assertFalse(
@@ -42,14 +42,14 @@ class OpenSwPerformanceProfileTest {
         val backend = FakeBackend()
         val profile = OpenSwPerformanceProfile(store, backend)
 
-        profile.apply(OpenSwPerformanceProfile.MODE_THOR_60_STABLE)
+        profile.apply(OpenSwPerformanceProfile.MODE_60_OPTI)
         assertTrue(
             backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_GPU_EMULATION.key)
         )
         assertTrue(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS.key))
         assertEquals(6, backend.ints.getValue(IntSetting.ANDROID_PIPELINE_WORKERS.key))
 
-        profile.apply(OpenSwPerformanceProfile.MODE_THOR_MAX)
+        profile.apply(OpenSwPerformanceProfile.MODE_MAX)
         assertEquals(8, backend.ints.getValue(IntSetting.ANDROID_PIPELINE_WORKERS.key))
     }
 
@@ -66,7 +66,7 @@ class OpenSwPerformanceProfileTest {
         val profile = OpenSwPerformanceProfile(store, backend)
         backend.setGlobal(BooleanSetting.RENDERER_ASYNC_PRESENTATION.key, false)
 
-        profile.apply(OpenSwPerformanceProfile.MODE_THOR_MAX)
+        profile.apply(OpenSwPerformanceProfile.MODE_MAX)
         profile.apply(OpenSwPerformanceProfile.MODE_STANDARD)
 
         assertFalse(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNC_PRESENTATION.key))
@@ -86,8 +86,8 @@ class OpenSwPerformanceProfileTest {
         val backend = FakeBackend()
         val profile = OpenSwPerformanceProfile(store, backend)
 
-        profile.apply(OpenSwPerformanceProfile.MODE_THOR_60_STABLE)
-        profile.apply(OpenSwPerformanceProfile.MODE_THOR_BALANCED)
+        profile.apply(OpenSwPerformanceProfile.MODE_60_OPTI)
+        profile.apply(OpenSwPerformanceProfile.MODE_BALANCED)
 
         assertFalse(
             backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_GPU_EMULATION.key)

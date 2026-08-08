@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright 2026 OpenSw Project
+// SPDX-FileCopyrightText: Copyright 2026 OpenSw Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 package org.yuzu.yuzu_emu.utils
@@ -12,9 +12,9 @@ import org.yuzu.yuzu_emu.features.settings.model.IntSetting
 
 enum class PerformanceMode(val value: Int, val threadPerformanceMode: Int) {
     STANDARD(0, 0),
-    THOR_BALANCED(1, 1),
-    THOR_60_STABLE(2, 2),
-    THOR_MAX(3, 2);
+    BALANCED(1, 1),
+    OPTI_60(2, 2),
+    MAX(3, 2);
 
     companion object {
         fun from(value: Int): PerformanceMode =
@@ -142,9 +142,9 @@ internal class OpenSwPerformanceProfile(
 
     companion object {
         const val MODE_STANDARD = 0
-        const val MODE_THOR_BALANCED = 1
-        const val MODE_THOR_60_STABLE = 2
-        const val MODE_THOR_MAX = 3
+        const val MODE_BALANCED = 1
+        const val MODE_60_OPTI = 2
+        const val MODE_MAX = 3
         const val KEY_MODE = "opensw_performance_mode"
 
         private const val KEY_BACKUP_PRESENT = "opensw_performance_backup_present"
@@ -170,16 +170,16 @@ internal class OpenSwPerformanceProfile(
 
         private fun booleanOverrides(mode: PerformanceMode): Map<String, Boolean> = when (mode) {
             PerformanceMode.STANDARD -> emptyMap()
-            PerformanceMode.THOR_BALANCED -> BALANCED_BOOLEAN_VALUES
-            PerformanceMode.THOR_60_STABLE,
-            PerformanceMode.THOR_MAX -> STABLE_BOOLEAN_VALUES
+            PerformanceMode.BALANCED -> BALANCED_BOOLEAN_VALUES
+            PerformanceMode.OPTI_60,
+            PerformanceMode.MAX -> STABLE_BOOLEAN_VALUES
         }
 
         private fun intOverrides(mode: PerformanceMode): Map<String, Int> = when (mode) {
             PerformanceMode.STANDARD,
-            PerformanceMode.THOR_BALANCED -> emptyMap()
-            PerformanceMode.THOR_60_STABLE -> STABLE_INT_VALUES
-            PerformanceMode.THOR_MAX -> MAX_INT_VALUES
+            PerformanceMode.BALANCED -> emptyMap()
+            PerformanceMode.OPTI_60 -> STABLE_INT_VALUES
+            PerformanceMode.MAX -> MAX_INT_VALUES
         }
     }
 }

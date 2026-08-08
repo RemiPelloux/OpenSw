@@ -1,3 +1,4 @@
+// SPDX-FileCopyrightText: Copyright 2026 OpenSw Emulator Project
 // SPDX-FileCopyrightText: Copyright 2026 Eden Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
@@ -149,6 +150,9 @@ class SettingsFragmentPresenter(
 
     private fun addConfigSettings(sl: ArrayList<SettingsItem>) {
         sl.apply {
+            if (BuildConfig.IS_OPENSW) {
+                addOpenSwPerformanceSetting(this)
+            }
             add(
                 SubmenuSetting(
                     titleId = R.string.preferences_system,
@@ -1094,62 +1098,7 @@ class SettingsFragmentPresenter(
 
             add(HeaderSetting(R.string.app_settings))
             if (BuildConfig.IS_OPENSW) {
-                val gameTitleId = settingsViewModel.game?.programIdHex
-                val performanceMode: AbstractIntSetting = object : AbstractIntSetting {
-                    override fun getInt(needsGlobal: Boolean): Int =
-                        if (gameTitleId == null) {
-                            OpenSwPerformanceModeManager.getMode(context)
-                        } else {
-                            OpenSwPerformanceModeManager.getGameMode(context, gameTitleId)
-                        }
-
-                    override fun setInt(value: Int) {
-                        if (gameTitleId == null) {
-                            OpenSwPerformanceModeManager.apply(context, value)
-                        } else {
-                            OpenSwPerformanceModeManager.setGameMode(context, gameTitleId, value)
-                        }
-                    }
-
-                    override val key = if (gameTitleId == null) {
-                        OpenSwPerformanceModeManager.KEY_MODE
-                    } else {
-                        "${OpenSwPerformanceModeManager.KEY_MODE}.game"
-                    }
-                    override val isRuntimeModifiable = false
-                    override val defaultValue = if (gameTitleId == null) {
-                        0
-                    } else {
-                        OpenSwPerformanceModeManager.INHERIT
-                    }
-                    override fun getValueAsString(needsGlobal: Boolean): String =
-                        getInt(needsGlobal).toString()
-
-                    override fun reset() = setInt(defaultValue)
-                }
-                add(
-                    SingleChoiceSetting(
-                        performanceMode,
-                        titleId = R.string.opensw_performance_mode,
-                        descriptionId = if (gameTitleId == null) {
-                            R.string.opensw_performance_mode_description
-                        } else {
-                            R.string.opensw_game_performance_mode_description
-                        },
-                        choicesId = if (gameTitleId == null) {
-                            R.array.openswPerformanceModeEntries
-                        } else {
-                            R.array.openswGamePerformanceModeEntries
-                        },
-                        valuesId = if (gameTitleId == null) {
-                            R.array.openswPerformanceModeValues
-                        } else {
-                            R.array.openswGamePerformanceModeValues
-                        },
-                        warnChoices = listOf(3),
-                        warningMessage = R.string.opensw_experimental_warning
-                    )
-                )
+                addOpenSwPerformanceSetting(this)
             }
             add(IntSetting.APP_LANGUAGE.key)
 
@@ -1318,6 +1267,65 @@ class SettingsFragmentPresenter(
                 BooleanSetting.ENABLE_QLAUNCH_BUTTON.setBoolean(false)
             }
         }
+    }
+
+    private fun addOpenSwPerformanceSetting(sl: ArrayList<SettingsItem>) {
+        val gameTitleId = settingsViewModel.game?.programIdHex
+        val performanceMode: AbstractIntSetting = object : AbstractIntSetting {
+            override fun getInt(needsGlobal: Boolean): Int =
+                if (gameTitleId == null) {
+                    OpenSwPerformanceModeManager.getMode(context)
+                } else {
+                    OpenSwPerformanceModeManager.getGameMode(context, gameTitleId)
+                }
+
+            override fun setInt(value: Int) {
+                if (gameTitleId == null) {
+                    OpenSwPerformanceModeManager.apply(context, value)
+                } else {
+                    OpenSwPerformanceModeManager.setGameMode(context, gameTitleId, value)
+                }
+            }
+
+            override val key = if (gameTitleId == null) {
+                OpenSwPerformanceModeManager.KEY_MODE
+            } else {
+                "${OpenSwPerformanceModeManager.KEY_MODE}.game"
+            }
+            override val isRuntimeModifiable = false
+            override val defaultValue = if (gameTitleId == null) {
+                0
+            } else {
+                OpenSwPerformanceModeManager.INHERIT
+            }
+            override fun getValueAsString(needsGlobal: Boolean): String =
+                getInt(needsGlobal).toString()
+
+            override fun reset() = setInt(defaultValue)
+        }
+        sl.add(
+            SingleChoiceSetting(
+                performanceMode,
+                titleId = R.string.opensw_performance_mode,
+                descriptionId = if (gameTitleId == null) {
+                    R.string.opensw_performance_mode_description
+                } else {
+                    R.string.opensw_game_performance_mode_description
+                },
+                choicesId = if (gameTitleId == null) {
+                    R.array.openswPerformanceModeEntries
+                } else {
+                    R.array.openswGamePerformanceModeEntries
+                },
+                valuesId = if (gameTitleId == null) {
+                    R.array.openswPerformanceModeValues
+                } else {
+                    R.array.openswGamePerformanceModeValues
+                },
+                warnChoices = listOf(3),
+                warningMessage = R.string.opensw_experimental_warning
+            )
+        )
     }
 
     private fun addDebugSettings(sl: ArrayList<SettingsItem>) {
