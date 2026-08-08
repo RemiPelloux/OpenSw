@@ -1,5 +1,5 @@
 <!--
-# SPDX-FileCopyrightText: Copyright 2026 OpenSw Project
+# SPDX-FileCopyrightText: Copyright 2026 OpenSw Emulator Project
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 # SPDX-FileCopyrightText: Copyright 2025 Eden Emulator Project
@@ -47,9 +47,10 @@ firmware; users must provide content they are legally entitled to use.
 ## Features
 
 - A self-contained Android emulator with dedicated Release and Profile builds.
-- `Standard`, `Balanced`, `60 Opti` and experimental `Max` performance profiles.
-- Session-scoped Android scheduling policies: system scheduling, ADPF hints only, or ADPF with a
-  capability-based topology fallback; no device clock changes.
+- `Standard`, `60 Opti` and experimental `Max` performance profiles, selecting four, six or eight
+  Vulkan pipeline workers.
+- Shared asynchronous presentation, optimised vertex buffers, asynchronous GPU/shaders and ADPF
+  scheduling with a capability-based topology fallback; no device clock changes.
 - A global default with optional per-Title-ID overrides that never rewrite game configuration files.
 - A release-like, locally signed and profileable APK for repeatable AYN Thor measurements.
 - An optional read-only legacy import assistant for keys, firmware, profiles, saves, settings, mods
@@ -85,8 +86,8 @@ swapchain acquisition and presentation. Release
 builds hide those counters while retaining the compact Direct view on the Thor secondary display.
 
 OpenSw includes Eden upstream through `c0ffc900cd`. Its multithreading/ADPF refactor is integrated
-with OpenSw's existing Vulkan diagnostics: `Standard` leaves scheduling to Android, `Balanced`
-uses hints only, and `60 Opti`/`Max` use hints with a topology fallback. ADPF receives render
+with OpenSw's existing Vulkan diagnostics. Every profile uses ADPF hints with a topology fallback;
+`Standard`, `60 Opti` and `Max` differ by Vulkan pipeline worker count. ADPF receives render
 work duration without speed-limiter sleep or long pause gaps; no FPS or thermal gain is claimed until
 repeatable device A/B measurements pass the documented gates.
 

@@ -1,10 +1,9 @@
-// SPDX-FileCopyrightText: Copyright 2026 OpenSw Project
+// SPDX-FileCopyrightText: Copyright 2026 OpenSw Emulator Project
 // SPDX-License-Identifier: GPL-3.0-or-later
 
 package org.yuzu.yuzu_emu.utils
 
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.yuzu.yuzu_emu.features.settings.model.BooleanSetting
@@ -12,41 +11,43 @@ import org.yuzu.yuzu_emu.features.settings.model.IntSetting
 
 class OpenSwPerformanceProfileTest {
     @Test
-    fun performanceModesSelectReversibleThreadPolicies() {
-        assertEquals(0, PerformanceMode.STANDARD.threadPerformanceMode)
-        assertEquals(1, PerformanceMode.BALANCED.threadPerformanceMode)
+    fun allPerformanceModesUseHybridThreadPolicy() {
+        assertEquals(2, PerformanceMode.STANDARD.threadPerformanceMode)
         assertEquals(2, PerformanceMode.OPTI_60.threadPerformanceMode)
         assertEquals(2, PerformanceMode.MAX.threadPerformanceMode)
     }
 
     @Test
-    fun balancedModeAppliesOnlyValidatedOverrides() {
+    fun everyModeAppliesSharedRenderingOptimizations() {
         val store = FakeStore()
         val backend = FakeBackend()
         val profile = OpenSwPerformanceProfile(store, backend)
 
-        profile.apply(OpenSwPerformanceProfile.MODE_BALANCED)
-
-        assertEquals(OpenSwPerformanceProfile.MODE_BALANCED, profile.mode())
-        assertTrue(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNC_PRESENTATION.key))
-        assertTrue(backend.booleans.getValue(BooleanSetting.USE_OPTIMIZED_VERTEX_BUFFERS.key))
-        assertFalse(
-            backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_GPU_EMULATION.key)
-        )
-        assertEquals(4, backend.ints.getValue(IntSetting.ANDROID_PIPELINE_WORKERS.key))
+        listOf(
+            OpenSwPerformanceProfile.MODE_STANDARD,
+            OpenSwPerformanceProfile.MODE_60_OPTI,
+            OpenSwPerformanceProfile.MODE_MAX
+        ).forEach { mode ->
+            profile.apply(mode)
+            assertTrue(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNC_PRESENTATION.key))
+            assertTrue(backend.booleans.getValue(BooleanSetting.USE_OPTIMIZED_VERTEX_BUFFERS.key))
+            assertTrue(
+                backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_GPU_EMULATION.key)
+            )
+            assertTrue(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS.key))
+        }
     }
 
     @Test
-    fun stableAndMaxModesUseDistinctWorkerCounts() {
+    fun modesUseDistinctWorkerCounts() {
         val store = FakeStore()
         val backend = FakeBackend()
         val profile = OpenSwPerformanceProfile(store, backend)
 
+        profile.apply(OpenSwPerformanceProfile.MODE_STANDARD)
+        assertEquals(4, backend.ints.getValue(IntSetting.ANDROID_PIPELINE_WORKERS.key))
+
         profile.apply(OpenSwPerformanceProfile.MODE_60_OPTI)
-        assertTrue(
-            backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_GPU_EMULATION.key)
-        )
-        assertTrue(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS.key))
         assertEquals(6, backend.ints.getValue(IntSetting.ANDROID_PIPELINE_WORKERS.key))
 
         profile.apply(OpenSwPerformanceProfile.MODE_MAX)
@@ -54,45 +55,50 @@ class OpenSwPerformanceProfileTest {
     }
 
     @Test
-    fun standardRestoresValuesCapturedBeforeThorMode() {
+    fun legacyBalancedModeMigratesToStandard() {
         val store = FakeStore()
-        val backend = FakeBackend().apply {
-            booleans[BooleanSetting.RENDERER_ASYNC_PRESENTATION.key] = false
-            booleans[BooleanSetting.USE_OPTIMIZED_VERTEX_BUFFERS.key] = false
-            booleans[BooleanSetting.RENDERER_ASYNCHRONOUS_GPU_EMULATION.key] = false
-            booleans[BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS.key] = true
-            ints[IntSetting.ANDROID_PIPELINE_WORKERS.key] = 3
-        }
+        store.putInt(OpenSwPerformanceProfile.KEY_MODE, 1)
+        val backend = FakeBackend()
         val profile = OpenSwPerformanceProfile(store, backend)
-        backend.setGlobal(BooleanSetting.RENDERER_ASYNC_PRESENTATION.key, false)
 
-        profile.apply(OpenSwPerformanceProfile.MODE_MAX)
-        profile.apply(OpenSwPerformanceProfile.MODE_STANDARD)
-
-        assertFalse(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNC_PRESENTATION.key))
-        assertFalse(backend.booleans.getValue(BooleanSetting.USE_OPTIMIZED_VERTEX_BUFFERS.key))
-        assertFalse(
-            backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_GPU_EMULATION.key)
+        assertEquals(OpenSwPerformanceProfile.MODE_STANDARD, profile.mode())
+        assertEquals(
+            OpenSwPerformanceProfile.MODE_STANDARD,
+            store.getInt(OpenSwPerformanceProfile.KEY_MODE, -1)
         )
         assertTrue(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS.key))
-        assertEquals(3, backend.ints.getValue(IntSetting.ANDROID_PIPELINE_WORKERS.key))
-        assertFalse(backend.usingGlobal(BooleanSetting.RENDERER_ASYNC_PRESENTATION.key))
-        assertEquals(OpenSwPerformanceProfile.MODE_STANDARD, profile.mode())
+        assertEquals(4, backend.ints.getValue(IntSetting.ANDROID_PIPELINE_WORKERS.key))
     }
 
     @Test
-    fun switchingFromStableToBalancedDropsAggressiveOverrides() {
+    fun existingStandardModeAppliesNewProfileSchema() {
+        val store = FakeStore()
+        store.putInt(OpenSwPerformanceProfile.KEY_MODE, OpenSwPerformanceProfile.MODE_STANDARD)
+        val backend = FakeBackend()
+        val profile = OpenSwPerformanceProfile(store, backend)
+
+        assertEquals(OpenSwPerformanceProfile.MODE_STANDARD, profile.mode())
+        assertTrue(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNC_PRESENTATION.key))
+        assertTrue(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS.key))
+        assertEquals(
+            OpenSwPerformanceProfile.PROFILE_SCHEMA_VERSION,
+            store.getInt(OpenSwPerformanceProfile.KEY_SCHEMA_VERSION, 0)
+        )
+    }
+
+    @Test
+    fun switchingToStandardKeepsSharedOptimizations() {
         val store = FakeStore()
         val backend = FakeBackend()
         val profile = OpenSwPerformanceProfile(store, backend)
 
-        profile.apply(OpenSwPerformanceProfile.MODE_60_OPTI)
-        profile.apply(OpenSwPerformanceProfile.MODE_BALANCED)
+        profile.apply(OpenSwPerformanceProfile.MODE_MAX)
+        profile.apply(OpenSwPerformanceProfile.MODE_STANDARD)
 
-        assertFalse(
+        assertTrue(
             backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_GPU_EMULATION.key)
         )
-        assertFalse(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS.key))
+        assertTrue(backend.booleans.getValue(BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS.key))
         assertEquals(4, backend.ints.getValue(IntSetting.ANDROID_PIPELINE_WORKERS.key))
     }
 

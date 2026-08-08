@@ -2,15 +2,15 @@
 
 ## Modes
 
-- `Standard` removes OpenSw overrides, restores captured settings and leaves thread placement and
-  priority to Android.
-- `Balanced` enables asynchronous presentation and optimised vertex buffers. Render and
-  background workers join Android Dynamic Performance Framework (ADPF) hint sessions when the OS
-  exposes them; the mode does not set CPU affinity or Linux thread priorities.
-- `60 Opti` additionally enables asynchronous GPU/shaders and six Vulkan workers. It uses a
-  hybrid policy: ADPF first, then capability-based performance/efficiency core placement when a hint
-  session is unavailable.
-- `Max` uses the same hybrid thread policy with eight Vulkan workers and remains experimental.
+- Every profile enables asynchronous presentation, optimised vertex buffers, asynchronous
+  GPU/shaders and a hybrid scheduling policy: ADPF first, then capability-based
+  performance/efficiency core placement when a hint session is unavailable.
+- `Standard` uses four Vulkan pipeline workers.
+- `60 Opti` uses six Vulkan pipeline workers.
+- `Max` uses eight Vulkan pipeline workers and remains experimental.
+
+Legacy saved `Balanced` selections migrate to `Standard`. Existing numeric values for `60 Opti`
+and `Max` remain unchanged.
 
 Choose a global default in OpenSw settings. A game's settings page can select `Inherit` or store a
 Title-ID-specific override. The override is applied in memory before native startup and restored at

@@ -343,7 +343,6 @@ class PerformancePanelController(
 
     private fun PerformanceMode.labelResource(): Int = when (this) {
         PerformanceMode.STANDARD -> R.string.opensw_mode_standard
-        PerformanceMode.BALANCED -> R.string.opensw_mode_balanced
         PerformanceMode.OPTI_60 -> R.string.opensw_mode_60_opti
         PerformanceMode.MAX -> R.string.opensw_mode_max
     }

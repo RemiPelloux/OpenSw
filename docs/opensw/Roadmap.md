@@ -5,9 +5,10 @@ evidence; compilation alone is not a performance or stability result.
 
 ## Current top bottlenecks
 
-1. Vulkan worker selection and small-draw waits still need a controlled 2/4/6-worker comparison
-   with cold and warm caches. No default changes until Perfetto attribution and five-run A/B evidence
-   show a p95/p99 or median-FPS improvement without regression.
+1. Vulkan worker selection and small-draw waits still need a controlled 4/6/8-worker comparison
+   with cold and warm caches. The profiles expose those counts explicitly; none is presented as
+   universally faster until valid timing data and five-run A/B evidence show an improvement without
+   regression.
 2. Runtime memory, audio cancellation, guarded fibers and Vulkan teardown compile and have focused
    tests. Six Foretales cycles are complete; 30 cycles with physical rotation and the 45-60 minute
    Arceus validation remain pending.

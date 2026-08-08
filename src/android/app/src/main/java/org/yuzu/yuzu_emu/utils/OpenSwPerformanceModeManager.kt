@@ -11,8 +11,7 @@ import org.yuzu.yuzu_emu.features.settings.model.BooleanSetting
 import org.yuzu.yuzu_emu.features.settings.model.IntSetting
 
 enum class PerformanceMode(val value: Int, val threadPerformanceMode: Int) {
-    STANDARD(0, 0),
-    BALANCED(1, 1),
+    STANDARD(0, 2),
     OPTI_60(2, 2),
     MAX(3, 2);
 
@@ -45,19 +44,21 @@ internal class OpenSwPerformanceProfile(
     private val store: OpenSwProfileStore,
     private val backend: OpenSwSettingsBackend
 ) {
-    fun mode(): Int = PerformanceMode.from(store.getInt(KEY_MODE, MODE_STANDARD)).value
+    fun mode(): Int {
+        val storedMode = store.getInt(KEY_MODE, MODE_STANDARD)
+        val selected = PerformanceMode.from(storedMode)
+        if (
+            selected.value != storedMode ||
+            store.getInt(KEY_SCHEMA_VERSION, 0) < PROFILE_SCHEMA_VERSION
+        ) {
+            apply(selected.value)
+        }
+        return selected.value
+    }
 
     fun apply(mode: Int) {
         val selected = PerformanceMode.from(mode)
         require(selected.value == mode)
-        if (selected == PerformanceMode.STANDARD) {
-            restoreBackup()
-            store.putInt(KEY_MODE, MODE_STANDARD)
-            backend.save()
-            clearBackup()
-            return
-        }
-
         captureBackup()
         restoreBackup()
         targetBooleanValues(selected).forEach { (key, value) ->
@@ -70,6 +71,7 @@ internal class OpenSwPerformanceProfile(
         }
         backend.save()
         store.putInt(KEY_MODE, selected.value)
+        store.putInt(KEY_SCHEMA_VERSION, PROFILE_SCHEMA_VERSION)
     }
 
     fun targetBooleanValues(mode: PerformanceMode): Map<String, Boolean> =
@@ -127,58 +129,48 @@ internal class OpenSwPerformanceProfile(
         }
     }
 
-    private fun clearBackup() {
-        store.remove(
-            listOf(KEY_BACKUP_PRESENT) +
-                MANAGED_BOOLEAN_KEYS.map(::backupKey) +
-                MANAGED_INT_KEYS.map(::backupKey) +
-                MANAGED_BOOLEAN_KEYS.map(::backupGlobalKey) +
-                MANAGED_INT_KEYS.map(::backupGlobalKey)
-        )
-    }
-
     private fun backupKey(key: String) = "$KEY_BACKUP_PREFIX$key"
     private fun backupGlobalKey(key: String) = "$KEY_BACKUP_GLOBAL_PREFIX$key"
 
     companion object {
         const val MODE_STANDARD = 0
-        const val MODE_BALANCED = 1
         const val MODE_60_OPTI = 2
         const val MODE_MAX = 3
         const val KEY_MODE = "opensw_performance_mode"
 
+        internal const val KEY_SCHEMA_VERSION = "opensw_performance_profile_schema"
+        internal const val PROFILE_SCHEMA_VERSION = 1
         private const val KEY_BACKUP_PRESENT = "opensw_performance_backup_present"
         private const val KEY_BACKUP_PREFIX = "opensw_performance_backup_"
         private const val KEY_BACKUP_GLOBAL_PREFIX = "opensw_performance_backup_global_"
 
-        internal val BALANCED_BOOLEAN_VALUES = mapOf(
+        internal val COMMON_BOOLEAN_VALUES = mapOf(
             BooleanSetting.RENDERER_ASYNC_PRESENTATION.key to true,
-            BooleanSetting.USE_OPTIMIZED_VERTEX_BUFFERS.key to true
-        )
-        internal val STABLE_BOOLEAN_VALUES = BALANCED_BOOLEAN_VALUES + mapOf(
+            BooleanSetting.USE_OPTIMIZED_VERTEX_BUFFERS.key to true,
             BooleanSetting.RENDERER_ASYNCHRONOUS_GPU_EMULATION.key to true,
             BooleanSetting.RENDERER_ASYNCHRONOUS_SHADERS.key to true
         )
-        internal val STABLE_INT_VALUES = mapOf(
+        internal val STANDARD_INT_VALUES = mapOf(
+            IntSetting.ANDROID_PIPELINE_WORKERS.key to 4
+        )
+        internal val OPTI_60_INT_VALUES = mapOf(
             IntSetting.ANDROID_PIPELINE_WORKERS.key to 6
         )
         internal val MAX_INT_VALUES = mapOf(
             IntSetting.ANDROID_PIPELINE_WORKERS.key to 8
         )
-        internal val MANAGED_BOOLEAN_KEYS = STABLE_BOOLEAN_VALUES.keys
-        internal val MANAGED_INT_KEYS = STABLE_INT_VALUES.keys
+        internal val MANAGED_BOOLEAN_KEYS = COMMON_BOOLEAN_VALUES.keys
+        internal val MANAGED_INT_KEYS = STANDARD_INT_VALUES.keys
 
         private fun booleanOverrides(mode: PerformanceMode): Map<String, Boolean> = when (mode) {
-            PerformanceMode.STANDARD -> emptyMap()
-            PerformanceMode.BALANCED -> BALANCED_BOOLEAN_VALUES
+            PerformanceMode.STANDARD,
             PerformanceMode.OPTI_60,
-            PerformanceMode.MAX -> STABLE_BOOLEAN_VALUES
+            PerformanceMode.MAX -> COMMON_BOOLEAN_VALUES
         }
 
         private fun intOverrides(mode: PerformanceMode): Map<String, Int> = when (mode) {
-            PerformanceMode.STANDARD,
-            PerformanceMode.BALANCED -> emptyMap()
-            PerformanceMode.OPTI_60 -> STABLE_INT_VALUES
+            PerformanceMode.STANDARD -> STANDARD_INT_VALUES
+            PerformanceMode.OPTI_60 -> OPTI_60_INT_VALUES
             PerformanceMode.MAX -> MAX_INT_VALUES
         }
     }
@@ -197,7 +189,12 @@ object OpenSwPerformanceModeManager {
         val store = store(context)
         val key = gameModeKey(titleId)
         return if (store.contains(key)) {
-            PerformanceMode.from(store.getInt(key, INHERIT)).value
+            val storedMode = store.getInt(key, INHERIT)
+            val selected = PerformanceMode.from(storedMode)
+            if (selected.value != storedMode) {
+                store.putInt(key, selected.value)
+            }
+            selected.value
         } else {
             INHERIT
         }

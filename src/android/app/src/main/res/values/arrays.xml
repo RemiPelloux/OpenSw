@@ -657,14 +657,12 @@
 
     <string-array name="openswPerformanceModeEntries">
         <item>@string/opensw_mode_standard</item>
-        <item>@string/opensw_mode_balanced</item>
         <item>@string/opensw_mode_60_opti</item>
         <item>@string/opensw_mode_max</item>
     </string-array>
 
     <integer-array name="openswPerformanceModeValues">
         <item>0</item>
-        <item>1</item>
         <item>2</item>
         <item>3</item>
     </integer-array>
@@ -672,7 +670,6 @@
     <string-array name="openswGamePerformanceModeEntries">
         <item>@string/opensw_mode_inherit</item>
         <item>@string/opensw_mode_standard</item>
-        <item>@string/opensw_mode_balanced</item>
         <item>@string/opensw_mode_60_opti</item>
         <item>@string/opensw_mode_max</item>
     </string-array>
@@ -680,7 +677,6 @@
     <integer-array name="openswGamePerformanceModeValues">
         <item>-1</item>
         <item>0</item>
-        <item>1</item>
         <item>2</item>
         <item>3</item>
     </integer-array>

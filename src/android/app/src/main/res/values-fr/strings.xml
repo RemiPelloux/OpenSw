@@ -1172,11 +1172,10 @@
     <string name="replace">Remplacer</string>
     <string name="cheat_install_success">Cheats installés. Ils seront chargés au prochain lancement du jeu.</string>
     <string name="opensw_performance_mode">Profil de performance</string>
-    <string name="opensw_performance_mode_description">Choisissez Standard, Balanced, 60 Opti ou Max. Le profil s’applique au prochain lancement du jeu sans modifier les fréquences Android.</string>
+    <string name="opensw_performance_mode_description">Choisissez Standard, 60 Opti ou Max. Tous les profils utilisent les optimisations de rendu OpenSw et l’ordonnancement Android hybride ; seul le nombre de workers Vulkan change.</string>
     <string name="opensw_game_performance_mode_description">Choisissez un profil pour ce jeu, ou Hériter pour suivre le réglage OpenSw. Le changement s’applique au prochain lancement sans modifier son fichier de configuration.</string>
     <string name="opensw_mode_inherit">Hériter du réglage OpenSw</string>
     <string name="opensw_mode_standard">Standard</string>
-    <string name="opensw_mode_balanced">Balanced</string>
     <string name="opensw_mode_60_opti">60 Opti</string>
     <string name="opensw_mode_max">Max</string>
     <string name="opensw_thor_detected">AYN Thor détectée</string>
@@ -1235,8 +1234,8 @@
     <string name="performance_view_direct">Direct</string>
     <string name="performance_view_details">Détails</string>
     <string name="performance_profile_waiting">En attente des compteurs Profile du jeu actif</string>
-    <string name="performance_thermal_warning">La pression thermique est élevée. Balanced est recommandé.</string>
-    <string name="performance_speed_warning">La vitesse d’émulation reste sous 95%%. Essayez Balanced ou vérifiez le profil du jeu.</string>
+    <string name="performance_thermal_warning">La pression thermique est élevée. Standard est recommandé.</string>
+    <string name="performance_speed_warning">La vitesse d’émulation reste sous 95%%. Vérifiez le profil du jeu.</string>
     <string name="performance_capture_start">Démarrer un diagnostic</string>
     <string name="performance_capture_stop">Terminer et enregistrer</string>
     <string name="performance_capture_saved">Rapport de performance enregistré</string>

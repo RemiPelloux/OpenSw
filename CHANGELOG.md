@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: Copyright 2026 OpenSw Project
+SPDX-FileCopyrightText: Copyright 2026 OpenSw Emulator Project
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
@@ -17,9 +17,9 @@ semantic-version compatibility until a public release policy is adopted.
 
 - Merge Eden upstream through `c0ffc900cd`, including the multithreading/ADPF refactor, crash fixes,
   translation updates and weekly translation scheduling.
-- Make Android thread scheduling policy explicit and session-scoped per OpenSw mode: `Standard` leaves
-  placement to Android, `Balanced` uses ADPF hints only, and `60 Opti`/`Max` add the
-  topology fallback when hints are unavailable.
+- Use asynchronous presentation, optimised vertex buffers, asynchronous GPU/shaders and hybrid ADPF
+  scheduling in every profile. `Standard`, `60 Opti` and `Max` select four, six and eight Vulkan
+  pipeline workers respectively.
 - Report render work duration to ADPF without speed-limiter sleep and discard long pause/idle gaps.
 - Rename the emulated CPU/GPU clock levels while preserving their existing configuration keys and
   numeric values.
@@ -28,10 +28,8 @@ semantic-version compatibility until a public release policy is adopted.
 
 - Emulate direct Maxwell `LineLoop` draws as closed Vulkan line strips instead of triangle lists.
 - Keep compute push-descriptor state consistent when descriptor-buffer allocation falls back.
-- Keep `Balanced` free of explicit Linux thread-priority changes as required by its hints-only
-  policy.
-- Expose the performance profile from the main and per-game settings screens, and rename the four
-  user-facing modes to `Standard`, `Balanced`, `60 Opti` and `Max` without changing saved values.
+- Reduce the user-facing profiles to `Standard`, `60 Opti` and `Max`; legacy `Balanced` selections
+  migrate to `Standard` while preserving the numeric values of `60 Opti` and `Max`.
 - Invalidate guest compute descriptor state after internal compute passes.
 - Close leaked Android Storage Access Framework validation cursors.
 - Prevent stale native game metadata ownership during concurrent library refreshes.
