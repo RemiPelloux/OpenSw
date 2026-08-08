@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: Copyright 2026 OpenSw Project
+SPDX-FileCopyrightText: Copyright 2026 OpenSw Emulator Project
 SPDX-License-Identifier: GPL-3.0-or-later
 -->
 
@@ -59,6 +59,11 @@ clock changes or lower rendering quality as an optimization.
 The acceptance contract is documented in
 [docs/performance/ayn-thor-baseline.md](docs/performance/ayn-thor-baseline.md). An AYN Thor-specific
 path must remain optional and reversible.
+
+The three product profiles share renderer and scheduling features; they select four, six or eight
+Vulkan pipeline workers. Treat a profile comparison as a worker-count experiment, keep the selected
+profile and effective worker count in every manifest, and do not silently change other graphics or
+Android settings between baseline and candidate runs.
 
 ## Pull requests
 

@@ -1,13 +1,20 @@
+<!--
+SPDX-FileCopyrightText: Copyright 2026 OpenSw Emulator Project
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
 # OpenSw
 
-OpenSw is a standalone Android Switch emulator with a generic ARM64 build and an optional AYN Thor
-performance profile.
+OpenSw is a standalone Android Switch emulator with a generic ARM64 Release build, three runtime
+performance profiles and an isolated Profile build for measurement. The runtime profiles are
+generic Android behavior; the AYN Thor is the current controlled performance target, not a required
+device.
 
 ## Isolation
 
 - App name: `OpenSw`
 - Base package: `com.remipelloux.opensw`
-- Recommended test variant: `openSwProfile`
+- Measurement variant: `openSwProfile`
 - Debug package: `com.remipelloux.opensw.debug`
 
 Android gives each OpenSw variant its own private and external app-data directory.
@@ -17,10 +24,13 @@ Android gives each OpenSw variant its own private and external app-data director
 From `src/android`:
 
 ```sh
-./gradlew assembleOpenSwProfile
+./gradlew :app:assembleOpenSwRelease
 ```
 
-The output APK is written below `src/android/app/build/outputs/apk/openSw/profile/`.
+The normal APK is written to
+`src/android/app/build/outputs/apk/openSw/release/app-openSw-release.apk`. Build
+`:app:assembleOpenSwProfile` only for controlled measurements; that APK is isolated under
+`com.remipelloux.opensw.profile` and never updates the normal application.
 
 ## Device testing
 
@@ -29,6 +39,13 @@ scoped to OpenSw and must never uninstall, clear or write to another application
 data import must use the Android system document picker and a user-granted read-only permission.
 
 ## Profile measurement contract
+
+The user-facing `Standard`, `60 Opti` and `Max` profiles all enable asynchronous presentation,
+optimised vertex buffers, asynchronous GPU/shaders and hybrid scheduling. They select four, six and
+eight Vulkan pipeline workers respectively. Legacy `Balanced` values resolve to `Standard`. The
+settings schema reapplies this common behavior once after upgrade, while per-game `Inherit` follows
+the global selection. A profile change applies at the next game launch and never changes device
+clocks or rendering resolution.
 
 The `openSwProfile` build reports requested and effective Vulkan pipeline worker counts separately.
 The effective value accounts for usable hardware concurrency and driver serialization. Profile
@@ -60,9 +77,10 @@ guest compute pipeline remains active; pipeline switches, internal compute passe
 invalidation force the command to be emitted again. Vertex synchronization uses the memory tracker's
 CPU-dirty hierarchy before constructing upload ranges, while the
 optimized vertex-buffer setting binds dirty enabled slots as contiguous sparse ranges and clears
-dirty null slots; it remains a compatibility-controlled Android setting until repeated device A/B
-captures justify changing the default. Descriptor-ring spill chunks are likewise deferred until the
-Profile exhaustion counter proves that the current fallback occurs in the target workload.
+dirty null slots. It is enabled by every runtime profile, but no performance gain is claimed until
+repeated device A/B captures pass the visual and timing gates. Descriptor-ring spill chunks are
+likewise deferred until the Profile exhaustion counter proves that the current fallback occurs in
+the target workload.
 
 Android library refreshes cache directory listings within a scan, deduplicate files reached through
 overlapping roots, and retain native metadata for files whose provider size and modification time are

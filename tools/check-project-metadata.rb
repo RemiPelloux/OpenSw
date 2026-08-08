@@ -1,6 +1,6 @@
 #!/usr/bin/env ruby
 
-# SPDX-FileCopyrightText: Copyright 2026 OpenSw Project
+# SPDX-FileCopyrightText: Copyright 2026 OpenSw Emulator Project
 # SPDX-License-Identifier: GPL-3.0-or-later
 
 require 'pathname'
@@ -29,11 +29,29 @@ rescue Psych::SyntaxError => error
 end
 
 markdown_files = [
-  *ROOT.glob('*.md'),
+  *%w[
+    CHANGELOG.md
+    CODE_OF_CONDUCT.md
+    CONTRIBUTING.md
+    OPENSW.md
+    README.md
+    SECURITY.md
+  ].map { |path| ROOT.join(path) },
   ROOT.join('.github/PULL_REQUEST_TEMPLATE.md'),
   ROOT.join('docs/README.md'),
   *ROOT.glob('docs/opensw/*.md'),
+  *ROOT.glob('docs/performance/*.md'),
 ].select(&:file?).uniq
+
+markdown_files.each do |file|
+  contents = file.read
+  unless contents.include?('SPDX-FileCopyrightText: Copyright 2026 OpenSw Emulator Project')
+    errors << "missing OpenSw copyright in #{file.relative_path_from(ROOT)}"
+  end
+  unless contents.include?('SPDX-License-Identifier:')
+    errors << "missing SPDX license in #{file.relative_path_from(ROOT)}"
+  end
+end
 
 markdown_files.each do |file|
   file.read.scan(/\[[^\]]+\]\(([^)]+)\)/).flatten.each do |raw_target|

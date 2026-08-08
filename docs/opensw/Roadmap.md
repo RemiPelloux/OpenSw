@@ -1,83 +1,95 @@
+<!--
+SPDX-FileCopyrightText: Copyright 2026 OpenSw Emulator Project
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
 # OpenSw engineering roadmap
 
-This roadmap is ordered by risk and dependency. An item moves to complete only with recorded device
-evidence; compilation alone is not a performance or stability result.
+This roadmap is ordered by dependency. A build, a single run or a panel sample cannot promote a
+performance change. Completed work stays enabled only while rendering and generic Android
+compatibility remain correct.
 
-## Current top bottlenecks
+## Current product contract
 
-1. Vulkan worker selection and small-draw waits still need a controlled 4/6/8-worker comparison
-   with cold and warm caches. The profiles expose those counts explicitly; none is presented as
-   universally faster until valid timing data and five-run A/B evidence show an improvement without
-   regression.
-2. Runtime memory, audio cancellation, guarded fibers and Vulkan teardown compile and have focused
-   tests. Six Foretales cycles are complete; 30 cycles with physical rotation and the 45-60 minute
-   Arceus validation remain pending.
-3. The Eden bindless Vulkan, NPad guard and audio DSP bounds changes are ported and build in
-   Release/Profile. Bindless remains unpromoted until its dedicated visual and performance A/B.
+- Release package: `com.remipelloux.opensw`; update it in place without clearing user data.
+- Profiles: `Standard`, `60 Opti` and `Max`, with four, six and eight Vulkan workers.
+- Shared behavior: asynchronous presentation, optimised vertex buffers, asynchronous GPU/shaders
+  and hybrid ADPF scheduling.
+- Resolution and quality remain `1x`; OpenSw does not change Android CPU/GPU clocks.
+- Profile APK and lab agent are measurement tools, not replacements for the Release application.
 
-## Delivered foundation
+## P0: measurement integrity
 
-- Native/Kotlin session generations reject callbacks from stopped emulation sessions.
-- The Profile JNI snapshot preserves its first 12 fields and adds five presentation counters.
-- Panel captures are versioned native diagnostics with monotonic timestamps, configuration identity
-  and explicit invalidation; only raw SurfaceFlinger/Perfetto captures can support A/B promotion.
-- The secondary-screen cockpit provides Direct and Profile-only Details views, fixed Capture/Share
-  actions and session controls without a hero or duplicated cover.
-- Favorites, compact selection, search and focus restoration are implemented with DiffUtil and
-  bounded Coil caching.
-- The signed Profile lab bridge exposes real native session generation/state/surface identity and
-  acknowledged launch, pause, resume and production shutdown operations.
-- Deterministic controller replays use canonical cross-language hashes and report
-  `RUNNING/COMPLETED/FAILED`; the performance tool obtains identity through Android instrumentation.
-- The host cycle driver checks Eden inactivity, Profile PID stability, foreground activities and
-  10/30-second memory snapshots without exposing automation from OpenSw Release.
+1. Create a fresh five-run Arceus 1.1.1 camera baseline at `1x`, using the same save, deterministic
+   replay hash, cheats, filter, driver, fan mode and warm cache.
+2. Start runs within a 2 C GPU-temperature band. Record `/sys/class/kgsl/kgsl-3d0/temp` by name and
+   require Android thermal status `0`; reject mixed or unnamed thermal maxima.
+3. Require matching package, PID, Title ID, native session generation, surface, APK/source hash and
+   scenario hash throughout every capture.
+4. Reject Perfetto files below 4 KiB or without OpenSw process/thread data. Mark tracing unavailable
+   after ftrace validation fails and continue with native counters, SurfaceFlinger, KGSL and RSS.
+5. Retain the earlier 39.51 FPS camera sweep only as diagnostic evidence because its Perfetto and
+   thermal captures failed these gates.
 
-## P0: release stability
+## P1: worker-profile comparison
 
-1. Run the completed Profile instrumentation driver through the 30-cycle device gate. Retain its
-   native acknowledgement, PID, surface and foreground-activity checks.
-2. The earlier six-cycle manual gate for the main/idle kernel-thread ownership fix is complete. Run the 30-cycle
-   gate next, recording 10-second and 30-second memory snapshots and physical rotation.
-3. Keep the kernel registry non-owning and diagnostic-only. Fix any remaining ownership issue at the
-   creator; do not bulk-close unknown objects or suppress the shutdown warning.
-4. Validate guarded fiber stacks and cancelled audio waits under repeated lifecycle stress. Require
-   the 30-cycle memory test to remain green before promotion.
-5. Diagnose the remaining macOS host-test failures in HostMemory and
-   `DeviceMemoryManager: UpdatePagesCachedBatch basic`; bound the CoreTiming test duration.
-6. Run Arceus for 60 minutes and complete repeated pause, resume, rotation and secondary-display
-   attach/detach checks without assert, ANR or abnormal memory growth.
-7. Keep Eden installed, stopped and unchanged throughout every acceptance run.
+1. Compare `Standard` (4), `60 Opti` (6) and `Max` (8) independently. Keep all shared rendering and
+   scheduling settings identical.
+2. Run five warm-cache sweeps per profile, then repeat the winning comparison from the same initial
+   temperature band. Include cold-cache compilation tests separately; do not mix them with steady
+   camera results.
+3. Record median FPS, p95/p99, speed, RSS, GPU busy-time/frequency/utilisation and named GPU
+   temperature. A higher worker count is not automatically better.
 
-## P1: measured Thor performance
+## P2: GPU and per-draw attribution
 
-1. Keep Android-managed scheduling as the baseline now that unconditional `CPU 0-3` affinity has
-   been removed. Evaluate topology-aware placement only as an optional measured experiment.
-2. Worker selection now gives `0` an explicit automatic meaning, accepts values below four and
-   reports requested/effective counts. Compare 2, 4 and 6 workers with cold/warm caches, measuring
-   compilation time, p95/p99 and temperature before changing a default.
-3. Complete the fixed Arceus and Monster Train 2 matrix for cold/warm caches and 0/5/20 cheats.
-4. Compare generic ARMv8-A, ARMv9, ThinLTO and ARMv9 plus ThinLTO with five warm runs per case.
-5. Profile CPU scheduling, Vulkan compilation/presentation, audio and I/O with Perfetto. Use
-   instrumentation counters for fiber-backed allocations that Android heapprofd cannot unwind.
-6. Promote only changes with at least 3 percent repeatable gain or a clear p95/p99 improvement and
-   no regression above 2 percent elsewhere.
+1. Use the delivered descriptor-mode, payload reuse, bytes-written, chunk-switch and exhaustion
+   counters to A/B the descriptor offset/payload caches. Add retained spill chunks only if the
+   exhaustion counter proves that the current scheduler-finish fallback occurs in this workload.
+2. Use the delivered vertex bind/slot/synchronization/upload counters to A/B sparse optimized binding
+   on Android. Keep synchronization unchanged and retain the compatibility setting.
+3. Use the delivered self/linear/hash/slow-path transition counters and probe depth to A/B the hybrid
+   graphics-pipeline transition cache against its linear predecessor.
+4. Use the delivered texture upload/decode/unswizzle bytes and time to decide whether predictive
+   streaming, preload or a new cache is justified. Camera movement alone is not proof of streaming.
+5. Build the existing candidates from their separate commits and test each independently with five
+   baseline versus five candidate runs. Remove any candidate without repeatable benefit.
 
-## P2: cockpit and UX completion
+## P3: stability and memory
 
-1. Validate the implemented controller focus restoration after cheat search and IME dismissal at
-   normal and maximum font scales.
-2. Validate cockpit recreation across hinge changes, rotation and secondary-display loss.
-3. Validate the delivered Direct/Details session health view across recreation; retain no permanent
-   game overlay and no work for hidden metrics.
-4. Audit French and English strings, accessibility labels and compact/grid/list/carousel layouts on
-   both Thor displays.
-5. Favorites and recently played/resume ordering are delivered. Validate the compact quick actions
-   and keep the 64 dp selection bar without reintroducing a hero or duplicated cover.
+1. Complete 30 launch/pause/resume/physical-rotation/stop/restart cycles. Six Foretales patch cycles
+   passed; physical rotation and the full gate remain open.
+2. Run Arceus for 45-60 minutes with camera movement, pause/resume and secondary-display changes.
+   Reject any assert, abort, ANR, rendering fault, failed shutdown acknowledgement or unexplained
+   post-session memory growth.
+3. Attribute the observed in-game native-memory rise from about 5.0 to 5.8 GiB by allocation owner.
+   Do not label high guest mappings or peak gameplay RSS as a leak without retention evidence.
+4. Diagnose the remaining host failures: `MemoryTracker: Out of bound ranges 3` and
+   `DeviceMemoryManager: UpdatePagesCachedBatch basic`.
 
-## P3: distribution
+## P4: compatibility and release
 
-1. Finish license and attribution review, generic-device smoke tests and clean-install migration.
-2. Publish the generic ARMv8-A APK first. Keep Thor-specific compiler variants as labelled test
-   artifacts until their A/B gates pass.
-3. Tag a release only after the 30-cycle and 60-minute stability gates are complete and the
-   diagnostic bundle is confirmed to exclude protected user data.
+1. Run generic ARM64 smoke tests outside the Thor. Keep any Thor-specific experiment opt-in and
+   reversible.
+2. Validate rendering screenshots at identical timestamps, controller/touch navigation, landscape,
+   rotation and secondary-display fallback.
+3. Re-run host tests, Android/Kotlin tests, ARM64 native build, metadata checks and
+   `git diff --check`. Review the repository for logs, traces, screenshots, ROMs, keys, firmware,
+   saves and other generated data before committing.
+4. Build and sign the normal Release APK from committed source, verify package/certificate/hash and
+   update `com.remipelloux.opensw` in place. Never modify the official Eden package or its data.
+
+## Promotion rule
+
+Require at least 3 percent median-FPS improvement or simultaneous p95 and p99 improvement, with no
+metric, RSS or temperature regression above 2 percent. Geometry, textures, lighting and corruption
+screenshots must match at identical camera timestamps. Combine only independently proven changes,
+then repeat five validation sweeps on the combined build.
+
+## Explicit non-goals
+
+- Reducing resolution to `0.75x`, adding FSR or changing quality to create an FPS claim.
+- Changing Android CPU/GPU clocks, fan policy, power mode or unsafe math flags.
+- Clearing shader caches as an optimisation when counters show zero pipeline misses/compilations.
+- Adding speculative `2D`/`3D` modes, prediction or preload before counters identify their workload.
+- Weakening validation, hiding failures or claiming Profile APK results as a Release update.

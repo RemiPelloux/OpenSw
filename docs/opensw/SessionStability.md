@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: Copyright 2026 OpenSw Emulator Project
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
 # OpenSw session stability
 
 This document tracks repeated launch and shutdown behaviour on Android. It distinguishes confirmed
@@ -26,15 +31,19 @@ and their execution references were released. Six short Arceus cycles with the B
 completed without a crash or native assert and reduced immediate residual PSS substantially. The
 remaining 65-70 MiB per-cycle slope led to the main/idle thread ownership fix.
 
-The profile APK containing the main/idle fix builds successfully. Runtime certification is still
-open because the first ADB coordinate sequence did not activate `Quit emulation`; the process was
-still running the game when memory was sampled. That 4.8 GiB measurement is invalid and excluded.
+The first ADB coordinate sequence did not activate `Quit emulation`; the process was still running
+the game when memory was sampled. That 4.8 GiB measurement remains invalid and excluded.
+
+The later identity-aware procedure completed six Foretales launch/capture/pause/resume/stop/restart
+cycles. No crash, ANR, late callback or mixed Title ID was observed. RSS after teardown was 343, 353,
+360, 363, 368 and 374 MiB, then 355 MiB after 30 seconds idle. This is useful patch evidence, but it
+does not replace the 30-cycle gate with physical rotation or the 45-60 minute Arceus session.
 
 Android heapprofd is not an accepted source for this test on the current Thor firmware. OpenSw uses
 custom fiber stacks and heapprofd disconnects with `CLIENT_ERROR_INVALID_STACK_BOUNDS`, producing a
 partial running-session profile.
 
-## Validation snapshot: 2026-08-05
+## Validation snapshot: 2026-08-08
 
 - `assembleOpenSwProfile`: passed on the main/idle ownership fix and Bionic purge.
 - Native `tests` target: built successfully.
@@ -42,12 +51,11 @@ partial running-session profile.
 - Fibers: 15 assertions across 3 cases passed.
 - Page-table reset: 12 assertions passed.
 - KMemoryBlockManager fastmem finalization: 3 assertions passed.
+- Foretales lifecycle: six device cycles passed with stable runtime identity and teardown checks.
 
-The complete host suite is not green. `DeviceMemoryManager: UpdatePagesCachedBatch basic` and the
-first HostMemory case both reproduce a SIGSEGV in the macOS test process. The CoreTiming wildcard
-run did not complete within two minutes and was interrupted. None of these results is attributed to
-the Android lifecycle fix without a focused diagnosis, but they remain release blockers rather than
-being omitted from the record.
+The complete host suite is not green. `MemoryTracker: Out of bound ranges 3` and
+`DeviceMemoryManager: UpdatePagesCachedBatch basic` remain known failures. Neither is attributed to
+the Android lifecycle fix without focused diagnosis, but both remain recorded release risks.
 
 ## Deterministic acceptance procedure
 
@@ -61,10 +69,10 @@ Every sample must first prove all of the following:
 - the OpenSw PID is unchanged;
 - Eden has no running PID.
 
-Record PSS, RSS, native heap, activity count and view count at 10 and 30 seconds. Run six cycles for
-a patch check, then 30 cycles for release acceptance. Reject the run on any assert, abort, ANR,
-failed shutdown acknowledgement or unexplained linear growth. A 60-minute gameplay session remains
-required after the cycle test passes.
+Record PSS, RSS, native heap, activity count and view count at 10 and 30 seconds. The six-cycle patch
+check has passed; run 30 cycles for release acceptance. Reject the run on any assert, abort, ANR,
+failed shutdown acknowledgement or unexplained linear growth. A 45-60 minute Arceus gameplay
+session remains required after the cycle test passes.
 
 With the Profile, lab agent and lab instrumentation APKs installed, run:
 

@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: Copyright 2026 OpenSw Emulator Project
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
 # OpenSw documentation
 
 OpenSw's maintained Android documentation is under [opensw](./opensw/README.md).
@@ -10,6 +15,8 @@ OpenSw's maintained Android documentation is under [opensw](./opensw/README.md).
 - [Troubleshooting and diagnostics](./opensw/Troubleshooting.md)
 - [Engineering roadmap](./opensw/Roadmap.md)
 - [AYN Thor acceptance baseline](./performance/ayn-thor-baseline.md)
+- [AYN Thor audit record](./performance/ayn-thor-audit.md)
+- [AYN Thor campaign status](./performance/roadmap.md)
 - [Development rules](./policies/DevelopmentRules.md)
 - [Contributing](../CONTRIBUTING.md)
 - [Security policy](../SECURITY.md)

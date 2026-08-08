@@ -58,8 +58,8 @@ firmware; users must provide content they are legally entitled to use.
 - An in-game cheat overlay with controller and touch navigation.
 - A shared Performance Lab with rolling p95 frametime, memory, power, thermal warnings and
   versioned native diagnostics that are explicitly excluded from A/B promotion decisions.
-- Reproducible `opensw-performance-v2` tooling that derives A/B evidence from raw
-  SurfaceFlinger/Perfetto timestamps rather than sampled UI averages.
+- Reproducible `opensw-performance-v2` tooling that derives frame evidence from raw SurfaceFlinger
+  timestamps and uses validated Perfetto/native data for attribution, rather than sampled UI averages.
 - An automatic cockpit on the Thor secondary display with an in-game drawer fallback.
 - Sanitised diagnostic bundles without keys, saves, firmware, game paths or game content.
 - Build-ID-aware cheat import from text files, Atmosphere/Eden trees and ZIP archives.
@@ -72,6 +72,12 @@ firmware; users must provide content they are legally entitled to use.
 The maintained Android targets build as `openSwRelease` and `openSwProfile`. The normal installable
 application is `com.remipelloux.opensw`; Profile is an isolated measurement variant and is not the
 public runtime package.
+
+The normal application exposes three performance profiles. All three enable asynchronous
+presentation, optimised vertex buffers, asynchronous GPU/shaders and hybrid ADPF scheduling;
+`Standard`, `60 Opti` and `Max` select four, six and eight Vulkan pipeline workers respectively.
+These are real configuration changes, but no profile is described as faster without repeatable A/B
+evidence at identical rendering quality.
 
 Repeated-session shutdown now rejects callbacks from older native generations and has focused fixes
 for cheat callbacks, audio streams, emulated backing memory, page tables, process trackers, guest
@@ -130,9 +136,10 @@ validated, size-limited, protected against ZIP path traversal and installed atom
 OpenSw uses `com.remipelloux.opensw`; debug builds use `com.remipelloux.opensw.debug`. Neither
 variant shares private app data with another application.
 
-The OpenSw modes only affect OpenSw. No mode changes Android, CPU/GPU frequencies, unsafe memory
-settings or data owned by another application. `Standard` restores the exact values captured before
-a Thor mode was enabled.
+The OpenSw profiles affect only OpenSw. No profile changes Android, CPU/GPU frequencies, unsafe
+memory settings or data owned by another application. The three profiles share the same renderer
+and scheduling features and differ only by Vulkan pipeline worker count. Legacy `Balanced`
+selections migrate to `Standard`.
 
 The optional legacy migration flow uses Android's document picker and a user-granted read-only
 source. It stages and verifies copied files before installing them into OpenSw; game files, caches,
@@ -177,7 +184,9 @@ changes are intentionally excluded.
 The ordered engineering roadmap and its acceptance gates are maintained in
 [docs/opensw/Roadmap.md](./docs/opensw/Roadmap.md), with campaign status in
 [docs/performance/roadmap.md](./docs/performance/roadmap.md). Stability and deterministic device
-automation come before new performance flags or additional UI features.
+automation come before new performance flags or additional UI features. The immediate gates are a
+fresh five-run 1x baseline for the 4/6/8-worker profiles, valid named thermal/KGSL capture, the
+30-cycle lifecycle test with physical rotation and a 45-60 minute Arceus session.
 
 ## Based on Eden
 

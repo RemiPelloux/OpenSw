@@ -1,16 +1,26 @@
+<!--
+SPDX-FileCopyrightText: Copyright 2026 OpenSw Emulator Project
+SPDX-License-Identifier: GPL-3.0-or-later
+-->
+
 # OpenSw Performance Lab
 
 ## Modes
 
-- Every profile enables asynchronous presentation, optimised vertex buffers, asynchronous
-  GPU/shaders and a hybrid scheduling policy: ADPF first, then capability-based
-  performance/efficiency core placement when a hint session is unavailable.
-- `Standard` uses four Vulkan pipeline workers.
-- `60 Opti` uses six Vulkan pipeline workers.
-- `Max` uses eight Vulkan pipeline workers and remains experimental.
+| Profile | Vulkan workers | Async presentation | Optimised vertex buffers | Async GPU/shaders | Scheduling |
+|---|---:|---|---|---|---|
+| `Standard` | 4 | On | On | On | Hybrid ADPF |
+| `60 Opti` | 6 | On | On | On | Hybrid ADPF |
+| `Max` | 8 | On | On | On | Hybrid ADPF; worker count is experimental |
 
-Legacy saved `Balanced` selections migrate to `Standard`. Existing numeric values for `60 Opti`
-and `Max` remain unchanged.
+The shared features are product defaults because they are compatibility-preserving code paths, not
+three independent quality modes. Profiles change only the pipeline worker count. `Max` can increase
+contention, power use or heat on a workload that does not benefit from eight workers, so it is not
+described as universally faster.
+
+The versioned settings migration reapplies the shared feature contract once when its schema changes.
+A legacy saved `Balanced` selection maps to `Standard`; existing numeric values for `60 Opti` and
+`Max` keep their meaning. This migration does not change resolution, renderer accuracy or clocks.
 
 Choose a global default in OpenSw settings. A game's settings page can select `Inherit` or store a
 Title-ID-specific override. The override is applied in memory before native startup and restored at
@@ -28,9 +38,9 @@ requires repeated same-quality A/B runs on the device.
 Change the global profile from `Settings > Performance profile`. For one game, open its properties,
 then `Settings > Performance profile`; `Inherit` follows the global selection.
 
-On a fresh installation running on a detected AYN Thor, OpenSw offers `60 Opti` once. The
-choice remains explicit: dismissing the proposal keeps `Standard`, and an existing installation is
-never migrated silently.
+On a fresh installation running on a detected AYN Thor, OpenSw offers `60 Opti` once. Dismissing the
+proposal keeps `Standard`. Versioned schema migrations may normalise legacy profile values and
+shared feature flags as documented above, but never select a higher worker profile automatically.
 
 The in-game Performance panel reports FPS, current and p95 frametime, emulation speed, RSS, system
 RAM, battery data and Android thermal status. A thermal warning requires `SEVERE` status for ten
@@ -42,9 +52,38 @@ at the fast cadence only while requested. RSS, system RAM, battery and thermal s
 the slow cadence, and a HUD that hides one of those metrics does not read its source. One battery
 receiver is shared by every active consumer and unregistered when no battery metric remains visible.
 
-`Start A/B capture` records a local JSON report. Reports contain Title ID and metrics, not keys,
-saves, firmware, game paths or game content. Compiler experiments are promoted only after the
-criteria in the [Thor baseline](../performance/ayn-thor-baseline.md) pass.
+`Start A/B capture` records a local JSON diagnostic. Reports contain Title ID and metrics, not keys,
+saves, firmware, game paths or game content. Panel samples are useful for attribution but are not
+promotion evidence: their 250 ms cadence cannot reconstruct frame-time percentiles. Promotion uses
+raw frame timestamps and the criteria in the [Thor baseline](../performance/ayn-thor-baseline.md).
+
+## Camera-turn diagnosis
+
+The current Arceus camera sweep is diagnostic evidence, not a valid promotion baseline. It measured
+39.51 median FPS, 42.18 ms p95 and 67.50 ms p99 at `1x`. GPU utilisation reached 98 percent at the
+observed 680 MHz maximum. Native counters recorded 4.22 million pipeline hits and no misses,
+compilations or waits; lookup rate increased from about 2,900/s while static to about 42,000/s during
+camera movement. Native memory increased from about 5.0 GiB to 5.8 GiB during the sweep.
+
+These measurements identify a GPU-bound, high per-draw workload. They do not establish a leak and
+they do not support shader-cache clearing as a fix. The Profile build already exposes descriptor,
+vertex-binding, pipeline-transition and texture upload/decode/unswizzle counters. The next step is to
+use those counters and independently A/B the existing candidate optimisations.
+
+The associated Perfetto files are invalid: they are only 2.5-2.7 KiB and contain no OpenSw process
+or thread data. They must be reported as unavailable, never as successful traces. The thermal sample
+is also invalid for promotion because it mixed unnamed sensors and accepted 92.7 C despite an 80 C
+limit. A valid run records the named KGSL GPU temperature and requires Android thermal status `0`.
+
+## Promotion matrix
+
+Compare `Standard` (4), `60 Opti` (6) and `Max` (8) independently with identical `1x` resolution,
+filter, graphics settings, save, replay hash, 60 FPS and shiny cheats, warm cache, driver and fan
+mode. Initial GPU temperature must be within 2 C. Record five runs for each baseline and candidate.
+
+Promote a change only when it improves median FPS by at least 3 percent or improves p95 and p99
+together, with no metric, RSS or temperature regression above 2 percent. Screenshots at identical
+camera timestamps must match in geometry, textures and lighting and show no corruption.
 
 ## Compiler matrix
 

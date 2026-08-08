@@ -45,3 +45,7 @@ semantic-version compatibility until a public release policy is adopted.
 
 - Add renderer compatibility notes, normal Release installation instructions and public project
   governance files.
+- Align every active OpenSw guide with the three-profile 4/6/8-worker contract, safe Release updates,
+  verified lifecycle evidence and the measurement-only role of Profile builds.
+- Replace invalid Perfetto and mixed-sensor thermal claims with explicit rejection rules, and publish
+  the next descriptor, vertex-binding, pipeline-transition and texture-attribution roadmap.
