@@ -5,6 +5,8 @@
 
 #include <atomic>
 
+#include "common/thread.h"
+
 namespace Vulkan {
 namespace {
 
@@ -49,6 +51,7 @@ RenderRuntimeSnapshot GetRenderRuntimeSnapshot() {
         runtime.async_presentation.load(std::memory_order_relaxed),
         runtime.descriptor_buffer_available.load(std::memory_order_relaxed),
         static_cast<u64>(static_cast<s64>(runtime.presentation_target.load(std::memory_order_relaxed))),
+        static_cast<u64>(Common::GetThreadPerformanceMode()),
     };
 }
 

@@ -192,6 +192,12 @@ enum class PipelineWorkerReason {
     INVALID_FALLBACK
 }
 
+enum class ThreadPerformancePolicy {
+    SYSTEM,
+    HINTS,
+    HYBRID
+}
+
 data class RenderRuntimeSnapshot(
     val schemaVersion: Long,
     val titleId: Long,
@@ -202,7 +208,8 @@ data class RenderRuntimeSnapshot(
     val asyncGpu: Boolean,
     val asyncPresentation: Boolean,
     val descriptorBufferAvailable: Boolean,
-    val presentationTarget: Int
+    val presentationTarget: Int,
+    val threadPolicy: ThreadPerformancePolicy
 ) {
     companion object {
         const val SCHEMA_VERSION = 1L
@@ -220,7 +227,10 @@ data class RenderRuntimeSnapshot(
                 asyncGpu = values[6] != 0L,
                 asyncPresentation = values[7] != 0L,
                 descriptorBufferAvailable = values[8] != 0L,
-                presentationTarget = values[9].toInt()
+                presentationTarget = values[9].toInt(),
+                threadPolicy = ThreadPerformancePolicy.entries.getOrElse(
+                    values.getOrElse(10) { 0L }.toInt()
+                ) { ThreadPerformancePolicy.SYSTEM }
             )
         }
     }

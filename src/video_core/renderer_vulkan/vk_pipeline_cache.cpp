@@ -364,8 +364,10 @@ PipelineCache::PipelineCache(Tegra::MaxwellDeviceMemoryManager& device_memory_,
       use_asynchronous_shaders{Settings::values.use_asynchronous_shaders.GetValue()},
       use_vulkan_pipeline_cache{Settings::values.use_vulkan_driver_pipeline_cache.GetValue()},
       worker_resolution{GetPipelineWorkerResolution(device.HasBrokenParallelShaderCompiling())},
-      workers(worker_resolution.effective, "VkPipelineBuilder"),
-      serialization_thread(1, "VkPipelineSerialization") {
+      workers(worker_resolution.effective, "VkPipelineBuilder", {},
+              Common::ThreadPlacement::Background),
+      serialization_thread(1, "VkPipelineSerialization", {},
+                           Common::ThreadPlacement::Background) {
     SetRenderRuntimeSnapshot(worker_resolution, use_asynchronous_shaders,
                              Settings::values.use_asynchronous_gpu_emulation.GetValue(),
                              Settings::values.async_presentation.GetValue(),

@@ -11,7 +11,7 @@ class RenderRuntimeSnapshotTest {
     @Test
     fun parsesVersionedNativeSnapshot() {
         val snapshot = RenderRuntimeSnapshot.from(
-            longArrayOf(1, 0x01001F5010DFA000, 8, 7, 2, 1, 1, 0, 1, 60)
+            longArrayOf(1, 0x01001F5010DFA000, 8, 7, 2, 1, 1, 0, 1, 60, 2)
         )!!
 
         assertEquals(8, snapshot.requestedWorkers)
@@ -19,6 +19,16 @@ class RenderRuntimeSnapshotTest {
         assertEquals(PipelineWorkerReason.HARDWARE_CAPPED, snapshot.workerReason)
         assertEquals(true, snapshot.asyncShaders)
         assertEquals(false, snapshot.asyncPresentation)
+        assertEquals(ThreadPerformancePolicy.HYBRID, snapshot.threadPolicy)
+    }
+
+    @Test
+    fun defaultsOlderSnapshotsToSystemThreadPolicy() {
+        val snapshot = RenderRuntimeSnapshot.from(
+            longArrayOf(1, 0, 4, 4, 1, 1, 1, 1, 1, 0)
+        )!!
+
+        assertEquals(ThreadPerformancePolicy.SYSTEM, snapshot.threadPolicy)
     }
 
     @Test

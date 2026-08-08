@@ -48,6 +48,8 @@ firmware; users must provide content they are legally entitled to use.
 
 - A self-contained Android emulator with dedicated Release and Profile builds.
 - `Standard`, `Thor Balanced`, `Thor 60 stable` and experimental `Thor Max` modes.
+- Session-scoped Android scheduling policies: system scheduling, ADPF hints only, or ADPF with a
+  capability-based topology fallback; no device clock changes.
 - A global default with optional per-Title-ID overrides that never rewrite game configuration files.
 - A release-like, locally signed and profileable APK for repeatable AYN Thor measurements.
 - An optional read-only legacy import assistant for keys, firmware, profiles, saves, settings, mods
@@ -81,6 +83,12 @@ The Profile build preserves 17 compatible JNI counters and appends per-draw Vulk
 including presentation queue depth and time spent waiting for a free frame, the scheduler,
 swapchain acquisition and presentation. Release
 builds hide those counters while retaining the compact Direct view on the Thor secondary display.
+
+OpenSw includes Eden upstream through `c0ffc900cd`. Its multithreading/ADPF refactor is integrated
+with OpenSw's existing Vulkan diagnostics: `Standard` leaves scheduling to Android, `Thor Balanced`
+uses hints only, and the stable/max modes use hints with a topology fallback. ADPF receives render
+work duration without speed-limiter sleep or long pause gaps; no FPS or thermal gain is claimed until
+repeatable device A/B measurements pass the documented gates.
 
 Vulkan direct draws now emulate Maxwell `LineLoop` with a line strip and an explicit closing index,
 instead of incorrectly treating the vertices as triangles. The implementation and audited fallback

@@ -97,6 +97,7 @@ import org.yuzu.yuzu_emu.utils.Log
 import org.yuzu.yuzu_emu.utils.NativeConfig
 import org.yuzu.yuzu_emu.utils.NativeFreedrenoConfig
 import org.yuzu.yuzu_emu.utils.OpenSwPerformanceModeManager
+import org.yuzu.yuzu_emu.utils.PerformanceMode
 import org.yuzu.yuzu_emu.utils.ViewUtils
 import org.yuzu.yuzu_emu.utils.ViewUtils.setVisible
 import org.yuzu.yuzu_emu.utils.collect
@@ -383,11 +384,15 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
                         applicationContext,
                         titleId
                     )
+                    check(NativeLibrary.setThreadPerformanceMode(mode.threadPerformanceMode)) {
+                        "Invalid OpenSw thread performance mode ${mode.threadPerformanceMode}"
+                    }
                     Log.info("[OpenSw] Session performance mode: ${mode.name} for $titleId")
                 }
             },
             onSessionStopped = {
                 if (BuildConfig.IS_OPENSW) {
+                    NativeLibrary.setThreadPerformanceMode(PerformanceMode.STANDARD.threadPerformanceMode)
                     OpenSwPerformanceModeManager.restoreAfterSession(titleId)
                 }
             }
@@ -1591,6 +1596,7 @@ class EmulationFragment : Fragment(), SurfaceHolder.Callback {
 
     override fun onResume() {
         super.onResume()
+        NativeLibrary.refreshThreadPolicies()
         val b = _binding ?: return
         updateStatsPosition(IntSetting.PERF_OVERLAY_POSITION.getInt())
         updateSocPosition(IntSetting.SOC_OVERLAY_POSITION.getInt())

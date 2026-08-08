@@ -2,14 +2,28 @@
 
 ## Modes
 
-- `Standard` removes OpenSw overrides and restores the captured values.
-- `Thor Balanced` enables asynchronous presentation and optimised vertex buffers.
-- `Thor 60 stable` additionally enables asynchronous GPU/shaders and six Vulkan workers.
-- `Thor Max` uses eight Vulkan workers and remains experimental.
+- `Standard` removes OpenSw overrides, restores captured settings and leaves thread placement and
+  priority to Android.
+- `Thor Balanced` enables asynchronous presentation and optimised vertex buffers. Render and
+  background workers join Android Dynamic Performance Framework (ADPF) hint sessions when the OS
+  exposes them; the mode does not set CPU affinity or Linux thread priorities.
+- `Thor 60 stable` additionally enables asynchronous GPU/shaders and six Vulkan workers. It uses a
+  hybrid policy: ADPF first, then capability-based performance/efficiency core placement when a hint
+  session is unavailable.
+- `Thor Max` uses the same hybrid thread policy with eight Vulkan workers and remains experimental.
 
 Choose a global default in OpenSw settings. A game's settings page can select `Inherit` or store a
 Title-ID-specific override. The override is applied in memory before native startup and restored at
 session end; the per-game INI file is not rewritten.
+
+The modes do not change Android CPU/GPU frequencies or OpenSw's emulated CPU/GPU clock settings.
+Policy changes are session-scoped. The performance snapshot records the active `system`, `hints` or
+`hybrid` policy so a capture can be interpreted without guessing how workers were scheduled.
+
+ADPF receives measured render work time before the speed limiter sleeps, rather than the whole frame
+interval. Durations above four times the target are treated as pause/idle gaps and are not reported
+as demand. This is scheduling feedback, not an FPS or thermal improvement claim; promotion still
+requires repeated same-quality A/B runs on the device.
 
 On a fresh installation running on a detected AYN Thor, OpenSw offers `Thor 60 stable` once. The
 choice remains explicit: dismissing the proposal keeps `Standard`, and an existing installation is
@@ -84,3 +98,10 @@ the report, verifies its bytes and removes that exact temporary device export.
 When a device has already failed ftrace validation, pass `--perfetto off` to the host capture. The
 manifest records Perfetto as unavailable while SurfaceFlinger, KGSL, RSS, Android thermal status and
 native Profile counters continue without repeatedly restarting the unavailable trace service.
+
+## Upstream integration
+
+OpenSw currently includes Eden upstream through `c0ffc900cdf19b9373549c59a7e6b22c33615ea4`.
+The imported multithreading code is combined with OpenSw's existing Vulkan descriptor, pipeline and
+vertex diagnostics. Upstream behavior is not presented as an OpenSw speed-up until it passes the
+same five-run baseline/candidate gates and screenshot checks as any local optimization.

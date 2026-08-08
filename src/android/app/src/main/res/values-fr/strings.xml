@@ -911,7 +911,6 @@
     <string name="clock_fast">Rapide (2000MHz)</string>
 
     <!-- GPU overclock factors -->
-    <string name="off">Désactivé</string>
     <string name="fast_gpu_medium">Moyen (256)</string>
     <string name="fast_gpu_high">Élevé (512)</string>
 
@@ -1224,7 +1223,8 @@
     <string name="performance_display_target_format">Écran %1$d Hz</string>
     <string name="performance_presentation_async">async</string>
     <string name="performance_presentation_sync">sync</string>
-    <string name="performance_config_format">%1$s · %2$s · %3$s</string>
+    <string name="performance_config_format">%1$s · %2$s · %3$s · %4$s</string>
+    <string name="performance_thread_policy_system">système</string>
     <string name="performance_graph_60fps_guide">16,7 ms · 60 FPS</string>
     <string name="performance_graph_30fps_guide">33,3 ms · 30 FPS</string>
     <string name="performance_pipeline_heading">Pipeline shaders · Profile</string>

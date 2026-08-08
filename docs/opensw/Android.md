@@ -18,6 +18,11 @@ The output is `app/build/outputs/apk/openSw/release/app-openSw-release.apk` and 
 matches the installed package before updating; never uninstall or clear app data when preserving
 saves, settings, cheats and shader caches.
 
+Build the final APK after committing the source. OpenSw derives its version name from Git `HEAD`, so
+an APK built while a merge is still uncommitted identifies as the previous revision. Verify the APK
+package, version, certificate and SHA-256 before installation, then confirm that Android reports the
+same `firstInstallTime` and private data directory after `adb install -r`.
+
 Build the isolated, profileable measurement APK with:
 
 ```sh
@@ -41,3 +46,7 @@ The optional measurement controller is built with
 `:lab-agent:assembleDebug :lab-agent:assembleDebugAndroidTest`. Both APKs are debug-only and signed
 with the same local key as OpenSw Profile so Android can enforce the bridge's signature permission.
 OpenSw Release does not contain the service or permission.
+
+The Release and Profile variants are different applications. Device profiling may use
+`com.remipelloux.opensw.profile`, but the normal emulator is updated only by installing the Release
+APK over `com.remipelloux.opensw`; installing Profile never updates the normal app.

@@ -107,7 +107,7 @@ constexpr size_t PipelineProfileSnapshotSize = 46;
 using PipelineProfileSnapshot = std::array<u64, PipelineProfileSnapshotSize>;
 
 constexpr u64 RenderRuntimeSnapshotSchemaVersion = 1;
-constexpr size_t RenderRuntimeSnapshotSize = 10;
+constexpr size_t RenderRuntimeSnapshotSize = 11;
 using RenderRuntimeSnapshot = std::array<u64, RenderRuntimeSnapshotSize>;
 
 void SetRenderRuntimeSnapshot(PipelineWorkerResolution workers, bool async_shaders, bool async_gpu,

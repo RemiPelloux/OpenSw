@@ -12,6 +12,14 @@ import org.yuzu.yuzu_emu.features.settings.model.IntSetting
 
 class OpenSwPerformanceProfileTest {
     @Test
+    fun performanceModesSelectReversibleThreadPolicies() {
+        assertEquals(0, PerformanceMode.STANDARD.threadPerformanceMode)
+        assertEquals(1, PerformanceMode.THOR_BALANCED.threadPerformanceMode)
+        assertEquals(2, PerformanceMode.THOR_60_STABLE.threadPerformanceMode)
+        assertEquals(2, PerformanceMode.THOR_MAX.threadPerformanceMode)
+    }
+
+    @Test
     fun balancedModeAppliesOnlyValidatedOverrides() {
         val store = FakeStore()
         val backend = FakeBackend()

@@ -269,11 +269,14 @@ class PerformancePanelController(
         } else {
             fragment.getString(R.string.performance_presentation_sync)
         }
+        val threadPolicy = runtime?.threadPolicy?.name?.lowercase(Locale.ROOT)
+            ?: fragment.getString(R.string.performance_thread_policy_system)
         return fragment.getString(
             R.string.performance_config_format,
             workerLabel,
             displayLabel,
-            presentation
+            presentation,
+            threadPolicy
         )
     }
 

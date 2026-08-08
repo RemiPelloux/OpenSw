@@ -10,11 +10,11 @@ import androidx.preference.PreferenceManager
 import org.yuzu.yuzu_emu.features.settings.model.BooleanSetting
 import org.yuzu.yuzu_emu.features.settings.model.IntSetting
 
-enum class PerformanceMode(val value: Int) {
-    STANDARD(0),
-    THOR_BALANCED(1),
-    THOR_60_STABLE(2),
-    THOR_MAX(3);
+enum class PerformanceMode(val value: Int, val threadPerformanceMode: Int) {
+    STANDARD(0, 0),
+    THOR_BALANCED(1, 1),
+    THOR_60_STABLE(2, 2),
+    THOR_MAX(3, 2);
 
     companion object {
         fun from(value: Int): PerformanceMode =

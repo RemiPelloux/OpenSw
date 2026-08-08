@@ -54,6 +54,7 @@ extern "C" {
 #include "common/scope_exit.h"
 #include "common/settings.h"
 #include "common/string_util.h"
+#include "common/thread.h"
 #include "frontend_common/play_time_manager.h"
 #include "core/constants.h"
 #include "core/core.h"
@@ -1308,6 +1309,16 @@ void Java_org_yuzu_yuzu_1emu_NativeLibrary_applySettings(JNIEnv* env, jobject jo
 
 void Java_org_yuzu_yuzu_1emu_NativeLibrary_logSettings(JNIEnv* env, jobject jobj) {
     Settings::LogSettings();
+}
+
+void Java_org_yuzu_yuzu_1emu_NativeLibrary_refreshThreadPolicies(JNIEnv* env, jobject jobj) {
+    Common::RefreshThreadPolicies();
+}
+
+jboolean Java_org_yuzu_yuzu_1emu_NativeLibrary_setThreadPerformanceMode(JNIEnv* env, jobject jobj,
+                                                                        jint mode) {
+    return static_cast<jboolean>(Common::SetThreadPerformanceMode(
+        static_cast<Common::ThreadPerformanceMode>(static_cast<u32>(mode))));
 }
 
 jboolean Java_org_yuzu_yuzu_1emu_NativeLibrary_getDebugKnobAt(JNIEnv* env, jobject jobj, jint index) {
