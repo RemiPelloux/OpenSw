@@ -13,17 +13,21 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updatePadding
 import androidx.fragment.app.activityViewModels
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.transition.MaterialSharedAxis
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.suspendCancellableCoroutine
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 import org.yuzu.yuzu_emu.R
 import org.yuzu.yuzu_emu.databinding.FragmentDriverFetcherBinding
 import org.yuzu.yuzu_emu.features.fetcher.DriverGroupAdapter
@@ -85,7 +89,7 @@ class DriverFetcherFragment : Fragment() {
         IntRange(900, Int.MAX_VALUE) to "Unsupported"
     )
 
-    private lateinit var driverGroupAdapter: DriverGroupAdapter
+    private var driverGroupAdapter: DriverGroupAdapter? = null
     private val driverViewModel: DriverViewModel by activityViewModels()
     private val homeViewModel: HomeViewModel by activityViewModels()
 
@@ -165,59 +169,82 @@ class DriverFetcherFragment : Fragment() {
             val sortMode = driver.sortMode
             val sort = driver.sort
 
-            CoroutineScope(Dispatchers.Main).launch {
-                val request =
-                    Request.Builder().url("https://api.github.com/repos/$path/releases").build()
-
-                withContext(Dispatchers.IO) {
-                    var releases: ArrayList<Release>
-                    try {
-                        client.newCall(request).execute().use { response ->
-                            if (!response.isSuccessful) {
-                                throw IOException(response.body.toString())
-                            }
-
-                            val body = response.body?.string() ?: return@withContext
-                            releases = Release.fromJsonArray(body, useTagName, sortMode)
-                        }
-                    } catch (e: Exception) {
-                        withContext(Dispatchers.Main) {
-                            MaterialAlertDialogBuilder(requireActivity()).setTitle(
-                                getString(R.string.error_during_fetch)
-                            )
-                                .setMessage(
-                                    "${getString(R.string.failed_to_fetch)} $name:\n${e.message}"
-                                )
-                                .setPositiveButton(getString(R.string.ok)) { dialog, _ -> dialog.cancel() }
-                                .show()
-
-                            releases = ArrayList()
-                        }
-                    }
-
-                    val group = DriverGroup(
-                        name,
-                        releases,
-                        sort
+            viewLifecycleOwner.lifecycleScope.launch {
+                val releases = try {
+                    fetchReleases(path, useTagName, sortMode)
+                } catch (e: Exception) {
+                    currentCoroutineContext().ensureActive()
+                    MaterialAlertDialogBuilder(requireActivity()).setTitle(
+                        getString(R.string.error_during_fetch)
                     )
+                        .setMessage("${getString(R.string.failed_to_fetch)} $name:\n${e.message}")
+                        .setPositiveButton(getString(R.string.ok)) { dialog, _ -> dialog.cancel() }
+                        .show()
+                    ArrayList()
+                }
 
-                    synchronized(driverGroups) {
-                        driverGroups.add(group)
-                        driverGroups.sortBy {
-                            it.sort
-                        }
+                val group = DriverGroup(
+                    name,
+                    releases,
+                    sort
+                )
+
+                synchronized(driverGroups) {
+                    driverGroups.add(group)
+                    driverGroups.sortBy {
+                        it.sort
                     }
+                }
 
-                    withContext(Dispatchers.Main) {
-                        driverGroupAdapter.updateDriverGroups(driverGroups)
+                driverGroupAdapter?.updateDriverGroups(driverGroups)
 
-                        if (driverGroups.size >= repoList.size) {
-                            binding.loadingIndicator.isVisible = false
-                        }
-                    }
+                if (driverGroups.size >= repoList.size) {
+                    binding.loadingIndicator.isVisible = false
                 }
             }
         }
+    }
+
+    private suspend fun fetchReleases(
+        path: String,
+        useTagName: Boolean,
+        sortMode: SortMode
+    ): ArrayList<Release> = suspendCancellableCoroutine { continuation ->
+        val request = Request.Builder().url("https://api.github.com/repos/$path/releases").build()
+        val call = client.newCall(request)
+        continuation.invokeOnCancellation { call.cancel() }
+        call.enqueue(
+            object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    if (continuation.isActive) {
+                        continuation.resumeWith(Result.failure(e))
+                    }
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    val result = runCatching {
+                        response.use {
+                            if (!response.isSuccessful) {
+                                throw IOException("HTTP ${response.code}")
+                            }
+                            val body = response.body?.string()
+                                ?: throw IOException("Response body is empty")
+                            Release.fromJsonArray(body, useTagName, sortMode)
+                        }
+                    }
+                    if (continuation.isActive) {
+                        continuation.resumeWith(result)
+                    }
+                }
+            }
+        )
+    }
+
+    override fun onDestroyView() {
+        binding.listDrivers.adapter = null
+        driverGroupAdapter = null
+        super.onDestroyView()
+        _binding = null
     }
 
     private fun setInsets() = ViewCompat.setOnApplyWindowInsetsListener(

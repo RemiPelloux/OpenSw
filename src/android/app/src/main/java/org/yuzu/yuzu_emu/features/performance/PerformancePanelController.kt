@@ -20,6 +20,7 @@ import java.io.File
 import java.util.Locale
 import kotlin.math.abs
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.yuzu.yuzu_emu.R
@@ -64,6 +65,9 @@ class PerformancePanelController(
     private var isVisible = false
     private var detailsVisible = false
     private var latestPipelineProfile: PipelineProfileSnapshot? = null
+    private var captureWriteJob: Job? = null
+    private var disposed = false
+    private val collectorJob: Job
 
     init {
         title.text = gameTitle
@@ -84,7 +88,7 @@ class PerformancePanelController(
             modeToggle.visibility = View.GONE
         }
         updateSelectedView()
-        fragment.viewLifecycleOwner.lifecycleScope.launch {
+        collectorJob = fragment.viewLifecycleOwner.lifecycleScope.launch {
             fragment.viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 PerformanceSampler.snapshots.collect(::render)
             }
@@ -92,6 +96,7 @@ class PerformancePanelController(
     }
 
     fun show() {
+        if (disposed) return
         if (!isVisible) {
             PerformanceSampler.acquire(fragment.requireContext(), samplerConsumer)
             isVisible = true
@@ -127,7 +132,19 @@ class PerformancePanelController(
         }
     }
 
+    fun dispose() {
+        if (disposed) return
+        disposed = true
+        captureWriteJob?.cancel()
+        captureWriteJob = null
+        collectorJob.cancel()
+        hide()
+        capture.setOnClickListener(null)
+        share.setOnClickListener(null)
+    }
+
     private fun render(snapshot: PerformanceSnapshot) {
+        if (disposed) return
         fps.text = fragment.getString(R.string.performance_fps_value_format, snapshot.fps)
         frameTime.text = fragment.getString(
             R.string.performance_frametime_value_format,
@@ -292,10 +309,11 @@ class PerformancePanelController(
         }
 
         capture.isEnabled = false
-        fragment.viewLifecycleOwner.lifecycleScope.launch {
+        captureWriteJob = fragment.viewLifecycleOwner.lifecycleScope.launch {
             val file = withContext(Dispatchers.IO) {
                 PerformanceSampler.finishCapture(fragment.requireContext())
             }
+            if (disposed) return@launch
             capture.isEnabled = true
             capture.setText(R.string.performance_capture_start)
             Toast.makeText(

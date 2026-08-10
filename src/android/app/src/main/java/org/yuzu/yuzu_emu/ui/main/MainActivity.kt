@@ -50,17 +50,29 @@ import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.textview.MaterialTextView
 import org.yuzu.yuzu_emu.features.settings.model.BooleanSetting
 import org.yuzu.yuzu_emu.YuzuApplication
-import org.yuzu.yuzu_emu.updater.APKDownloader
 import org.yuzu.yuzu_emu.updater.APKInstaller
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.buffer
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.lifecycle.lifecycleScope
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.Response
 import org.yuzu.yuzu_emu.BuildConfig
 import org.yuzu.yuzu_emu.features.migration.EdenImportCategory
 import org.yuzu.yuzu_emu.features.migration.EdenImportManager
 import org.yuzu.yuzu_emu.features.performance.AynThorDetector
+import java.io.IOException
+import java.util.concurrent.atomic.AtomicBoolean
 
 class MainActivity : AppCompatActivity(), ThemeProvider {
     private lateinit var binding: ActivityMainBinding
@@ -76,6 +88,10 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
     private val CHECKED_DECRYPTION = "CheckedDecryption"
     private var checkedDecryption = false
     private var pendingEdenCategories = EdenImportCategory.entries.toSet()
+    private val updateClient = OkHttpClient()
+    private var updateDownloadJob: Job? = null
+    private var updateDownloadGeneration = 0L
+    private var apkInstaller: APKInstaller? = null
 
     private val edenImportTreeLauncher =
         registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
@@ -330,14 +346,14 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
     }.isSuccess
 
     private fun checkForUpdates() {
-        Thread {
-            val latestVersion = NativeLibrary.checkForUpdate()
-            if (latestVersion != null) {
-                runOnUiThread {
-                    showUpdateDialog(latestVersion)
-                }
+        lifecycleScope.launch {
+            val latestVersion = withContext(Dispatchers.IO) {
+                NativeLibrary.checkForUpdate()
             }
-        }.start()
+            if (latestVersion != null) {
+                showUpdateDialog(latestVersion)
+            }
+        }
     }
 
     // TODO(crueter): body, "View on Forgejo" button
@@ -371,58 +387,84 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
     }
 
     private fun downloadAndInstallUpdate(release: NativeLibrary.UpdateResult) {
-        CoroutineScope(Dispatchers.IO).launch {
+        val downloadGeneration = ++updateDownloadGeneration
+        updateDownloadJob?.cancel()
+        updateDownloadJob = lifecycleScope.launch {
             val asset = release.assets[0]
-            val artifact = asset.split("/").last()
-            val apkFile = File(cacheDir, "update-$artifact.apk")
+            val apkFile = createUpdateDownloadFile(cacheDir)
 
-            withContext(Dispatchers.Main) {
-                showDownloadProgressDialog()
-            }
-
-            val downloader = APKDownloader(asset, apkFile)
-            downloader.download(
-                onProgress = { progress ->
-                    runOnUiThread {
-                        updateDownloadProgress(progress)
-                    }
-                },
-                onComplete = { success ->
-                    runOnUiThread {
-                        dismissDownloadProgressDialog()
-                        if (success) {
-                            val installer = APKInstaller(this@MainActivity)
-                            installer.install(
-                                apkFile,
-                                onComplete = {
-                                    Toast.makeText(
-                                        this@MainActivity,
-                                        R.string.update_installed_successfully,
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                },
-                                onFailure = { exception ->
-                                    Toast.makeText(
-                                        this@MainActivity,
-                                        getString(
-                                            R.string.update_install_failed,
-                                            exception.message
-                                        ),
-                                        Toast.LENGTH_LONG
-                                    ).show()
-                                }
-                            )
-                        } else {
-                            Toast.makeText(
-                                this@MainActivity,
-                                getString(R.string.update_download_failed) + "\n\nURL: $asset",
-                                Toast.LENGTH_LONG
-                            ).show()
-                        }
+            showDownloadProgressDialog()
+            var terminal: UpdateDownloadEvent = UpdateDownloadEvent.Failed
+            try {
+                downloadUpdate(updateClient, asset, apkFile).collect { event ->
+                    when (event) {
+                        is UpdateDownloadEvent.Progress ->
+                            updateDownloadProgress(event.percentage)
+                        else -> terminal = event
                     }
                 }
-            )
+            } finally {
+                if (downloadGeneration == updateDownloadGeneration) {
+                    dismissDownloadProgressDialog()
+                }
+            }
+
+            if (downloadGeneration != updateDownloadGeneration) return@launch
+            when (terminal) {
+                UpdateDownloadEvent.Succeeded -> installUpdate(apkFile)
+                UpdateDownloadEvent.Failed -> {
+                    Toast.makeText(
+                        this@MainActivity,
+                        getString(R.string.update_download_failed) + "\n\nURL: $asset",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+                UpdateDownloadEvent.Cancelled,
+                is UpdateDownloadEvent.Progress -> Unit
+            }
         }
+    }
+
+    private fun installUpdate(apkFile: File) {
+        val archivePackage = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            packageManager.getPackageArchiveInfo(
+                apkFile.absolutePath,
+                android.content.pm.PackageManager.PackageInfoFlags.of(0)
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            packageManager.getPackageArchiveInfo(apkFile.absolutePath, 0)
+        }?.packageName
+        if (!apkFile.isFile || apkFile.length() <= 0L || archivePackage != packageName) {
+            apkFile.delete()
+            Toast.makeText(this, R.string.update_download_failed, Toast.LENGTH_LONG).show()
+            return
+        }
+
+        apkInstaller?.cancel()
+        val installer = APKInstaller(applicationContext)
+        apkInstaller = installer
+        installer.install(
+            apkFile,
+            onComplete = onComplete@{
+                if (apkInstaller !== installer || isDestroyed) return@onComplete
+                apkInstaller = null
+                Toast.makeText(
+                    this@MainActivity,
+                    R.string.update_installed_successfully,
+                    Toast.LENGTH_LONG
+                ).show()
+            },
+            onFailure = onFailure@{ exception ->
+                if (apkInstaller !== installer || isDestroyed) return@onFailure
+                apkInstaller = null
+                Toast.makeText(
+                    this@MainActivity,
+                    getString(R.string.update_install_failed, exception.message),
+                    Toast.LENGTH_LONG
+                ).show()
+            }
+        )
     }
 
     private var progressDialog: androidx.appcompat.app.AlertDialog? = null
@@ -546,6 +588,12 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
     }
 
     override fun onDestroy() {
+        updateDownloadGeneration++
+        updateDownloadJob?.cancel()
+        updateDownloadJob = null
+        apkInstaller?.cancel()
+        apkInstaller = null
+        dismissDownloadProgressDialog()
         EmulationActivity.stopForegroundService(this)
         super.onDestroy()
     }
@@ -701,3 +749,140 @@ class MainActivity : AppCompatActivity(), ThemeProvider {
         const val PREF_THOR_PROFILE_OFFERED = "opensw_thor_profile_offered"
     }
 }
+
+internal sealed interface UpdateDownloadEvent {
+    data class Progress(val percentage: Int) : UpdateDownloadEvent
+    data object Succeeded : UpdateDownloadEvent
+    data object Failed : UpdateDownloadEvent
+    data object Cancelled : UpdateDownloadEvent
+}
+
+internal fun classifyUpdateDownload(
+    responseSuccessful: Boolean,
+    bodyPresent: Boolean,
+    contentLength: Long,
+    bytesRead: Long,
+    cancelled: Boolean
+): UpdateDownloadEvent = when {
+    cancelled -> UpdateDownloadEvent.Cancelled
+    !responseSuccessful || !bodyPresent || bytesRead <= 0L -> UpdateDownloadEvent.Failed
+    contentLength >= 0L && bytesRead != contentLength -> UpdateDownloadEvent.Failed
+    else -> UpdateDownloadEvent.Succeeded
+}
+
+internal fun createUpdateDownloadFile(cacheDir: File): File =
+    File.createTempFile("update-", ".apk", cacheDir)
+
+private fun downloadUpdate(
+    client: OkHttpClient,
+    asset: String,
+    apkFile: File
+): Flow<UpdateDownloadEvent> = callbackFlow {
+    val call = client.newCall(Request.Builder().url(asset).build())
+    val completedSuccessfully = AtomicBoolean(false)
+    call.enqueue(
+        object : Callback {
+            override fun onFailure(call: Call, e: IOException) {
+                val event = if (call.isCanceled()) {
+                    UpdateDownloadEvent.Cancelled
+                } else {
+                    e.printStackTrace()
+                    UpdateDownloadEvent.Failed
+                }
+                trySend(event)
+                close()
+            }
+
+            override fun onResponse(call: Call, response: Response) {
+                var succeeded = false
+                try {
+                    response.use {
+                        if (!response.isSuccessful) {
+                            trySend(
+                                classifyUpdateDownload(
+                                    responseSuccessful = false,
+                                    bodyPresent = response.body != null,
+                                    contentLength = response.body?.contentLength() ?: -1L,
+                                    bytesRead = 0L,
+                                    cancelled = call.isCanceled()
+                                )
+                            )
+                            return@use
+                        }
+                        val body = response.body
+                        if (body == null) {
+                            trySend(
+                                classifyUpdateDownload(
+                                    responseSuccessful = true,
+                                    bodyPresent = false,
+                                    contentLength = -1L,
+                                    bytesRead = 0L,
+                                    cancelled = call.isCanceled()
+                                )
+                            )
+                            return@use
+                        }
+                        val contentLength = body.contentLength()
+                        var totalBytesRead = 0L
+                        var lastProgress = -1
+
+                        body.byteStream().use { input ->
+                            apkFile.outputStream().buffered().use { output ->
+                                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+                                while (!call.isCanceled()) {
+                                    val bytesRead = input.read(buffer)
+                                    if (bytesRead == -1) break
+
+                                    output.write(buffer, 0, bytesRead)
+                                    totalBytesRead += bytesRead
+                                    if (contentLength > 0) {
+                                        val progress =
+                                            (totalBytesRead * 100 / contentLength)
+                                                .toInt()
+                                                .coerceIn(0, 100)
+                                        if (progress != lastProgress) {
+                                            lastProgress = progress
+                                            trySend(UpdateDownloadEvent.Progress(progress))
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        val terminal = classifyUpdateDownload(
+                            responseSuccessful = true,
+                            bodyPresent = true,
+                            contentLength = contentLength,
+                            bytesRead = totalBytesRead,
+                            cancelled = call.isCanceled()
+                        )
+                        if (terminal == UpdateDownloadEvent.Succeeded) {
+                            succeeded = true
+                            completedSuccessfully.set(true)
+                        }
+                        trySend(terminal)
+                    }
+                } catch (e: IOException) {
+                    val terminal = if (call.isCanceled()) {
+                        UpdateDownloadEvent.Cancelled
+                    } else {
+                        e.printStackTrace()
+                        UpdateDownloadEvent.Failed
+                    }
+                    trySend(terminal)
+                } finally {
+                    if (!succeeded) {
+                        apkFile.delete()
+                    }
+                    close()
+                }
+            }
+        }
+    )
+    awaitClose {
+        call.cancel()
+        if (!completedSuccessfully.get()) {
+            apkFile.delete()
+        }
+    }
+}.buffer(Channel.CONFLATED)

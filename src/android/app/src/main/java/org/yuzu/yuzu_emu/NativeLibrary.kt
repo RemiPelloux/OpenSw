@@ -479,7 +479,7 @@ object NativeLibrary {
     @Keep
     @JvmStatic
     fun onProgramChanged(programIndex: Int) {
-        sEmulationActivity.get()!!.onProgramChanged(programIndex)
+        sEmulationActivity.get()?.onProgramChanged(programIndex)
     }
 
     /**

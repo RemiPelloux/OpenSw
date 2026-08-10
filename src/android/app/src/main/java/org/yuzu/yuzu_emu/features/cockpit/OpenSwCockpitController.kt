@@ -36,14 +36,22 @@ class OpenSwCockpitController(
     private var presentation: CockpitPresentation? = null
     private var cheatPanel: CheatPanelController? = null
     private var performancePanel: PerformancePanelController? = null
+    private var started = false
 
     fun start() {
+        if (started) return
+        started = true
         displayManager.registerDisplayListener(this, handler)
         attachToPreferredDisplay()
     }
 
     fun stop() {
-        displayManager.unregisterDisplayListener(this)
+        val wasStarted = started
+        started = false
+        if (wasStarted) {
+            displayManager.unregisterDisplayListener(this)
+        }
+        handler.removeCallbacksAndMessages(null)
         dismissCockpit()
     }
 
@@ -52,14 +60,18 @@ class OpenSwCockpitController(
     }
 
     fun onPauseStateChanged() {
+        if (!started) return
         presentation
             ?.findViewById<View>(android.R.id.content)
             ?.let(::updatePauseButton)
     }
 
-    override fun onDisplayAdded(displayId: Int) = attachToPreferredDisplay()
+    override fun onDisplayAdded(displayId: Int) {
+        if (started) attachToPreferredDisplay()
+    }
 
     override fun onDisplayRemoved(displayId: Int) {
+        if (!started) return
         if (presentation?.display?.displayId == displayId) {
             dismissCockpit()
         }
@@ -67,15 +79,18 @@ class OpenSwCockpitController(
     }
 
     override fun onDisplayChanged(displayId: Int) {
+        if (!started) return
         if (presentation?.display?.displayId == displayId &&
             presentation?.display?.state != Display.STATE_ON
         ) {
-            onDisplayRemoved(displayId)
+            dismissCockpit()
         }
+        attachToPreferredDisplay()
     }
 
     private fun attachToPreferredDisplay() {
-        if (!fragment.isAdded || fragment.requireActivity().isFinishing) return
+        if (!started || !fragment.isAdded || fragment.view == null) return
+        if (fragment.requireActivity().isFinishing || fragment.requireActivity().isDestroyed) return
         val target = preferredDisplay() ?: return
         if (presentation?.display?.displayId == target.displayId) return
 
@@ -117,7 +132,7 @@ class OpenSwCockpitController(
     }
 
     private fun dismissCockpit() {
-        performancePanel?.hide()
+        performancePanel?.dispose()
         performancePanel = null
         presentation?.dismiss()
         presentation = null
@@ -125,6 +140,7 @@ class OpenSwCockpitController(
     }
 
     private fun configureCockpit(root: View) {
+        if (!started || fragment.view == null) return
         root.findViewById<TextView>(R.id.cockpit_title).text = gameTitle
         root.findViewById<TextView>(R.id.cockpit_context).text = titleId
         val performanceView = root.findViewById<View>(R.id.cockpit_performance_content)
